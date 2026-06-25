@@ -1,0 +1,20 @@
+# Large datasets (keep locally / OneDrive — too big for git)
+Data/*.csv
+Data/*.xlsx
+
+# Secrets
+.env
+**/.env
+
+# Python / Jupyter
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.tmp
+
+# HuggingFace cache (optional local downloads)
+**/vision_cache/rscd_manifest.json
