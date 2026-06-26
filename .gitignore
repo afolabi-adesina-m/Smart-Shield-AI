@@ -1,6 +1,12 @@
-# Large datasets (keep locally / OneDrive — too big for git)
+# Large / local-only data
+data/*.csv
+data/*.xlsx
 Data/*.csv
 Data/*.xlsx
+
+# Model weights (retrain via notebook or use Git LFS)
+models/*.pt
+models/*.joblib
 
 # Secrets
 .env
@@ -10,11 +16,28 @@ Data/*.xlsx
 __pycache__/
 *.py[cod]
 .ipynb_checkpoints/
+*.egg-info/
+.venv/
+venv/
 
 # OS / editor
 .DS_Store
 Thumbs.db
 *.tmp
+.idea/
+.vscode/
 
-# HuggingFace cache (optional local downloads)
-**/vision_cache/rscd_manifest.json
+# Scratch / internal (not needed on GitHub)
+archive/
+Rough work.docx
+data.docx
+Project Tasks List - Data Availability.xlsx
+Capstone (1).pdf
+Capstone (3).pdf
+06__*.pdf
+
+# Duplicate docs at root (canonical copies in docs/)
+[AICap]*.pdf
+
+# Empty legacy folder
+Python Notebooks & Scripts/
