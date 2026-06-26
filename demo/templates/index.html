@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Smart-Shield AI · Ontario Highway Safety</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="/static/css/demo.css" />
+  <link rel="stylesheet" href="/static/css/demo.css?v=20260628" />
+  <link rel="stylesheet" href="/static/css/weather-picker.css?v=20260627" />
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
 </head>
 <body>
@@ -20,6 +21,12 @@
         </div>
       </div>
       <p class="free-badge">100% free — no API key or billing</p>
+      <p class="prototype-disclaimer">
+        Research prototype — not official MTO or 511 Ontario guidance.
+      </p>
+      <p class="mobile-link-row">
+        <a href="http://127.0.0.1:5051" target="_blank" rel="noopener">📱 Mobile demo (port 5051)</a>
+      </p>
     </header>
 
     <section class="panel-section">
@@ -28,17 +35,15 @@
       <label>To</label>
       <input id="destination" type="text" placeholder="Barrie, Ontario" value="Barrie, Ontario" />
       <label>Weather / 511 scenario</label>
-      <select id="weather">
-        <option value="clear">Clear — summer highway</option>
-        <option value="wet">Wet / dawn — reduced grip</option>
-        <option value="blizzard">Blizzard — Hwy 400 night</option>
-        <option value="ice_storm">Ice storm — QEW rush</option>
-      </select>
+      <input type="hidden" id="weather" value="clear" />
+      <div id="weather-picker" class="weather-picker"></div>
+      <p id="weather-summary" class="weather-selected-summary" aria-live="polite"></p>
       <button id="btn-route" class="btn-primary">Find safest routes</button>
       <p id="status" class="status-msg"></p>
     </section>
 
     <section class="panel-section" id="routes-section" hidden>
+      <div id="high-risk-banner" class="high-risk-banner" hidden></div>
       <h2>Route options <span class="badge">AI ranked</span></h2>
       <p class="hint">Lower safety score = safer. Tap a card to highlight on map.</p>
       <div id="route-cards"></div>
@@ -55,14 +60,11 @@
 
   <main id="map-wrap">
     <div id="map"></div>
-    <div id="map-badge" class="map-badge" hidden>
-      <strong id="badge-score">—</strong>
-      <span>Safety Score</span>
-    </div>
   </main>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="/static/js/app.js" defer></script>
+  <script src="/static/js/weather-picker.js?v=20260627"></script>
+  <script src="/static/js/app.js?v=20260628" defer></script>
 </body>
 </html>

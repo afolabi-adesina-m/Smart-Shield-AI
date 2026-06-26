@@ -1,0 +1,464 @@
+/* Smart-Shield mobile demo — portrait-first (iPhone & Android) */
+
+:root {
+  --google-blue: #1a73e8;
+  --google-grey: #5f6368;
+  --low: #3b7a57;
+  --med: #f18f01;
+  --high: #c73e1d;
+  --border: #dadce0;
+  --sheet-peek: 42vh;
+  --sheet-half: 58vh;
+  --sheet-full: 88vh;
+  --topbar-h: calc(52px + env(safe-area-inset-top, 0px));
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  font-family: Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #202124;
+  background: #000;
+  touch-action: manipulation;
+}
+
+#mobile-app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+/* —— Top bar (notch-safe) —— */
+.mobile-topbar {
+  flex: 0 0 var(--topbar-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: env(safe-area-inset-top, 0px) 12px 0 12px;
+  min-height: var(--topbar-h);
+  background: #fff;
+  border-bottom: 1px solid var(--border);
+  z-index: 1200;
+}
+
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.topbar-brand .shield-icon { font-size: 1.5rem; }
+
+.topbar-brand strong {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.topbar-sub {
+  font-size: 0.68rem;
+  color: var(--google-grey);
+}
+
+.desktop-link {
+  font-size: 0.75rem;
+  color: var(--google-blue);
+  text-decoration: none;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #e8f0fe;
+}
+
+/* —— Full-width map stage —— */
+#map-stage {
+  flex: 1 1 auto;
+  position: relative;
+  min-height: 0;
+}
+
+#map {
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+.map-badge {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  left: 12px;
+  background: #fff;
+  padding: 10px 14px;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.18);
+  text-align: center;
+  z-index: 500;
+}
+
+.map-badge strong {
+  display: block;
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.map-badge span {
+  font-size: 0.62rem;
+  color: var(--google-grey);
+}
+
+.fab-map {
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,.2);
+  font-size: 1.2rem;
+  color: var(--google-blue);
+  z-index: 500;
+  cursor: pointer;
+}
+
+/* Leaflet zoom — thumb-friendly, above sheet peek */
+.leaflet-top.leaflet-left {
+  top: calc(8px + env(safe-area-inset-top, 0px));
+  left: auto;
+  right: 12px;
+}
+
+.leaflet-control-zoom a {
+  width: 36px !important;
+  height: 36px !important;
+  line-height: 36px !important;
+  font-size: 18px !important;
+}
+
+/* —— Bottom sheet —— */
+.bottom-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1100;
+  background: #fff;
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -4px 24px rgba(0,0,0,.15);
+  display: flex;
+  flex-direction: column;
+  max-height: var(--sheet-full);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  transition: height 0.28s ease;
+  touch-action: none;
+}
+
+.bottom-sheet[data-state="peek"] { height: var(--sheet-peek); }
+.bottom-sheet[data-state="half"] { height: var(--sheet-half); }
+.bottom-sheet[data-state="full"] { height: var(--sheet-full); }
+
+.sheet-handle {
+  flex: 0 0 auto;
+  padding: 10px 0 6px;
+  display: flex;
+  justify-content: center;
+  cursor: grab;
+}
+
+.sheet-handle span {
+  width: 40px;
+  height: 4px;
+  background: #dadce0;
+  border-radius: 4px;
+}
+
+.sheet-scroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 0 16px 16px;
+}
+
+.prototype-disclaimer {
+  margin: 0 0 12px;
+  font-size: 0.72rem;
+  color: #b06000;
+  background: #fef7e0;
+  border: 1px solid #f9ab00;
+  padding: 8px 10px;
+  border-radius: 8px;
+  line-height: 1.35;
+}
+
+label {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--google-grey);
+  margin: 10px 0 4px;
+}
+
+input, select {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-size: 16px; /* prevents iOS zoom-on-focus */
+  min-height: 44px;
+}
+
+input:focus, select:focus {
+  outline: none;
+  border-color: var(--google-blue);
+  box-shadow: 0 0 0 2px rgba(26,115,232,.2);
+}
+
+.btn-primary {
+  width: 100%;
+  margin-top: 14px;
+  padding: 14px;
+  min-height: 48px;
+  background: var(--google-blue);
+  color: #fff;
+  border: none;
+  border-radius: 24px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.btn-primary:disabled {
+  background: #bdc1c6;
+}
+
+.status-msg {
+  font-size: 0.8rem;
+  color: var(--google-grey);
+  margin: 10px 0 0;
+  min-height: 1.2em;
+}
+
+.results-title {
+  margin: 16px 0 6px;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.badge {
+  font-size: 0.62rem;
+  background: #e8f0fe;
+  color: var(--google-blue);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+
+.hint {
+  font-size: 0.75rem;
+  color: var(--google-grey);
+  margin: 0 0 12px;
+}
+
+.high-risk-banner {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  background: #fce8e6;
+  border: 1px solid #f5c2c0;
+  border-radius: 12px;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.high-risk-banner-title {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--high);
+  margin-bottom: 6px;
+}
+
+.high-risk-banner-lead {
+  display: block;
+  color: #8b1a0a;
+  font-size: 0.9rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.high-risk-banner .guidance-steps {
+  margin: 0 0 8px 1.1rem;
+  padding: 0;
+  font-size: 0.78rem;
+}
+
+.high-risk-banner .relative-speed {
+  margin: 0;
+  font-weight: 500;
+  color: #5f6368;
+  font-size: 0.78rem;
+}
+
+.route-card {
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+
+.route-card.selected {
+  border-color: var(--google-blue);
+  background: #f8f9ff;
+}
+
+.route-card.best {
+  border-color: var(--low);
+}
+
+.route-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.route-title {
+  font-weight: 500;
+  font-size: 0.88rem;
+}
+
+.safety-pill {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #fff;
+  padding: 5px 10px;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+
+.card-high-alert {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: #fce8e6;
+  border: 1px solid #f5c2c0;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #8b1a0a;
+  line-height: 1.35;
+}
+
+.operational-msg {
+  margin-top: 8px;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.route-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 8px;
+  font-size: 0.82rem;
+}
+
+.route-brains {
+  margin-top: 8px;
+  font-size: 0.68rem;
+  color: var(--google-grey);
+  line-height: 1.4;
+}
+
+.rank-tag {
+  font-size: 0.62rem;
+  color: var(--low);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.speed-advisory {
+  color: var(--high);
+  font-weight: 500;
+  font-size: 0.78rem;
+}
+
+.legend-compact {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+  font-size: 0.68rem;
+  color: var(--google-grey);
+}
+
+.legend-compact span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.dot.low { background: var(--low); }
+.dot.med { background: var(--med); }
+.dot.high { background: var(--high); }
+
+/* —— Landscape: map left, sheet right —— */
+@media (orientation: landscape) and (min-height: 400px) {
+  #mobile-app {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .mobile-topbar {
+    flex: 0 0 100%;
+    width: 100%;
+  }
+
+  #map-stage {
+    flex: 1 1 55%;
+    min-width: 0;
+  }
+
+  .bottom-sheet {
+    position: relative;
+    flex: 0 0 45%;
+    max-width: 420px;
+    max-height: none;
+    height: calc(100dvh - var(--topbar-h)) !important;
+    border-radius: 0;
+    box-shadow: -2px 0 12px rgba(0,0,0,.08);
+  }
+
+  .bottom-sheet[data-state="peek"],
+  .bottom-sheet[data-state="half"],
+  .bottom-sheet[data-state="full"] {
+    height: calc(100dvh - var(--topbar-h)) !important;
+  }
+
+  .sheet-handle { display: none; }
+
+  .fab-map {
+    bottom: 16px;
+    right: 16px;
+  }
+}
+
+/* Very small phones */
+@media (max-height: 640px) and (orientation: portrait) {
+  :root {
+    --sheet-peek: 38vh;
+    --sheet-half: 52vh;
+  }
+}

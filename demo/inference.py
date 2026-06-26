@@ -17,7 +17,7 @@ if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
 from nlp_brain import SCENARIO_ALERTS, fit_tfidf, t_score_from_text
-from safety_score import fuse_scenario, recommended_speed_kmh, risk_tier
+from safety_score import build_operational_advisory, fuse_scenario
 
 MODELS_DIR = _ROOT / "models"
 
@@ -138,15 +138,22 @@ class SmartShieldEngine:
 
       s_raw = fused["S"] + route_adj + night_adj + length_adj
       s_raw = min(100.0, max(0.0, s_raw))
-      tier, color, speed_frac = risk_tier(s_raw)
+      advisory = build_operational_advisory(s_raw)
 
       collision_risk = self._tabular_collision_risk(hour, month, is_night, is_rush)
 
       return {
           "safety_score": round(s_raw, 1),
-          "tier": tier,
-          "tier_color": color,
-          "recommended_speed_kmh": recommended_speed_kmh(s_raw),
+          "tier": advisory["tier"],
+          "tier_color": advisory["tier_color"],
+          "operational_guidance": advisory["operational_guidance"],
+          "operational_message": advisory["operational_message"],
+          "guidance_steps": advisory["guidance_steps"],
+          "recommended_speed_kmh": advisory["recommended_speed_kmh"],
+          "naive_recommended_speed_kmh": advisory["naive_recommended_speed_kmh"],
+          "relative_speed_reduction_kmh": advisory["relative_speed_reduction_kmh"],
+          "relative_speed_text": advisory["relative_speed_text"],
+          "prevailing_traffic_kmh_assumed": advisory["prevailing_traffic_kmh_assumed"],
           "distance_km": round(distance_km, 1),
           "duration_min": round(duration_min, 0),
           "duration_text": _fmt_duration(duration_min),
@@ -154,6 +161,7 @@ class SmartShieldEngine:
           "V_vision": fused["V_vision"],
           "E_index": fused["E_index"],
           "collision_risk_index": round(collision_risk, 3) if collision_risk is not None else None,
+          "collision_risk_calibrated": False,
           "weather_preset": weather,
           "alert_preview": alert[:120] + ("..." if len(alert) > 120 else ""),
       }

@@ -1,0 +1,25 @@
+{
+  "audit_id": "SS-AUDIT-2026-001",
+  "verified_at": "2026-06-26",
+  "scenario": "Toronto to Barrie, ice_storm preset, 95 km route",
+  "method": "demo/inference.py score_routes_batch (no live OSRM required)",
+  "results": {
+    "safety_score": 80.6,
+    "tier": "HIGH",
+    "operational_guidance": "AVOID_TRAVEL",
+    "operational_message": "Consider postponing this trip — conditions are hazardous.",
+    "recommended_speed_kmh": 80,
+    "naive_recommended_speed_kmh": 60,
+    "relative_speed_reduction_kmh": 25,
+    "relative_speed_text": "If driving, reduce speed by about 25 km/h below typical highway flow (~105 km/h).",
+    "collision_risk_calibrated": false
+  },
+  "acceptance": {
+    "AC-1": "pass — S=80.6 HIGH unchanged",
+    "AC-2": "pass — AVOID_TRAVEL primary message",
+    "AC-3": "pass — operational_guidance in API",
+    "AC-4": "pass — relative speed text + 80 km/h floor",
+    "AC-5": "pass — prototype disclaimer in index.html",
+    "AC-6": "pending — run demo/capture_postfix_screenshot.py or manual screenshot"
+  }
+}

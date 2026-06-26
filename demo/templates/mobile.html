@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#1a73e8" />
+  <title>Smart-Shield · Mobile</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="/static/css/mobile.css?v=20260627" />
+  <link rel="stylesheet" href="/static/css/weather-picker.css?v=20260627" />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <div id="mobile-app">
+    <header class="mobile-topbar">
+      <div class="topbar-brand">
+        <span class="shield-icon">🛡️</span>
+        <div>
+          <strong>Smart-Shield</strong>
+          <span class="topbar-sub">Mobile · Ontario highways</span>
+        </div>
+      </div>
+      <a class="desktop-link" href="http://127.0.0.1:5050" title="Desktop demo">Desktop</a>
+    </header>
+
+    <main id="map-stage">
+      <div id="map"></div>
+      <div id="map-badge" class="map-badge" hidden>
+        <strong id="badge-score">—</strong>
+        <span>Safety Score</span>
+      </div>
+      <button type="button" id="btn-locate-map" class="fab-map" aria-label="Fit route on map">⌖</button>
+    </main>
+
+    <section id="bottom-sheet" class="bottom-sheet" data-state="peek">
+      <div id="sheet-handle" class="sheet-handle" aria-hidden="true"><span></span></div>
+
+      <div class="sheet-scroll">
+        <p class="prototype-disclaimer">
+          Research prototype — not official MTO or 511 Ontario guidance.
+        </p>
+
+        <div class="sheet-form">
+          <label for="origin">From</label>
+          <input id="origin" type="text" inputmode="text" autocomplete="street-address" placeholder="Toronto, Ontario" value="Toronto, Ontario" />
+
+          <label for="destination">To</label>
+          <input id="destination" type="text" inputmode="text" autocomplete="street-address" placeholder="Barrie, Ontario" value="Barrie, Ontario" />
+
+          <label class="weather-picker-label" for="weather-picker">Weather / 511 scenario</label>
+          <input type="hidden" id="weather" value="clear" />
+          <div id="weather-picker" class="weather-picker"></div>
+          <p id="weather-summary" class="weather-selected-summary" aria-live="polite"></p>
+
+          <button id="btn-route" type="button" class="btn-primary">Find safest routes</button>
+          <p id="status" class="status-msg" role="status"></p>
+        </div>
+
+        <div id="results-block" hidden>
+          <div id="high-risk-banner" class="high-risk-banner" hidden></div>
+          <h2 class="results-title">Route options <span class="badge">AI ranked</span></h2>
+          <p class="hint">Tap a route to highlight on map. Lower S = safer.</p>
+          <div id="route-cards"></div>
+          <div class="legend-compact">
+            <span><i class="dot low"></i> LOW 0–30</span>
+            <span><i class="dot med"></i> MED 31–70</span>
+            <span><i class="dot high"></i> HIGH 71–100</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/static/js/weather-picker.js?v=20260627"></script>
+  <script src="/static/js/mobile.js?v=20260627" defer></script>
+</body>
+</html>

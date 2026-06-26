@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, Tuple
+from typing import Any, Dict, List, Tuple
 
 # Brain fusion weights (charter defaults; Lasso can tune in production)
 W_T = 0.25
@@ -13,6 +13,10 @@ W_E = 0.40
 E_WEIGHTS = {"surface": 0.35, "visibility": 0.30, "wind": 0.20, "temp": 0.15}
 
 POSTED_SPEED_KMH = 100  # typical 400-series limit
+# Audit SS-AUDIT-2026-001: avoid sub-80 km/h absolute caps on 400-series demo defaults
+FREEWAY_MIN_ADVISORY_KMH = 80
+# Assumed prevailing speed when live probe data unavailable (Ontario freeway typical)
+DEFAULT_PREVAILING_TRAFFIC_KMH = 105
 
 
 def compute_e_index(
@@ -63,8 +67,66 @@ def risk_tier(s: float) -> Tuple[str, str, float]:
 
 
 def recommended_speed_kmh(s: float, posted: float = POSTED_SPEED_KMH) -> int:
-    _, _, frac = risk_tier(s)
-    return int(round(posted * frac))
+    """Legacy helper — returns clamped advisory speed (see build_operational_advisory)."""
+    return build_operational_advisory(s, posted=posted)["recommended_speed_kmh"]
+
+
+def build_operational_advisory(
+    s: float,
+    posted: float = POSTED_SPEED_KMH,
+    prevailing_traffic_kmh: float = DEFAULT_PREVAILING_TRAFFIC_KMH,
+    freeway_min_kmh: float = FREEWAY_MIN_ADVISORY_KMH,
+) -> Dict[str, Any]:
+    """
+    Separate route-ranking score S from user-facing operational guidance.
+    SS-AUDIT-2026-001: trip-level messages + traffic-aware speed floor.
+    """
+    tier, color, frac = risk_tier(s)
+    naive_rec = int(round(posted * frac))
+    clamped_rec = int(round(min(posted, max(freeway_min_kmh, naive_rec))))
+    relative_reduction = max(0, int(round(prevailing_traffic_kmh - clamped_rec)))
+
+    if tier == "HIGH":
+        guidance = "AVOID_TRAVEL"
+        primary = "Consider postponing this trip — conditions are hazardous."
+        steps: List[str] = [
+            "Consider postponing travel or waiting until conditions improve.",
+            "If you must travel, use the lowest Safety Score route shown.",
+            "Right lane, hazard lights, match truck pace — avoid isolated slow driving in passing lanes.",
+        ]
+        relative_text = (
+            f"If driving, reduce speed by about {relative_reduction} km/h below "
+            f"typical highway flow (~{int(prevailing_traffic_kmh)} km/h)."
+        )
+    elif tier == "MEDIUM":
+        guidance = "REDUCE_RELATIVE"
+        primary = "Increase caution — reduce speed and following distance."
+        steps = [
+            "Increase following distance and reduce speed gradually with traffic.",
+            f"Aim for roughly {relative_reduction} km/h below typical flow if conditions warrant.",
+        ]
+        relative_text = (
+            f"Reduce speed by about {relative_reduction} km/h below typical flow "
+            f"(~{int(prevailing_traffic_kmh)} km/h)."
+        )
+    else:
+        guidance = "NORMAL"
+        primary = "Conditions appear favourable — drive to posted limit and stay alert."
+        steps = []
+        relative_text = "Maintain posted highway speed unless traffic or signs indicate otherwise."
+
+    return {
+        "operational_guidance": guidance,
+        "operational_message": primary,
+        "guidance_steps": steps,
+        "recommended_speed_kmh": clamped_rec,
+        "naive_recommended_speed_kmh": naive_rec,
+        "relative_speed_reduction_kmh": relative_reduction,
+        "relative_speed_text": relative_text,
+        "prevailing_traffic_kmh_assumed": int(prevailing_traffic_kmh),
+        "tier": tier,
+        "tier_color": color,
+    }
 
 
 def fuse_scenario(
@@ -78,13 +140,21 @@ def fuse_scenario(
     """Full fusion for one highway scenario."""
     e = e_index_from_features(month_num, season_num, is_night, is_winter_storm)
     s = compute_safety_score(t_nlp, v_vision, e)
-    tier, _, speed_frac = risk_tier(s)
+    _, _, speed_frac = risk_tier(s)
+    advisory = build_operational_advisory(s)
     return {
         "T_nlp": round(t_nlp, 3),
         "V_vision": round(v_vision, 3),
         "E_index": round(e, 3),
         "S": round(s, 1),
-        "tier": tier,
-        "V_rec_kmh": recommended_speed_kmh(s),
+        "tier": advisory["tier"],
+        "V_rec_kmh": advisory["recommended_speed_kmh"],
         "speed_frac": speed_frac,
+        **{k: advisory[k] for k in (
+            "operational_guidance",
+            "operational_message",
+            "guidance_steps",
+            "relative_speed_reduction_kmh",
+            "relative_speed_text",
+        )},
     }

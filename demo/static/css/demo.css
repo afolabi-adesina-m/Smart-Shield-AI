@@ -247,6 +247,95 @@ input:focus, select:focus {
   font-weight: 500;
 }
 
+.prototype-disclaimer {
+  margin: 8px 0 0;
+  font-size: 0.72rem;
+  color: #b06000;
+  background: #fef7e0;
+  border: 1px solid #f9ab00;
+  padding: 6px 10px;
+  border-radius: 8px;
+  line-height: 1.35;
+}
+
+.mobile-link-row {
+  margin: 8px 0 0;
+  font-size: 0.78rem;
+}
+
+.mobile-link-row a {
+  color: var(--google-blue);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.mobile-link-row a:hover {
+  text-decoration: underline;
+}
+
+.high-risk-banner {
+  margin: 0 0 14px;
+  padding: 14px 16px;
+  background: #fce8e6;
+  border: 1px solid #f5c2c0;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: #3c4043;
+}
+
+.high-risk-banner-title {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--high);
+  margin-bottom: 6px;
+}
+
+.high-risk-banner strong,
+.high-risk-banner-lead {
+  display: block;
+  color: #8b1a0a;
+  font-size: 0.92rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.high-risk-banner .guidance-steps {
+  margin: 0 0 8px 1.1rem;
+  padding: 0;
+}
+
+.high-risk-banner .relative-speed {
+  margin: 0;
+  font-weight: 500;
+  color: #5f6368;
+}
+
+.operational-msg {
+  margin-top: 8px;
+  font-size: 0.8rem;
+  color: #3c4043;
+  line-height: 1.35;
+}
+
+.card-high-alert {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: #fce8e6;
+  border: 1px solid #f5c2c0;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #8b1a0a;
+  line-height: 1.35;
+}
+
+.speed-advisory {
+  color: var(--high);
+  font-weight: 500;
+}
+
 #map-wrap {
   flex: 1;
   position: relative;
@@ -255,18 +344,26 @@ input:focus, select:focus {
 #map {
   width: 100%;
   height: 100%;
+  z-index: 1;
 }
 
 .map-badge {
-  position: absolute;
-  top: 16px;
-  right: 16px;
   background: #fff;
   padding: 12px 18px;
-  border-radius: 12px;
-  box-shadow: var(--panel-shadow);
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
   text-align: center;
-  z-index: 5;
+  line-height: 1.2;
+}
+
+.leaflet-control.map-badge {
+  clear: none;
+}
+
+.leaflet-top.leaflet-left .map-badge {
+  margin-top: 10px;
+  margin-left: 10px;
 }
 
 .map-badge strong {

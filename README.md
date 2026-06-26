@@ -11,6 +11,7 @@ Multimodal highway safety scoring: **NLP alerts** + **vision road conditions** +
 ├── data/                      # CSV datasets (gitignored) + vision_cache/
 ├── models/                    # Trained artifacts (see models/README.md)
 ├── docs/                      # Proposals, design docs, literature
+├── improvements/              # Post-capstone audits & enhancement tracking
 ├── assets/                    # Diagrams
 └── archive/                   # Old notebooks + notebook build scripts
 ```
@@ -34,13 +35,45 @@ pip install torch>=2.4 torchvision --index-url https://download.pytorch.org/whl/
 
 ## Web demo
 
+**Desktop** (sidebar + map):
+
 ```bash
 cd demo
 pip install -r requirements-demo.txt
 python api_server.py
+# http://127.0.0.1:5050
 ```
 
+**Mobile** (portrait map + bottom sheet — iPhone & Android):
+
+```bash
+cd demo
+python mobile_server.py
+# http://127.0.0.1:5051
+```
+
+On a physical phone (same Wi‑Fi as your PC), use the LAN URL printed by `mobile_server.py`, e.g. `http://192.168.x.x:5051`.
+
+**Run both at once:** open two terminals, or double-click `demo/run_both.bat` (Windows).
+
+| Demo | Port | Command |
+|------|------|---------|
+| Desktop | 5050 | `python api_server.py` |
+| Mobile | 5051 | `python mobile_server.py` |
+
+Both can run simultaneously — they use different ports and share the same scoring API logic.
+
 Requires trained models in `../models/` (run the notebook modeling section first).
+
+## Improvements & audit
+
+Peer-review finding on speed advisories (ice-storm case study): see [`improvements/speed-advisory-audit/`](improvements/speed-advisory-audit/) (audit ID **SS-AUDIT-2026-001**).
+
+## Future work, use cases & ERP integration
+
+Route planning vision for individuals and businesses, plus ERP/TMS integration patterns: [`docs/ROUTE-PLANNING-USE-CASES-AND-ERP.md`](docs/ROUTE-PLANNING-USE-CASES-AND-ERP.md).
+
+Final presentation slide outline (12–15 slides): [`docs/FINAL-PRESENTATION-SLIDE-OUTLINE.md`](docs/FINAL-PRESENTATION-SLIDE-OUTLINE.md).
 
 ## Course
 
