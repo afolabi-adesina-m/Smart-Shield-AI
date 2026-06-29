@@ -2,6 +2,11 @@
 
 Place road casualty CSV files here before running `notebooks/capstone.ipynb`.
 
+> **After the June 2026 reorg:** CSVs used to live in `Python Notebooks & Scripts/Data/`.
+> They now belong in this folder (`Data/` at the project root, next to `vision_cache/`).
+> The notebook also searches that legacy path and any subfolder containing the marker files below.
+> Override manually: `set SMART_SHIELD_DATA=C:\path\to\your\csv\folder` (Windows) before opening Jupyter.
+
 ## Required files (UK DfT + local collision data)
 
 - `dft-road-casualty-statistics-casualty-1979-latest-published-year.csv`
