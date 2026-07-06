@@ -227,30 +227,33 @@ def fine_tune_vision_model(train_ds, val_ds, epochs: int = 8, lr: float = 1e-4, 
 
     history = {"train_loss": [], "val_acc": []}
 
-    for epoch in range(epochs):
-        model.train()
-        total_loss = 0.0
-        for xb, yb in train_dl:
-            xb, yb = xb.to(device), yb.to(device)
-            optimizer.zero_grad()
-            loss = criterion(model(xb), yb)
-            loss.backward()
-            optimizer.step()
-            total_loss += loss.item() * len(xb)
-        train_loss = total_loss / len(train_ds)
-
-        model.eval()
-        correct = total = 0
-        with torch.no_grad():
-            for xb, yb in val_dl:
+    try:
+        for epoch in range(epochs):
+            model.train()
+            total_loss = 0.0
+            for xb, yb in train_dl:
                 xb, yb = xb.to(device), yb.to(device)
-                pred = model(xb).argmax(1)
-                correct += (pred == yb).sum().item()
-                total += len(yb)
-        val_acc = correct / max(total, 1)
-        history["train_loss"].append(train_loss)
-        history["val_acc"].append(val_acc)
-        print(f"  Epoch {epoch+1}/{epochs}  loss={train_loss:.4f}  val_acc={val_acc:.2%}")
+                optimizer.zero_grad()
+                loss = criterion(model(xb), yb)
+                loss.backward()
+                optimizer.step()
+                total_loss += loss.item() * len(xb)
+            train_loss = total_loss / len(train_ds)
+
+            model.eval()
+            correct = total = 0
+            with torch.no_grad():
+                for xb, yb in val_dl:
+                    xb, yb = xb.to(device), yb.to(device)
+                    pred = model(xb).argmax(1)
+                    correct += (pred == yb).sum().item()
+                    total += len(yb)
+            val_acc = correct / max(total, 1)
+            history["train_loss"].append(train_loss)
+            history["val_acc"].append(val_acc)
+            print(f"  Epoch {epoch+1}/{epochs}  loss={train_loss:.4f}  val_acc={val_acc:.2%}")
+    except KeyboardInterrupt:
+        print("\nTraining interrupted by user. Returning the model trained so far.")
 
     return model, history, DISPLAY_ORDER
 

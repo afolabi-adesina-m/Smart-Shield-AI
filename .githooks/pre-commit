@@ -1,0 +1,22 @@
+#!/usr/bin/env sh
+# Git pre-commit: regenerate explanation docs when notebook or definitions change.
+# Enable once: git config core.hooksPath .githooks
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT" || exit 0
+
+CHANGED=$(git diff --cached --name-only)
+echo "$CHANGED" | grep -qE '^(notebooks/.*\.ipynb|explanations/definitions\.json|explanations/build_all\.py)$' || exit 0
+
+echo "pre-commit: rebuilding explanations..."
+python explanations/build_all.py --quiet || exit 1
+
+# Stage regenerated docs if they changed
+git add explanations/Glossary.docx \
+        explanations/Sprint-Pipeline-Swimlane.docx \
+        explanations/Sprint-Pipeline-Swimlane.mmd \
+        explanations/Train-Test-Validation-Splits.docx \
+        explanations/README.md \
+        explanations/MANIFEST.json 2>/dev/null || true
+
+exit 0

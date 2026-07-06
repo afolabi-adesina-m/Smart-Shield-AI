@@ -18,6 +18,8 @@ imbalanced-learn
 shap
 joblib
 torchvision
+nbformat
+nbclient
 
 # Optional — only for seed_vision_cache.py (not needed for Run All)
 # huggingface_hub

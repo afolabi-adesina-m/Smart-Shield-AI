@@ -1,0 +1,138 @@
+{
+  "project": {
+    "name": "Smart-Shield AI",
+    "course": "INFO53883 AI & ML Capstone",
+    "team": "Team 2B",
+    "notebook_primary": "notebooks/capstone_with_results.ipynb",
+    "notebook_working": "notebooks/capstone.ipynb"
+  },
+  "splits": {
+    "tabular_test_size": 0.2,
+    "tabular_random_state": 42,
+    "smote_k_neighbors": 3,
+    "gridsearch_cv_folds": 3,
+    "gridsearch_search_fraction": 0.3,
+    "vision_train_fraction": 0.8,
+    "vision_val_fraction": 0.2
+  },
+  "sprint_overview": [
+    ["Setup", "Environment, packages, DATA path", "Cells 1, 5"],
+    ["Sprint 1-2", "Data, EDA, statistics, preprocessing, features", "Sections 1-5"],
+    ["Sprint 2", "Vision, tabular ML, ethics, model comparison", "Sections 6-8, 7"],
+    ["Sprint 3", "NLP fusion, Safety Score, SHAP, deployment", "Section 10"],
+    ["Deployment", "Live map demo", "demo/api_server.py"]
+  ],
+  "glossary": [
+    ["Smart-Shield", "The Ontario highway safety AI system that fuses text alerts, road images, and collision data to produce a composite Safety Score and speed recommendation."],
+    ["3-Brain Architecture", "Three pillars: NLP Brain (text), Vision Brain (images), Logistic Optimizer (tabular ML), fused into one Safety Score."],
+    ["NLP Brain (Pillar 1)", "Scores Ontario 511-style alerts using TF-IDF and a hazard lexicon. Output: T score (0-1)."],
+    ["Vision Brain (Pillar 2)", "ResNet18 CNN fine-tuned on road-surface images. Output: V score (vision hazard probability)."],
+    ["Logistic Optimizer (Pillar 3)", "Tabular classifiers predicting collision severity from structured features."],
+    ["Safety Score (S)", "Composite score 0-100: S = (w_T*T + w_V*V + w_E*E) x 100. Higher S = higher risk."],
+    ["T Score", "Text hazard score from TF-IDF on weather/traffic alerts."],
+    ["V Score", "Vision hazard probability for wet/snow/ice road conditions."],
+    ["E_index", "Environmental risk from weather, surface, season, time-of-day (calibrated on UK DfT data)."],
+    ["TF-IDF", "Term Frequency-Inverse Document Frequency for NLP alert scoring."],
+    ["SEVERITY", "3-class target: 0=PD only, 1=Injury, 2=Fatal."],
+    ["df_toronto", "Toronto Police Service collision DataFrame."],
+    ["dft", "UK DfT 2024 collision DataFrame for E_index calibration."],
+    ["df_model", "Preprocessed 8-feature matrix + SEVERITY for ML."],
+    ["FINAL_FEATURES", "OCC_HOUR, MONTH_NUM, SEASON_NUM, IS_NIGHT, IS_RUSHHOUR, PEDESTRIAN_BIN, BICYCLE_BIN, AUTOMOBILE_BIN."],
+    ["SMOTE", "Synthetic oversampling of minority classes on training set only."],
+    ["train_test_split", "80/20 stratified split (test_size=0.20, random_state=42)."],
+    ["StratifiedKFold", "3-fold CV preserving class ratios inside GridSearchCV."],
+    ["GridSearchCV", "Hyperparameter search with cross-validation on training data."],
+    ["StandardScaler", "Feature scaling fit on train, applied to test."],
+    ["MCC", "Matthews Correlation Coefficient — primary metric for imbalanced multi-class."],
+    ["SHAP", "SHapley values explaining each feature's contribution to predictions."],
+    ["ShieldDNN", "PyTorch DNN: 256-128-64 layers with BatchNorm and Dropout."],
+    ["ResNet18", "CNN fine-tuned for clear/wet/snow-ice road surfaces."],
+    ["rf_tuned.joblib", "Production tuned Random Forest loaded by the demo."],
+    ["Sprint 1-2", "Data loading, EDA, preprocessing, feature selection."],
+    ["Sprint 2", "Baselines, GridSearchCV, DNN, Vision Brain, ethics."],
+    ["Sprint 3", "NLP fusion, Safety Score, SHAP, model serialization."]
+  ],
+  "lanes": [
+    {
+      "name": "LANE: Environment Setup",
+      "sprint": "Setup",
+      "sections": "Cells 1, 5",
+      "steps": [
+        ["1", "Environment Setup", "Detect runtime; install packages; resolve DATA path.", "DATA, TORCH_OK"],
+        ["2", "Imports", "Load libraries; confirm SMOTE/LGBM/PyTorch.", "Libraries ready"]
+      ]
+    },
+    {
+      "name": "LANE: Sprint 1-2 - Data and EDA",
+      "sprint": "Sprint 1-2",
+      "sections": "Sections 1-2",
+      "steps": [
+        ["3", "Load Data", "Read Toronto + DfT CSVs.", "df_toronto, dft"],
+        ["4", "Descriptive Statistics", "Shape, missing values, numeric summaries.", "Data quality baseline"],
+        ["5", "SEVERITY target", "Engineer 3-class label; class distribution.", "SEVERITY"],
+        ["6", "Distribution Plots", "Temporal and spatial EDA charts.", "6-panel plots"],
+        ["7", "DfT / Paper 2", "Weather/surface stats; E_index calibration.", "Paper 2 tables"]
+      ]
+    },
+    {
+      "name": "LANE: Sprint 1-2 - Preprocess and Features",
+      "sprint": "Sprint 1-2",
+      "sections": "Sections 3-5",
+      "steps": [
+        ["8", "Toronto Preprocessing", "Clean data; engineer features.", "df_model"],
+        ["9", "DfT Preprocessing", "Encode UK hazard flags.", "dft_clean"],
+        ["10", "Correlation Analysis", "Pearson, chi-square, point-biserial.", "Significance tables"],
+        ["11", "Feature Selection", "3-method voting.", "8 features selected"]
+      ]
+    },
+    {
+      "name": "LANE: Sprint 2 - Vision Brain",
+      "sprint": "Sprint 2",
+      "sections": "Section 6",
+      "steps": [
+        ["12", "Sample Images", "Load vision_cache grid.", "Sample images"],
+        ["13", "Fine-tune ResNet18", "80/20 train/val; save weights.", "vision_resnet18.pt"]
+      ]
+    },
+    {
+      "name": "LANE: Sprint 2 - Tabular ML",
+      "sprint": "Sprint 2",
+      "sections": "Section 8",
+      "steps": [
+        ["14", "Data Preparation", "80/20 split; SMOTE; scaler.", "X_train_sc, X_test_sc"],
+        ["15", "Baselines", "LR, DT, kNN, RF, LGBM.", "baseline_results"],
+        ["16", "GridSearchCV", "3-fold CV tuning.", "best_estimators"],
+        ["17", "Evaluate Tuned", "Test metrics; confusion matrices.", "df_tuned"],
+        ["18", "DNN", "ShieldDNN training.", "dnn_smart_shield.pt"],
+        ["19", "Model Selection", "Compare; live test cases.", "Final RF"]
+      ]
+    },
+    {
+      "name": "LANE: Sprint 2 - Ethics",
+      "sprint": "Sprint 2",
+      "sections": "Section 7",
+      "steps": [
+        ["20", "Fairness Audit", "Risk register; subgroup recall.", "Ethics table"]
+      ]
+    },
+    {
+      "name": "LANE: Sprint 3 - Multimodal Fusion",
+      "sprint": "Sprint 3",
+      "sections": "Section 10",
+      "steps": [
+        ["21", "NLP Brain", "TF-IDF alert scoring.", "T scores"],
+        ["22", "Safety Score", "Fuse T+V+E.", "S score dashboard"],
+        ["23", "SHAP", "Explainability plots.", "SHAP deliverable"],
+        ["24", "Deployment", "Serialize models/.", "Artifacts saved"]
+      ]
+    },
+    {
+      "name": "LANE: Deployment",
+      "sprint": "Post-Sprint 3",
+      "sections": "demo/",
+      "steps": [
+        ["25", "Flask Demo", "Map route scoring.", "localhost:5050"]
+      ]
+    }
+  ]
+}

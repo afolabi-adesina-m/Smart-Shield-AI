@@ -1,0 +1,21 @@
+{
+  "generated_at": "2026-07-02 05:23 UTC",
+  "generator": "explanations/build_all.py",
+  "sources": {
+    "explanations\\definitions.json": 1782966213.0432851,
+    "notebooks\\capstone_with_results.ipynb": 1782969776.1013327,
+    "notebooks\\capstone.ipynb": 1782969776.071076,
+    "src": null,
+    "models\\README.md": 1782507554.5715895,
+    "Data\\README.md": 1782960626.9085047,
+    "notebook_sections_found": 8
+  },
+  "outputs": [
+    "Glossary.docx",
+    "Sprint-Pipeline-Swimlane.docx",
+    "Sprint-Pipeline-Swimlane.mmd",
+    "Train-Test-Validation-Splits.docx",
+    "README.md",
+    "MANIFEST.json"
+  ]
+}
