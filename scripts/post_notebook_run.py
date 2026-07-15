@@ -74,6 +74,18 @@ def main() -> int:
         if not args.quiet:
             print(f"[post_run] synced outputs for {n} code cells: {args.sync_from} -> {args.notebook}")
 
+    # Pull satellite part outputs into the master notebook when present
+    parts_dir = project / "notebooks" / "parts"
+    sync_parts = project / "scripts" / "sync_notebook_parts.py"
+    if parts_dir.is_dir() and sync_parts.is_file() and "capstone_with_results" in Path(args.notebook).name:
+        if not args.quiet:
+            print("[post_run] syncing notebooks/parts → master…")
+        subprocess.run(
+            [sys.executable, str(sync_parts), "--direction", "parts-to-main"],
+            cwd=project,
+            check=False,
+        )
+
     if not args.skip_enhance:
         if not args.quiet:
             print("[post_run] refreshing notebook annotations…")

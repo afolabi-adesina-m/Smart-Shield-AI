@@ -1,0 +1,9 @@
+{
+  "files.autoSave": "afterDelay",
+  "files.autoSaveDelay": 1500,
+  "jupyter.notebookFileRoot": "${workspaceFolder}",
+  "notebook.output.textLineLimit": 800,
+  "notebook.consolidatedRunButton": true,
+  "notebook.showFoldingControls": "always",
+  "notebook.folding.maximumFoldingRegions": 5000
+}

@@ -1,0 +1,9 @@
+Domain,Condition,Paper mean,Ours mean,Δ mean,Paper excess,Ours excess,Alignment
+Weather,Snowing,1.421,2.162,0.741,,+1.3%,↑ higher
+Weather,Snowing+Wind,1.402,1.28,-0.122,,-40.0%,↓ lower
+Road,Flood/Standing Water,1.417,1.623,0.206,+10.44%,-24.0%,↑ higher
+Road,Snow/Slush,1.336,2.303,0.967,+10.75%,+7.9%,↑ higher
+Lighting,Dusk,1.558,2.45,0.892,+13.01%,+14.8%,↑ higher
+Lighting,Darkness-NoLight,1.473,1.336,-0.137,,-37.4%,↓ lower
+Weather,Fine/Clear,1.285,2.122,0.837,,-0.6%,↑ higher
+Road,Dry,1.169,2.131,0.962,,-0.1%,↑ higher

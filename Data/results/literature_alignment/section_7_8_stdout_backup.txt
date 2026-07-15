@@ -1,0 +1,100 @@
+==============================================================================
+DATA SCOPE — year ranges per dataset
+==============================================================================
+                    Dataset    Rows                Year range                          Used for
+    Toronto TPS (modelling) 809,034                 2014–2026    Section 7 ML (RF, kNN, DNN, …)
+                     UK DfT 100,927                 2024–2024   Paper 2 EDA merge (Section 2.4)
+               Seattle SDOT 260,312   2003-10-06 – 2026-06-02   Paper 2 EDA merge (Section 2.4)
+df_paper2_merged (SDOT+DfT) 296,250 SDOT 2003–2026 + DfT 2024 Replicate Jiang et al. Tables 2–4
+
+Note: Toronto modelling uses the full 2014–2026 history.
+Paper 2 EDA uses SDOT (all years) + DfT 2024 — matching the published merge.
+
+==============================================================================
+PAPER 2 EDA ALIGNMENT — mean casualties (SDOT+DfT merged, Section 2.4)
+==============================================================================
+  Domain            Condition  Paper mean  Ours mean  Δ mean Paper excess Ours excess Alignment
+ Weather              Snowing       1.421      2.162   0.741                    +1.3%  ↑ higher
+ Weather         Snowing+Wind       1.402      1.280  -0.122                   -40.0%   ↓ lower
+    Road Flood/Standing Water       1.417      1.623   0.206      +10.44%      -24.0%  ↑ higher
+    Road           Snow/Slush       1.336      2.303   0.967      +10.75%       +7.9%  ↑ higher
+Lighting                 Dusk       1.558      2.450   0.892      +13.01%      +14.8%  ↑ higher
+Lighting     Darkness-NoLight       1.473      1.336  -0.137                   -37.4%   ↓ lower
+ Weather           Fine/Clear       1.285      2.122   0.837                    -0.6%  ↑ higher
+    Road                  Dry       1.169      2.131   0.962                    -0.1%  ↑ higher
+
+Overall mean casualties (ours): 2.1343
+Headline hazards (snow, standing water, dusk) should rank highest — matching Paper 2 direction.
+
+==============================================================================
+ML BENCHMARK — Jiang et al. (2024) vs our Toronto models
+==============================================================================
+               Model           Our variant Paper Accuracy  Ours Accuracy  Δ Accuracy Paper Rec (M)  Ours Rec (M)  Δ Rec (M) Paper F1 (M)  Ours F1 (M)  Δ F1 (M) Paper AUC (OvR)  Ours AUC (OvR)  Δ AUC (OvR)
+ Logistic Regression   Logistic Regression           0.79         0.7780      -0.012          0.79        0.5444     -0.246         0.79       0.3501    -0.440            None          0.6285          NaN
+K-Nearest Neighbours  K-Nearest Neighbours           0.82         0.8822       0.062          0.82        0.4054     -0.415         0.82       0.4278    -0.392            None          0.5819          NaN
+       Decision Tree         Decision Tree           0.84         0.7583      -0.082          0.84        0.4809     -0.359         0.84       0.3779    -0.462            None          0.5903          NaN
+       Random Forest Random Forest (Tuned)          0.878         0.7510      -0.127         0.878        0.4781     -0.400        0.878       0.3763    -0.502           0.852          0.5907       -0.261
+                 DNN         DNN (PyTorch)          0.911            NaN         NaN         0.955           NaN        NaN        0.934          NaN       NaN           0.759             NaN          NaN
+LightGBM (extension)              LightGBM              —         0.7756         NaN             —        0.4857        NaN            —       0.3809       NaN               —          0.6190          NaN
+
+Caveats (not apples-to-apples):
+  • Paper 2: SDOT + UK DfT, largely binary / high-accuracy severity setup.
+  • Ours: Toronto 2014–2026, 3-class ordinal (PD / Injury / Fatal), 8 engineered features.
+  • Lower accuracy here is expected; we prioritise fatal-class recall + MCC on Ontario data.
+  • EDA direction (snow, dusk, standing water = higher casualties) DOES align with Paper 2.
+
+
+ERROR:
+[1;31m---------------------------------------------------------------------------[0m
+[1;31mTypeError[0m                                 Traceback (most recent call last)
+Cell [1;32mIn[39], line 169[0m
+[0;32m    167[0m fig, ax [38;5;241m=[39m plt[38;5;241m.[39msubplots(figsize[38;5;241m=[39m([38;5;241m10[39m, [38;5;241m5[39m))
+[0;32m    168[0m ax[38;5;241m.[39mbar(x [38;5;241m-[39m [38;5;241m0.2[39m, paper_acc, [38;5;241m0.38[39m, label[38;5;241m=[39m[38;5;124m"[39m[38;5;124mPaper 2 (Jiang et al.)[39m[38;5;124m"[39m, color[38;5;241m=[39m[38;5;124m"[39m[38;5;124m#C44E52[39m[38;5;124m"[39m, alpha[38;5;241m=[39m[38;5;241m0.85[39m)
+[1;32m--> 169[0m [43max[49m[38;5;241;43m.[39;49m[43mbar[49m[43m([49m[43mx[49m[43m [49m[38;5;241;43m+[39;49m[43m [49m[38;5;241;43m0.2[39;49m[43m,[49m[43m [49m[43mour_acc[49m[43m,[49m[43m [49m[38;5;241;43m0.38[39;49m[43m,[49m[43m [49m[43mlabel[49m[38;5;241;43m=[39;49m[38;5;124;43m"[39;49m[38;5;124;43mOurs (Toronto test set)[39;49m[38;5;124;43m"[39;49m[43m,[49m[43m [49m[43mcolor[49m[38;5;241;43m=[39;49m[38;5;124;43m"[39;49m[38;5;124;43m#4C72B0[39;49m[38;5;124;43m"[39;49m[43m,[49m[43m [49m[43malpha[49m[38;5;241;43m=[39;49m[38;5;241;43m0.85[39;49m[43m)[49m
+[0;32m    170[0m ax[38;5;241m.[39mset_xticks(x)
+[0;32m    171[0m ax[38;5;241m.[39mset_xticklabels(names, rotation[38;5;241m=[39m[38;5;241m25[39m, ha[38;5;241m=[39m[38;5;124m"[39m[38;5;124mright[39m[38;5;124m"[39m)
+
+File [1;32mc:\Users\DELL\anaconda3\envs\ai_work_final\lib\site-packages\matplotlib\__init__.py:1524[0m, in [0;36m_preprocess_data.<locals>.inner[1;34m(ax, data, *args, **kwargs)[0m
+[0;32m   1521[0m [38;5;129m@functools[39m[38;5;241m.[39mwraps(func)
+[0;32m   1522[0m [38;5;28;01mdef[39;00m[38;5;250m [39m[38;5;21minner[39m(ax, [38;5;241m*[39margs, data[38;5;241m=[39m[38;5;28;01mNone[39;00m, [38;5;241m*[39m[38;5;241m*[39mkwargs):
+[0;32m   1523[0m     [38;5;28;01mif[39;00m data [38;5;129;01mis[39;00m [38;5;28;01mNone[39;00m:
+[1;32m-> 1524[0m         [38;5;28;01mreturn[39;00m func(
+[0;32m   1525[0m             ax,
+[0;32m   1526[0m             [38;5;241m*[39m[38;5;28mmap[39m(cbook[38;5;241m.[39msanitize_sequence, args),
+[0;32m   1527[0m             [38;5;241m*[39m[38;5;241m*[39m{k: cbook[38;5;241m.[39msanitize_sequence(v) [38;5;28;01mfor[39;00m k, v [38;5;129;01min[39;00m kwargs[38;5;241m.[39mitems()})
+[0;32m   1529[0m     bound [38;5;241m=[39m new_sig[38;5;241m.[39mbind(ax, [38;5;241m*[39margs, [38;5;241m*[39m[38;5;241m*[39mkwargs)
+[0;32m   1530[0m     auto_label [38;5;241m=[39m (bound[38;5;241m.[39marguments[38;5;241m.[39mget(label_namer)
+[0;32m   1531[0m                   [38;5;129;01mor[39;00m bound[38;5;241m.[39mkwargs[38;5;241m.[39mget(label_namer))
+
+File [1;32mc:\Users\DELL\anaconda3\envs\ai_work_final\lib\site-packages\matplotlib\axes\_axes.py:2646[0m, in [0;36mAxes.bar[1;34m(self, x, height, width, bottom, align, **kwargs)[0m
+[0;32m   2643[0m args [38;5;241m=[39m [38;5;28mzip[39m(left, bottom, width, height, facecolor, edgecolor, linewidth,
+[0;32m   2644[0m            hatch, patch_labels)
+[0;32m   2645[0m [38;5;28;01mfor[39;00m l, b, w, h, c, e, lw, htch, lbl [38;5;129;01min[39;00m args:
+[1;32m-> 2646[0m     r [38;5;241m=[39m [43mmpatches[49m[38;5;241;43m.[39;49m[43mRectangle[49m[43m([49m
+[0;32m   2647[0m [43m        [49m[43mxy[49m[38;5;241;43m=[39;49m[43m([49m[43ml[49m[43m,[49m[43m [49m[43mb[49m[43m)[49m[43m,[49m[43m [49m[43mwidth[49m[38;5;241;43m=[39;49m[43mw[49m[43m,[49m[43m [49m[43mheight[49m[38;5;241;43m=[39;49m[43mh[49m[43m,[49m
+[0;32m   2648[0m [43m        [49m[43mfacecolor[49m[38;5;241;43m=[39;49m[43mc[49m[43m,[49m
+[0;32m   2649[0m [43m        [49m[43medgecolor[49m[38;5;241;43m=[39;49m[43me[49m[43m,[49m
+[0;32m   2650[0m [43m        [49m[43mlinewidth[49m[38;5;241;43m=[39;49m[43mlw[49m[43m,[49m
+[0;32m   2651[0m [43m        [49m[43mlabel[49m[38;5;241;43m=[39;49m[43mlbl[49m[43m,[49m
+[0;32m   2652[0m [43m        [49m[43mhatch[49m[38;5;241;43m=[39;49m[43mhtch[49m[43m,[49m
+[0;32m   2653[0m [43m        [49m[43m)[49m
+[0;32m   2654[0m     r[38;5;241m.[39m_internal_update(kwargs)
+[0;32m   2655[0m     r[38;5;241m.[39mget_path()[38;5;241m.[39m_interpolation_steps [38;5;241m=[39m [38;5;241m100[39m
+
+File [1;32mc:\Users\DELL\anaconda3\envs\ai_work_final\lib\site-packages\matplotlib\patches.py:786[0m, in [0;36mRectangle.__init__[1;34m(self, xy, width, height, angle, rotation_point, **kwargs)[0m
+[0;32m    779[0m [38;5;66;03m# Required for RectangleSelector with axes aspect ratio != 1[39;00m
+[0;32m    780[0m [38;5;66;03m# The patch is defined in data coordinates and when changing the[39;00m
+[0;32m    781[0m [38;5;66;03m# selector with square modifier and not in data coordinates, we need[39;00m
+[0;32m    782[0m [38;5;66;03m# to correct for the aspect ratio difference between the data and[39;00m
+[0;32m    783[0m [38;5;66;03m# display coordinate systems. Its value is typically provide by[39;00m
+[0;32m    784[0m [38;5;66;03m# Axes._get_aspect_ratio()[39;00m
+[0;32m    785[0m [38;5;28mself[39m[38;5;241m.[39m_aspect_ratio_correction [38;5;241m=[39m [38;5;241m1.0[39m
+[1;32m--> 786[0m [38;5;28;43mself[39;49m[38;5;241;43m.[39;49m[43m_convert_units[49m[43m([49m[43m)[49m
+
+File [1;32mc:\Users\DELL\anaconda3\envs\ai_work_final\lib\site-packages\matplotlib\patches.py:797[0m, in [0;36mRectangle._convert_units[1;34m(self)[0m
+[0;32m    795[0m y0 [38;5;241m=[39m [38;5;28mself[39m[38;5;241m.[39mconvert_yunits([38;5;28mself[39m[38;5;241m.[39m_y0)
+[0;32m    796[0m x1 [38;5;241m=[39m [38;5;28mself[39m[38;5;241m.[39mconvert_xunits([38;5;28mself[39m[38;5;241m.[39m_x0 [38;5;241m+[39m [38;5;28mself[39m[38;5;241m.[39m_width)
+[1;32m--> 797[0m y1 [38;5;241m=[39m [38;5;28mself[39m[38;5;241m.[39mconvert_yunits([38;5;28;43mself[39;49m[38;5;241;43m.[39;49m[43m_y0[49m[43m [49m[38;5;241;43m+[39;49m[43m [49m[38;5;28;43mself[39;49m[38;5;241;43m.[39;49m[43m_height[49m)
+[0;32m    798[0m [38;5;28;01mreturn[39;00m x0, y0, x1, y1
+
+[1;31mTypeError[0m: unsupported operand type(s) for +: 'int' and 'NoneType'

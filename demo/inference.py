@@ -36,6 +36,62 @@ VISION_BY_PRESET = {
     "ice_storm": 0.82,
 }
 
+WEATHER_TO_SURFACE = {
+    "clear": "Clear Asphalt",
+    "wet": "Wet / Slush",
+    "blizzard": "Snow / Ice",
+    "ice_storm": "Snow / Ice",
+}
+
+
+def _vision_score_for_weather(weather: str) -> Optional[float]:
+    """Hybrid V_vision from saved models; None if artifacts missing."""
+    meta_path = MODELS_DIR / "vision_meta.json"
+    resnet_path = MODELS_DIR / "vision_resnet18.pt"
+    ae_path = MODELS_DIR / "vision_autoencoder.pt"
+    if not all(p.is_file() for p in (meta_path, resnet_path, ae_path)):
+        return None
+    try:
+        import json
+        import torch
+        import torch.nn as nn
+        from PIL import Image
+        from torchvision import models, transforms
+        from vision_brain import (
+            DISPLAY_ORDER,
+            _make_road_autoencoder,
+            _synthetic_samples,
+            score_frame_hybrid,
+        )
+
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        class_names = meta.get("class_names", DISPLAY_ORDER)
+
+        resnet = models.resnet18(weights=None)
+        resnet.fc = nn.Linear(resnet.fc.in_features, len(class_names))
+        resnet.load_state_dict(torch.load(resnet_path, map_location=device, weights_only=True))
+        resnet = resnet.to(device).eval()
+
+        ae = _make_road_autoencoder()
+        ae.load_state_dict(torch.load(ae_path, map_location=device, weights_only=True))
+        ae = ae.to(device).eval()
+
+        surface = WEATHER_TO_SURFACE.get(weather, "Clear Asphalt")
+        images, labels = _synthetic_samples(1)
+        arr = next(a for a, lbl in zip(images, labels) if lbl == surface)
+        transform = transforms.Compose([transforms.Resize((224, 224)), transforms.ToTensor()])
+        x = transform(Image.fromarray(arr))
+
+        return score_frame_hybrid(
+            resnet, ae, x, class_names,
+            anomaly_threshold=float(meta["anomaly_threshold"]),
+            alpha=float(meta.get("fusion_alpha", 0.70)),
+            device=device,
+        )["V_vision"]
+    except Exception:
+        return None
+
 
 class SmartShieldEngine:
   """Singleton-style loader for TF-IDF + optional tabular models."""
@@ -118,7 +174,8 @@ class SmartShieldEngine:
 
       alert = custom_alert.strip() or WEATHER_PRESETS.get(weather, WEATHER_PRESETS["clear"])
       t_nlp = t_score_from_text(alert, self.tfidf)
-      v_vision = VISION_BY_PRESET.get(weather, 0.15)
+      v_hybrid = _vision_score_for_weather(weather)
+      v_vision = v_hybrid if v_hybrid is not None else VISION_BY_PRESET.get(weather, 0.15)
 
       fused = fuse_scenario(
           t_nlp=t_nlp,

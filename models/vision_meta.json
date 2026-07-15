@@ -1,0 +1,13 @@
+{
+  "anomaly_threshold": 0.0028423099487554183,
+  "fusion_alpha": 0.7,
+  "class_names": [
+    "Clear Asphalt",
+    "Wet / Slush",
+    "Snow / Ice"
+  ],
+  "hazard_classes": [
+    "Wet / Slush",
+    "Snow / Ice"
+  ]
+}

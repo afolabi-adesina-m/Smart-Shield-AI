@@ -11,6 +11,12 @@ def find_project_root(start: Path | None = None) -> Path:
     for base in [start, *start.parents]:
         if (base / "explanations" / "build_all.py").is_file():
             return base
+        if (base / "src" / "vision_brain.py").is_file() and (base / "notebooks").is_dir():
+            return base
+    # Prefer script-relative root when launched from elsewhere
+    script_guess = Path(__file__).resolve().parent.parent
+    if (script_guess / "src" / "vision_brain.py").is_file():
+        return script_guess
     raise FileNotFoundError("Could not locate Smart-Shield project root (missing explanations/build_all.py)")
 
 
