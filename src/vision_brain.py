@@ -614,40 +614,72 @@ def build_clear_only_dataset(max_per_class: int = 120, cache_dir: Optional[str] 
     return TensorDataset(X[tr]), TensorDataset(X[va])
 
 
+def _tensor_to_display_rgb(t) -> np.ndarray:
+    """CHW tensor → HWC float RGB in [0, 1] for matplotlib (handles [0,1] or ImageNet norm)."""
+    import torch
+
+    if hasattr(t, "detach"):
+        t = t.detach().cpu().float()
+    if t.ndim == 4:
+        t = t[0]
+    x = t.numpy() if hasattr(t, "numpy") else np.asarray(t)
+    # CHW
+    if x.shape[0] == 3:
+        # Heuristic: ImageNet-normalized tensors have negative values / std-scale
+        if x.min() < -0.05 or x.max() > 1.05:
+            mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)[:, None, None]
+            std = np.array([0.229, 0.224, 0.225], dtype=np.float32)[:, None, None]
+            x = x * std + mean
+        x = np.transpose(x, (1, 2, 0))
+    return np.clip(x, 0.0, 1.0)
+
+
 def _make_road_autoencoder():
-    """Convolutional autoencoder for 224x224 RGB road frames."""
+    """U-Net-lite AE for 224×224 RGB — recognizable reconstructions for demos.
+
+    One skip connection preserves edges/texture that a pure bottleneck blurs away.
+    Still trained only on Clear Asphalt so wet/snow tend to have higher MSE.
+    """
+    import torch
     import torch.nn as nn
+    import torch.nn.functional as F
 
     class RoadAutoencoder(nn.Module):
-        def __init__(self, latent_dim: int = 128):
+        def __init__(self):
             super().__init__()
-            self.encoder = nn.Sequential(
+            self.enc1 = nn.Sequential(  # 224 → 112
                 nn.Conv2d(3, 32, 3, stride=2, padding=1),
-                nn.ReLU(),
-                nn.Conv2d(32, 64, 3, stride=2, padding=1),
-                nn.ReLU(),
-                nn.Conv2d(64, 128, 3, stride=2, padding=1),
-                nn.ReLU(),
-                nn.Flatten(),
-                nn.Linear(128 * 28 * 28, latent_dim),
+                nn.ReLU(inplace=True),
             )
-            self.decoder = nn.Sequential(
-                nn.Linear(latent_dim, 128 * 28 * 28),
-                nn.ReLU(),
-                nn.Unflatten(1, (128, 28, 28)),
-                nn.ConvTranspose2d(128, 64, 4, stride=2, padding=1),
-                nn.ReLU(),
+            self.enc2 = nn.Sequential(  # 112 → 56
+                nn.Conv2d(32, 64, 3, stride=2, padding=1),
+                nn.ReLU(inplace=True),
+            )
+            self.bottleneck = nn.Sequential(
+                nn.Conv2d(64, 64, 3, stride=1, padding=1),
+                nn.ReLU(inplace=True),
+            )
+            self.up = nn.Sequential(  # 56 → 112
                 nn.ConvTranspose2d(64, 32, 4, stride=2, padding=1),
-                nn.ReLU(),
-                nn.ConvTranspose2d(32, 3, 4, stride=2, padding=1),
+                nn.ReLU(inplace=True),
+            )
+            self.out = nn.Sequential(  # 112 → 224 (32 skip + 32 up)
+                nn.ConvTranspose2d(64, 3, 4, stride=2, padding=1),
                 nn.Sigmoid(),
             )
 
         def forward(self, x):
-            return self.decoder(self.encoder(x))
+            e1 = self.enc1(x)
+            e2 = self.enc2(e1)
+            z = self.bottleneck(e2)
+            d = self.up(z)
+            return self.out(torch.cat([d, e1], dim=1))
 
         def encode(self, x):
-            return self.encoder(x)
+            """Bottleneck pooled features for t-SNE."""
+            z = self.bottleneck(self.enc2(self.enc1(x)))
+            z = F.adaptive_avg_pool2d(z, (14, 14))
+            return z.flatten(1)
 
     return RoadAutoencoder()
 
@@ -655,13 +687,18 @@ def _make_road_autoencoder():
 def train_road_autoencoder(
     train_ds,
     val_ds,
-    epochs: int = 6,
+    epochs: int = 20,
     lr: float = 1e-3,
-    patience: int = 3,
+    patience: int = 6,
     min_delta: float = 1e-5,
+    noise_std: float = 0.02,
     device=None,
 ):
-    """Train AE on clear-road images with early stopping on val MSE. Returns (model, history)."""
+    """Train AE on clear-road images with early stopping on val MSE. Returns (model, history).
+
+    Uses light input noise early in training so the decoder cannot collapse to a
+    single mean-asphalt colour (the usual cause of flat pink/grey reconstructions).
+    """
     import copy
     import torch
     import torch.nn as nn
@@ -672,9 +709,9 @@ def train_road_autoencoder(
 
     model = _make_road_autoencoder().to(device)
     criterion = nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-6)
 
-    train_dl = DataLoader(train_ds, batch_size=16, shuffle=True)
+    train_dl = DataLoader(train_ds, batch_size=16, shuffle=True, drop_last=False)
     val_dl = DataLoader(val_ds, batch_size=16)
 
     history = {"train_loss": [], "val_loss": [], "best_epoch": None}
@@ -687,22 +724,32 @@ def train_road_autoencoder(
         for epoch in range(epochs):
             model.train()
             total = 0.0
+            n_seen = 0
+            # Fade noise after the first half of training so detail can sharpen
+            ep_noise = noise_std if epoch < max(1, epochs // 2) else noise_std * 0.25
             for (xb,) in train_dl:
                 xb = xb.to(device)
+                if ep_noise and ep_noise > 0:
+                    xb_in = (xb + ep_noise * torch.randn_like(xb)).clamp(0.0, 1.0)
+                else:
+                    xb_in = xb
                 optimizer.zero_grad()
-                loss = criterion(model(xb), xb)
+                loss = criterion(model(xb_in), xb)
                 loss.backward()
                 optimizer.step()
                 total += loss.item() * len(xb)
-            train_loss = total / max(len(train_ds), 1)
+                n_seen += len(xb)
+            train_loss = total / max(n_seen, 1)
 
             model.eval()
             vtotal = 0.0
+            n_val = 0
             with torch.no_grad():
                 for (xb,) in val_dl:
                     xb = xb.to(device)
                     vtotal += criterion(model(xb), xb).item() * len(xb)
-            val_loss = vtotal / max(len(val_ds), 1)
+                    n_val += len(xb)
+            val_loss = vtotal / max(n_val, 1)
             history["train_loss"].append(train_loss)
             history["val_loss"].append(val_loss)
             print(f"  AE Epoch {epoch+1}/{epochs}  train_mse={train_loss:.5f}  val_mse={val_loss:.5f}")
@@ -857,7 +904,11 @@ def score_frame_hybrid(
 
 
 def plot_reconstruction_samples(ae_model, dataset, n: int = 3, device=None, title: str = "Autoencoder Reconstructions") -> None:
-    """Show original vs reconstructed clear-road frames."""
+    """Show original vs reconstructed clear-road frames (with per-image MSE).
+
+    Flat pink/grey blobs usually mean the AE collapsed to the mean asphalt colour —
+    retrain with more epochs / noise (see ``train_road_autoencoder``).
+    """
     import torch
 
     if device is None:
@@ -865,29 +916,45 @@ def plot_reconstruction_samples(ae_model, dataset, n: int = 3, device=None, titl
 
     ae_model.eval()
     shown = 0
-    fig, axes = plt.subplots(2, n, figsize=(3.2 * n, 6))
+    fig, axes = plt.subplots(2, n, figsize=(3.2 * n, 6.2))
     if n == 1:
         axes = np.array([[axes[0]], [axes[1]]])
 
+    recon_vars = []
     with torch.no_grad():
         for (xb,) in torch.utils.data.DataLoader(dataset, batch_size=1):
             xb = xb.to(device)
-            recon = ae_model(xb).cpu()
-            orig = xb.cpu().squeeze(0).permute(1, 2, 0).numpy()
-            rec = recon.squeeze(0).permute(1, 2, 0).numpy()
-            axes[0, shown].imshow(np.clip(orig, 0, 1))
+            recon = ae_model(xb)
+            mse = float(torch.mean((xb - recon) ** 2).item())
+            orig = _tensor_to_display_rgb(xb)
+            rec = _tensor_to_display_rgb(recon)
+            recon_vars.append(float(np.var(rec)))
+
+            axes[0, shown].imshow(orig)
             axes[0, shown].axis("off")
             axes[0, shown].set_title("Original", fontsize=9)
-            axes[1, shown].imshow(np.clip(rec, 0, 1))
+            axes[1, shown].imshow(rec)
             axes[1, shown].axis("off")
-            axes[1, shown].set_title("Reconstructed", fontsize=9)
+            axes[1, shown].set_title(f"Recon  MSE={mse:.4f}", fontsize=9)
             shown += 1
             if shown >= n:
                 break
 
-    fig.suptitle(title, fontweight="bold")
+    # Warn when reconstructions look collapsed (near-constant colour)
+    if recon_vars and float(np.mean(recon_vars)) < 5e-5:
+        fig.suptitle(
+            title + "\n(warning: near-constant recons — re-run 6.2b after updating vision_brain.py)",
+            fontweight="bold",
+            color="#B85C38",
+        )
+    else:
+        fig.suptitle(title, fontweight="bold")
     plt.tight_layout()
     plt.show()
+    print(
+        "Note: Soft/blurry reconstructions are normal for MSE autoencoders on asphalt texture. "
+        "You should still see coarse structure (lanes, brightness). Solid pink/grey slabs with no structure mean retraining is needed."
+    )
 
 
 def compare_vision_backends(

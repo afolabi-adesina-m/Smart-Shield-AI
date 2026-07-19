@@ -1,6 +1,6 @@
 {
-  "anomaly_threshold": 0.0028423099487554183,
-  "fusion_alpha": 0.7,
+  "anomaly_threshold": 0.007923374325036998,
+  "fusion_alpha": 1.0,
   "class_names": [
     "Clear Asphalt",
     "Wet / Slush",
@@ -9,5 +9,32 @@
   "hazard_classes": [
     "Wet / Slush",
     "Snow / Ice"
+  ],
+  "selected_backend": "ResNet18",
+  "use_hybrid": false,
+  "selection_reason": "Highest selection score (0.6783).",
+  "comparison": [
+    {
+      "Backend": "ResNet18",
+      "Mean V | Clear": 0.246,
+      "Mean V | Wet/Slush": 0.8132,
+      "Mean V | Snow/Ice": 0.9176,
+      "Snow\u2212Clear gap": 0.6716,
+      "Wet\u2212Clear gap": 0.5672,
+      "Ranking OK (Snow\u2265Wet\u2265Clear)": true,
+      "Selection score": 0.6783,
+      "N frames": 93
+    },
+    {
+      "Backend": "ResNet18 + Autoencoder",
+      "Mean V | Clear": 0.4722,
+      "Mean V | Wet/Slush": 0.8693,
+      "Mean V | Snow/Ice": 0.9423,
+      "Snow\u2212Clear gap": 0.4701,
+      "Wet\u2212Clear gap": 0.397,
+      "Ranking OK (Snow\u2265Wet\u2265Clear)": true,
+      "Selection score": 0.5048,
+      "N frames": 93
+    }
   ]
 }

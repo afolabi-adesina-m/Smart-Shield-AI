@@ -1,9 +1,17 @@
 # Ontario Smart-Shield capstone — ai_work_final environment
-# Install:
-#   conda activate ai_work_final
-#   pip install -r requirements-capstone.txt
+# Install base deps:
+#   pip install -r requirements.txt
+#
+# Then install ONE of the PyTorch options:
+#
+#   # Option A — CUDA / GPU machines (DGX, Colab-style NVIDIA hosts)
+#   pip install torch>=2.4 torchvision --index-url https://download.pytorch.org/whl/cu124
+#
+#   # Option B — CPU-only (laptops without NVIDIA GPU)
 #   pip install torch>=2.4 torchvision --index-url https://download.pytorch.org/whl/cpu
+#
 # Then: Kernel -> Restart in the notebook
+# The notebook setup cell also auto-chooses A vs B via an if statement.
 
 pandas
 numpy

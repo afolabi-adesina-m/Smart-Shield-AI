@@ -1,5 +1,2 @@
 Dataset,Rows,Year range,Used for
 Toronto TPS (modelling),"809,034",2014–2026,"Section 7 ML (RF, kNN, DNN, …)"
-UK DfT,"100,927",2024–2024,Paper 2 EDA merge (Section 2.4)
-Seattle SDOT,"260,312",2003-10-06 – 2026-06-02,Paper 2 EDA merge (Section 2.4)
-df_paper2_merged (SDOT+DfT),"296,250",SDOT 2003–2026 + DfT 2024,Replicate Jiang et al. Tables 2–4

@@ -1,7 +1,7 @@
 Model,Our variant,Paper Accuracy,Ours Accuracy,Δ Accuracy,Paper Rec (M),Ours Rec (M),Δ Rec (M),Paper F1 (M),Ours F1 (M),Δ F1 (M),Paper AUC (OvR),Ours AUC (OvR),Δ AUC (OvR)
-Logistic Regression,Logistic Regression,0.79,0.778,-0.012,0.79,0.5444,-0.246,0.79,0.3501,-0.44,,0.6285,
-K-Nearest Neighbours,K-Nearest Neighbours,0.82,0.8822,0.062,0.82,0.4054,-0.415,0.82,0.4278,-0.392,,0.5819,
-Decision Tree,Decision Tree,0.84,0.7583,-0.082,0.84,0.4809,-0.359,0.84,0.3779,-0.462,,0.5903,
-Random Forest,Random Forest (Tuned),0.878,0.751,-0.127,0.878,0.4781,-0.4,0.878,0.3763,-0.502,0.852,0.5907,-0.261
+Logistic Regression,Logistic Regression,0.79,0.7784,-0.012,0.79,0.5446,-0.245,0.79,0.3502,-0.44,,0.6283,
+K-Nearest Neighbours,K-Nearest Neighbours,0.82,0.8815,0.061,0.82,0.4057,-0.414,0.82,0.4279,-0.392,,0.5814,
+Decision Tree,Decision Tree,0.84,0.7618,-0.078,0.84,0.4729,-0.367,0.84,0.3775,-0.462,,0.5856,
+Random Forest,Random Forest (Tuned),0.878,0.7524,-0.126,0.878,0.472,-0.406,0.878,0.3757,-0.502,0.852,0.5894,-0.263
 DNN,DNN (PyTorch),0.911,,,0.955,,,0.934,,,0.759,,
-LightGBM (extension),LightGBM,—,0.7756,,—,0.4857,,—,0.3809,,—,0.619,
+LightGBM (extension),LightGBM,—,0.7592,,—,0.47,,—,0.3772,,—,0.6191,
