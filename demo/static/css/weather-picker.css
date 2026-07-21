@@ -108,6 +108,89 @@
   font-weight: 600;
 }
 
+.force-preset-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 4px;
+  font-size: 0.72rem;
+  color: var(--google-grey, #5f6368);
+  cursor: pointer;
+}
+
+.force-preset-row input[type="checkbox"] {
+  width: auto;
+  min-height: 0;
+  margin: 0;
+  accent-color: #1a73e8;
+}
+
+.data-source-line {
+  margin-top: 6px;
+  font-size: 0.68rem;
+  color: var(--google-grey, #5f6368);
+}
+
+.data-source-line .live-tag {
+  color: #137333;
+  font-weight: 600;
+}
+
+.data-source-line .fallback-tag {
+  color: #b06000;
+  font-weight: 600;
+}
+
+.live-details {
+  margin-top: 6px;
+}
+
+.live-conditions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.live-conditions span {
+  font-size: 0.68rem;
+  background: #e6f4ea;
+  color: #137333;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.live-alert-quote {
+  margin-top: 6px;
+  font-size: 0.72rem;
+  color: #3c4043;
+  line-height: 1.4;
+  font-style: italic;
+  background: #f8f9fa;
+  border-left: 3px solid #1a73e8;
+  padding: 6px 10px;
+  border-radius: 0 6px 6px 0;
+}
+
+.live-alert-label {
+  display: block;
+  font-size: 0.62rem;
+  font-weight: 700;
+  font-style: normal;
+  letter-spacing: 0.02em;
+  color: var(--google-blue, #1a73e8);
+  margin-bottom: 2px;
+}
+
+.live-fallback-note {
+  margin-top: 6px;
+  font-size: 0.7rem;
+  color: #b06000;
+  font-style: italic;
+}
+
 @media (max-width: 360px) {
   .weather-picker {
     grid-template-columns: 1fr;
