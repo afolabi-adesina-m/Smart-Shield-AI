@@ -117,13 +117,18 @@ async function findRoutes() {
       distance_m: route.distance,
       duration_s: route.duration,
       summary: route.summary || `Route ${i + 1}`,
+      // Fix 2/3: midpoint from /api/directions lets the backend look up
+      // real nearby 511 alerts + real weather for this route.
+      mid_lat: route.mid_lat,
+      mid_lon: route.mid_lon,
     }));
 
     status.textContent = "Scoring with Smart-Shield…";
+    const forcePreset = document.getElementById("force-preset")?.checked ?? false;
     const resp = await fetch("/api/score-routes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ routes, weather }),
+      body: JSON.stringify({ routes, weather, force_preset: forcePreset }),
     });
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.error || "API error");
@@ -256,6 +261,7 @@ function renderRouteCards(scored) {
         ${speedLine}
       </div>
       <div class="route-brains">${r.tier} · T=${r.T_nlp} V=${r.V_vision} E=${r.E_index}</div>
+      ${renderLiveDetails(r)}
     `;
 
     card.addEventListener("click", () => {
@@ -328,8 +334,4 @@ function updateMapBadge(route) {
   scoreEl.style.color = route.tier_color;
 }
 
-function escapeHtml(s) {
-  const d = document.createElement("div");
-  d.textContent = s;
-  return d.innerHTML;
-}
+
