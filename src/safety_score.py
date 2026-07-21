@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 # Brain fusion weights (charter defaults; Lasso can tune in production)
 W_T = 0.25
 W_V = 0.35
 W_E = 0.40
 
-# E_index component weights (Paper 2 grounded)
+# E_index component weights (Paper 2 grounded).
+# NOTE: these combination weights are UK-dataset-derived. Fix 3 (live
+# weather) only replaces *how the four inputs are measured* — real surface/
+# visibility/wind/temp instead of a calendar guess — it does not recalibrate
+# how they're weighted together. Re-weighting for Ontario conditions is a
+# separate, still-open task.
 E_WEIGHTS = {"surface": 0.35, "visibility": 0.30, "wind": 0.20, "temp": 0.15}
 
 POSTED_SPEED_KMH = 100  # typical 400-series limit
@@ -41,7 +46,15 @@ def e_index_from_features(
     is_night: int,
     is_winter_storm: bool = False,
 ) -> float:
-    """Derive E_index from tabular scenario features (matches live test cases)."""
+    """FALLBACK ONLY (Fix 3). Guess E_index from the calendar month/season
+    and a manually-set storm flag, when real conditions aren't available.
+
+    Callers should prefer a real E_index — see live_weather.py's
+    live_risk_components() -> compute_e_index() — and pass it to
+    fuse_scenario() via e_index_override. This function is what
+    inference.py now falls back to only when the live weather fetch fails
+    or no route coordinates were given.
+    """
     surface = 1.0 if is_winter_storm or season_num == 1 else 0.2
     wind = 1.0 if is_winter_storm else (0.5 if season_num == 1 else 0.1)
     visibility = min(1.0, 0.8 * is_night + 0.2 * (1 - is_night))
@@ -136,9 +149,20 @@ def fuse_scenario(
     season_num: int,
     is_night: int,
     is_winter_storm: bool = False,
+    e_index_override: Optional[float] = None,
 ) -> Dict[str, float]:
-    """Full fusion for one highway scenario."""
-    e = e_index_from_features(month_num, season_num, is_night, is_winter_storm)
+    """
+    Full fusion for one highway scenario.
+
+    e_index_override: pass a real E_index (e.g. from live_weather.py,
+    via compute_e_index()) to use it directly instead of the calendar-based
+    e_index_from_features() guess. Existing callers that don't pass this
+    are unaffected — behaviour is identical to before.
+    """
+    if e_index_override is not None:
+        e = min(1.0, max(0.0, e_index_override))
+    else:
+        e = e_index_from_features(month_num, season_num, is_night, is_winter_storm)
     s = compute_safety_score(t_nlp, v_vision, e)
     _, _, speed_frac = risk_tier(s)
     advisory = build_operational_advisory(s)
