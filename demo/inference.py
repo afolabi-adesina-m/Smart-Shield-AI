@@ -17,7 +17,13 @@ if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
 from nlp_brain import SCENARIO_ALERTS, fit_tfidf, t_score_from_text
-from safety_score import build_operational_advisory, fuse_scenario
+from safety_score import build_operational_advisory, compute_e_index, fuse_scenario
+
+# Fix 2 / Fix 3 — live 511 alerts + live weather. Both modules never raise;
+# they return None on any failure so callers always have a safe fallback to
+# the existing preset/calendar-based behaviour below.
+from Live_alerts import nearby_alert_text
+from Live_weather import live_risk_components
 
 MODELS_DIR = _ROOT / "models"
 
@@ -35,62 +41,6 @@ VISION_BY_PRESET = {
     "blizzard": 0.88,
     "ice_storm": 0.82,
 }
-
-WEATHER_TO_SURFACE = {
-    "clear": "Clear Asphalt",
-    "wet": "Wet / Slush",
-    "blizzard": "Snow / Ice",
-    "ice_storm": "Snow / Ice",
-}
-
-
-def _vision_score_for_weather(weather: str) -> Optional[float]:
-    """Hybrid V_vision from saved models; None if artifacts missing."""
-    meta_path = MODELS_DIR / "vision_meta.json"
-    resnet_path = MODELS_DIR / "vision_resnet18.pt"
-    ae_path = MODELS_DIR / "vision_autoencoder.pt"
-    if not all(p.is_file() for p in (meta_path, resnet_path, ae_path)):
-        return None
-    try:
-        import json
-        import torch
-        import torch.nn as nn
-        from PIL import Image
-        from torchvision import models, transforms
-        from vision_brain import (
-            DISPLAY_ORDER,
-            _make_road_autoencoder,
-            _synthetic_samples,
-            score_frame_hybrid,
-        )
-
-        meta = json.loads(meta_path.read_text(encoding="utf-8"))
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        class_names = meta.get("class_names", DISPLAY_ORDER)
-
-        resnet = models.resnet18(weights=None)
-        resnet.fc = nn.Linear(resnet.fc.in_features, len(class_names))
-        resnet.load_state_dict(torch.load(resnet_path, map_location=device, weights_only=True))
-        resnet = resnet.to(device).eval()
-
-        ae = _make_road_autoencoder()
-        ae.load_state_dict(torch.load(ae_path, map_location=device, weights_only=True))
-        ae = ae.to(device).eval()
-
-        surface = WEATHER_TO_SURFACE.get(weather, "Clear Asphalt")
-        images, labels = _synthetic_samples(1)
-        arr = next(a for a, lbl in zip(images, labels) if lbl == surface)
-        transform = transforms.Compose([transforms.Resize((224, 224)), transforms.ToTensor()])
-        x = transform(Image.fromarray(arr))
-
-        return score_frame_hybrid(
-            resnet, ae, x, class_names,
-            anomaly_threshold=float(meta["anomaly_threshold"]),
-            alpha=float(meta.get("fusion_alpha", 0.70)),
-            device=device,
-        )["V_vision"]
-    except Exception:
-        return None
 
 
 class SmartShieldEngine:
@@ -163,19 +113,62 @@ class SmartShieldEngine:
       hour: Optional[int] = None,
       month: Optional[int] = None,
       route_index: int = 0,
+      lat: Optional[float] = None,
+      lon: Optional[float] = None,
+      force_preset: bool = False,
   ) -> Dict[str, Any]:
-      """Fuse T+V+E into Safety Score S for one Directions API route leg."""
+      """Fuse T+V+E into Safety Score S for one Directions API route leg.
+
+      lat/lon (Fix 2 + Fix 3): when provided, real conditions near the route
+      are used instead of the manual weather dropdown:
+        - E_index comes from Live_weather.live_risk_components() (real
+          surface/visibility/wind/temp), via safety_score.compute_e_index().
+        - The NLP alert text comes from Live_alerts.nearby_alert_text()
+          (real Ontario 511 events) instead of the fixed preset string.
+      Either live source can fail independently (no network, nothing
+      nearby, etc). Each falls back on its own to the previous behaviour —
+      the calendar-based E_index guess, and the fixed preset/custom text —
+      so the demo never breaks when live data isn't available.
+      """
       now = datetime.now()
       hour = hour if hour is not None else now.hour
       month = month if month is not None else now.month
-      is_night = 1 if hour < 6 or hour >= 20 else 0
       is_rush = 1 if hour in (7, 8, 9, 16, 17, 18) else 0
-      is_winter_storm = weather in ("blizzard", "ice_storm")
 
-      alert = custom_alert.strip() or WEATHER_PRESETS.get(weather, WEATHER_PRESETS["clear"])
+      use_live = not force_preset and lat is not None and lon is not None
+
+      # --- Fix 2: prefer a real nearby 511 alert over the fixed preset text.
+      live_alert = nearby_alert_text(lat, lon) if use_live else None
+      if custom_alert.strip():
+          alert = custom_alert.strip()
+          alert_source = "custom"
+      elif live_alert:
+          alert = live_alert
+          alert_source = "live_511"
+      else:
+          alert = WEATHER_PRESETS.get(weather, WEATHER_PRESETS["clear"])
+          alert_source = "preset_fallback"
       t_nlp = t_score_from_text(alert, self.tfidf)
-      v_hybrid = _vision_score_for_weather(weather)
-      v_vision = v_hybrid if v_hybrid is not None else VISION_BY_PRESET.get(weather, 0.15)
+
+      # --- Fix 3: prefer real weather over the calendar-based E_index guess.
+      live_weather = live_risk_components(lat, lon) if use_live else None
+      if live_weather:
+          e_index_override = compute_e_index(
+              live_weather["surface_risk"],
+              live_weather["visibility_risk"],
+              live_weather["wind_risk"],
+              live_weather["temp_risk"],
+          )
+          is_night = 0 if live_weather["is_day"] else 1
+          is_winter_storm = False  # unused once e_index_override is set
+          e_source = "live_weather"
+      else:
+          e_index_override = None
+          is_night = 1 if hour < 6 or hour >= 20 else 0
+          is_winter_storm = weather in ("blizzard", "ice_storm")
+          e_source = "calendar_fallback"
+
+      v_vision = VISION_BY_PRESET.get(weather, 0.15)
 
       fused = fuse_scenario(
           t_nlp=t_nlp,
@@ -184,6 +177,7 @@ class SmartShieldEngine:
           season_num=self._season(month),
           is_night=is_night,
           is_winter_storm=is_winter_storm,
+          e_index_override=e_index_override,
       )
 
       # Small route-specific adjustments (demo: alternate paths differ slightly)
@@ -221,6 +215,11 @@ class SmartShieldEngine:
           "collision_risk_calibrated": False,
           "weather_preset": weather,
           "alert_preview": alert[:120] + ("..." if len(alert) > 120 else ""),
+          "alert_source": alert_source,
+          "e_index_source": e_source,
+          "live_weather_raw": {
+              k: v for k, v in live_weather.items() if k.startswith("raw_")
+          } if live_weather else None,
       }
 
 
@@ -232,7 +231,12 @@ def _fmt_duration(minutes: float) -> str:
     return f"{h} hr {rem} min" if rem else f"{h} hr"
 
 
-def score_routes_batch(routes: List[Dict], weather: str = "clear", custom_alert: str = "") -> List[Dict]:
+def score_routes_batch(
+    routes: List[Dict],
+    weather: str = "clear",
+    custom_alert: str = "",
+    force_preset: bool = False,
+) -> List[Dict]:
     engine = SmartShieldEngine()
     out = []
     for i, r in enumerate(routes[:3]):
@@ -244,6 +248,9 @@ def score_routes_batch(routes: List[Dict], weather: str = "clear", custom_alert:
             hour=r.get("hour"),
             month=r.get("month"),
             route_index=i,
+            lat=r.get("lat", r.get("mid_lat")),
+            lon=r.get("lon", r.get("mid_lon")),
+            force_preset=force_preset,
         )
         scored["route_index"] = i
         scored["summary"] = r.get("summary", f"Route {i + 1}")

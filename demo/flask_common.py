@@ -86,11 +86,18 @@ def register_api_routes(app: Flask) -> None:
 
             routes = []
             for i, route in enumerate(data.get("routes", [])[:3]):
+                geom = route["geometry"]["coordinates"]
+                mid = geom[len(geom) // 2] if geom else None
                 routes.append({
                     "distance": route["distance"],
                     "duration": route["duration"],
                     "summary": _route_label(i, route["distance"] / 1000, route["duration"] / 60),
-                    "geometry": route["geometry"]["coordinates"],
+                    "geometry": geom,
+                    # Fix 2/3: midpoint used for live 511 alert + live weather
+                    # lookups. Frontend should echo these back as "lat"/"lon"
+                    # per route when calling /api/score-routes.
+                    "mid_lon": mid[0] if mid else None,
+                    "mid_lat": mid[1] if mid else None,
                 })
             return jsonify({"routes": routes})
         except Exception as exc:
@@ -98,7 +105,13 @@ def register_api_routes(app: Flask) -> None:
 
     @app.get("/api/presets")
     def presets():
+        # Fix 2/3: live 511 alerts + live weather are now the default source
+        # for /api/score-routes (see mid_lat/mid_lon on /api/directions
+        # routes). These presets are kept only as a manual override (e.g.
+        # "show me what an ice storm would look like") or as the fallback
+        # used automatically when live data can't be reached.
         return jsonify({
+            "mode": "manual_override_and_fallback",
             "weather": list(WEATHER_PRESETS.keys()),
             "labels": {
                 "clear": "Clear — summer highway",
@@ -117,7 +130,12 @@ def register_api_routes(app: Flask) -> None:
 
         weather = body.get("weather", "clear")
         custom_alert = body.get("custom_alert", "")
-        scored = score_routes_batch(routes, weather=weather, custom_alert=custom_alert)
+        # True when the person explicitly picked a preset to override live
+        # data (e.g. demoing "what would an ice storm look like here").
+        force_preset = bool(body.get("force_preset", False))
+        scored = score_routes_batch(
+            routes, weather=weather, custom_alert=custom_alert, force_preset=force_preset
+        )
         return jsonify({
             "routes": scored,
             "best_route_index": scored[0]["route_index"] if scored else 0,
