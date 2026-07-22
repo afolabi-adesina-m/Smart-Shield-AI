@@ -2,78 +2,69 @@
 %% Re-run: python explanations/build_all.py
 
 flowchart TB
-    subgraph L0["LANE: Environment Setup"]
+    subgraph L0["LANE: Setup and Repo Layout"]
         direction LR
-        S1["S1: Environment Setup\nDetect runtime; install packages; resolve DATA path."]
-        S2["S2: Imports\nLoad libraries; confirm SMOTE/LGBM/PyTorch."]
+        S1["S1: Environment\nPython 3.10 venv; CUDA or CPU PyTorch; resolve DATA path."]
+        S2["S2: Notebook Split\nWork in parts/01–04; sync to master notebook."]
         S1 --> S2
     end
 
-    subgraph L1["LANE: Sprint 1-2 - Data and EDA"]
+    subgraph L1["LANE: Part 01 - Charter, EDA, Features"]
         direction LR
-        S3["S3: Load Data\nRead Toronto + DfT CSVs."]
-        S4["S4: Descriptive Statistics\nShape, missing values, numeric summaries."]
-        S5["S5: SEVERITY target\nEngineer 3-class label; class distribution."]
-        S6["S6: Distribution Plots\nTemporal and spatial EDA charts."]
-        S7["S7: DfT / Paper 2\nWeather/surface stats; E_index calibration."]
+        S3["S3: Load Data\nToronto TPS + UK DfT + Seattle SDOT."]
+        S4["S4: EDA and Paper 2\nReproduce hazard tables; calibrate E weights."]
+        S5["S5: SEVERITY Target\nEngineer 0/1/2 severity label."]
+        S6["S6: Features\nClean, correlate, 3-method feature vote."]
         S3 --> S4
         S4 --> S5
         S5 --> S6
-        S6 --> S7
     end
 
-    subgraph L2["LANE: Sprint 1-2 - Preprocess and Features"]
+    subgraph L2["LANE: Part 02 - Vision Brain"]
         direction LR
-        S8["S8: Toronto Preprocessing\nClean data; engineer features."]
-        S9["S9: DfT Preprocessing\nEncode UK hazard flags."]
-        S10["S10: Correlation Analysis\nPearson, chi-square, point-biserial."]
-        S11["S11: Feature Selection\n3-method voting."]
+        S7["S7: RSCD Cache\nCurate balanced Clear/Wet/Snow (~1086 images)."]
+        S8["S8: Fine-tune ResNet18\n~78/22 train/val; ImageNet transfer; early stop."]
+        S9["S9: Train Autoencoder\nClear-Asphalt only; MSE anomaly score."]
+        S10["S10: Backend Select\nCompare ResNet vs hybrid; pick ResNet-only."]
+        S7 --> S8
         S8 --> S9
         S9 --> S10
-        S10 --> S11
     end
 
-    subgraph L3["LANE: Sprint 2 - Vision Brain"]
+    subgraph L3["LANE: Part 03 - Tabular ML and Ethics"]
         direction LR
-        S12["S12: Sample Images\nLoad vision_cache grid."]
-        S13["S13: Fine-tune ResNet18\n80/20 train/val; save weights."]
+        S11["S11: Prepare Tabular\n80/20 stratified split; SMOTE on train; scale."]
+        S12["S12: Train and Tune\nLR/RF/LGBM/DNN/GLU; GridSearchCV."]
+        S13["S13: Select and Audit\nMCC/recall compare; fairness register."]
+        S11 --> S12
         S12 --> S13
     end
 
-    subgraph L4["LANE: Sprint 2 - Tabular ML"]
+    subgraph L4["LANE: Part 04 - Fusion and Serialize"]
         direction LR
-        S14["S14: Data Preparation\n80/20 split; SMOTE; scaler."]
-        S15["S15: Baselines\nLR, DT, kNN, RF, LGBM."]
-        S16["S16: GridSearchCV\n3-fold CV tuning."]
-        S17["S17: Evaluate Tuned\nTest metrics; confusion matrices."]
-        S18["S18: DNN\nShieldDNN training."]
-        S19["S19: Model Selection\nCompare; live test cases."]
+        S14["S14: NLP Brain\nTF-IDF + lexicon on 511-style alerts."]
+        S15["S15: Safety Score\nS=(0.25T+0.35V+0.40E)x100; LOW/MED/HIGH tiers."]
+        S16["S16: SHAP and Save\nExplain RF; serialize artifacts to models/."]
         S14 --> S15
         S15 --> S16
-        S16 --> S17
+    end
+
+    subgraph L5["LANE: Live Inputs"]
+        direction LR
+        S17["S17: Geocode and Route\nNominatim + OSRM; route midpoint lat/lon."]
+        S18["S18: Live Weather\nOpen-Meteo auto mode; presets as fallback."]
+        S19["S19: Live 511 Alerts\nOntario 511 events near route; force-scenario checkbox."]
         S17 --> S18
         S18 --> S19
     end
 
-    subgraph L5["LANE: Sprint 2 - Ethics"]
+    subgraph L6["LANE: Demo UI and Scoring"]
         direction LR
-        S20["S20: Fairness Audit\nRisk register; subgroup recall."]
-    end
-
-    subgraph L6["LANE: Sprint 3 - Multimodal Fusion"]
-        direction LR
-        S21["S21: NLP Brain\nTF-IDF alert scoring."]
-        S22["S22: Safety Score\nFuse T+V+E."]
-        S23["S23: SHAP\nExplainability plots."]
-        S24["S24: Deployment\nSerialize models/."]
+        S20["S20: Score Routes\nFuse T+V+E; rank safest; advisory messages."]
+        S21["S21: Desktop Demo\nLeaflet map + sidebar; shared weather-picker."]
+        S22["S22: Mobile Demo\nPortrait map + bottom sheet; shared rendering."]
+        S20 --> S21
         S21 --> S22
-        S22 --> S23
-        S23 --> S24
-    end
-
-    subgraph L7["LANE: Deployment"]
-        direction LR
-        S25["S25: Flask Demo\nMap route scoring."]
     end
 
     L0 --> L1
@@ -82,4 +73,3 @@ flowchart TB
     L3 --> L4
     L4 --> L5
     L5 --> L6
-    L6 --> L7

@@ -280,10 +280,13 @@ def build_splits_doc(defn: dict, split: dict, built_at: str) -> None:
         "best params refit on full training set."
     )
 
-    doc.add_heading("Vision Model (Section 6)", level=2)
+    doc.add_heading("Vision Model (Part 02)", level=2)
+    vision_n = defn["splits"].get("vision_n_images", "curated RSCD sample")
+    vision_bal = defn["splits"].get("vision_class_balance", "Clear / Wet / Snow balanced")
     doc.add_paragraph(
-        f"{split['vision_train_pct']}% train / {split['vision_val_pct']}% validation split "
-        "within the image dataset."
+        f"Working sample: {vision_n} images ({vision_bal}). "
+        f"{split['vision_train_pct']}% train / {split['vision_val_pct']}% validation. "
+        "ResNet18 selected; autoencoder retained experimentally (use_hybrid=False)."
     )
 
     doc.add_heading("What Is NOT Split", level=2)

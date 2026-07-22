@@ -128,10 +128,10 @@ def register_api_routes(app: Flask) -> None:
         if not routes:
             return jsonify({"error": "No routes provided"}), 400
 
-        weather = body.get("weather", "clear")
+        weather = body.get("weather", "auto")
         custom_alert = body.get("custom_alert", "")
-        # True when the person explicitly picked a preset to override live
-        # data (e.g. demoing "what would an ice storm look like here").
+        # Legacy flag only. UI removed Force checkbox: Auto → live,
+        # named presets → that scenario only (see inference.score_route).
         force_preset = bool(body.get("force_preset", False))
         scored = score_routes_batch(
             routes, weather=weather, custom_alert=custom_alert, force_preset=force_preset

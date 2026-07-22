@@ -24,34 +24,35 @@ from pathlib import Path
 
 from notebook_utils import cell_marker, find_project_root, load_notebook, save_notebook
 
+# Ranges match capstone_with_results_fixed_Y_V3 section layout (promoted to master).
 PART_SPECS = [
     {
         "file": "01_charter_eda_features.ipynb",
         "title": "Part 01 — Charter, Literature, EDA & Features",
-        "start_section": "## Section 0b",
-        "end_section": "## Section 6.1",  # exclusive
-        "fallback_range": (0, 101),
+        "start_section": "__START__",  # from top of master notebook
+        "end_section": "## Section 6 · Vision Brain",  # exclusive
+        "fallback_range": (0, 61),
     },
     {
         "file": "02_vision_brain.ipynb",
         "title": "Part 02 — Vision Brain (ResNet + Autoencoder)",
-        "start_section": "## Section 6.1",
-        "end_section": "## Section 7",
-        "fallback_range": (101, 121),
+        "start_section": "## Section 6 · Vision Brain",
+        "end_section": "## Section 8 · Model Training",
+        "fallback_range": (61, 67),
     },
     {
         "file": "03_tabular_ml.ipynb",
         "title": "Part 03 — Tabular ML Training & Ethics",
-        "start_section": "## Section 7",
-        "end_section": "## Section 9.5",
-        "fallback_range": (121, 182),
+        "start_section": "## Section 8 · Model Training",
+        "end_section": "### 10.1",
+        "fallback_range": (67, 97),
     },
     {
         "file": "04_fusion_deploy.ipynb",
         "title": "Part 04 — Unseen Eval, Fusion & Deployment",
-        "start_section": "## Section 9.5",
+        "start_section": "### 10.1",
         "end_section": None,
-        "fallback_range": (182, None),
+        "fallback_range": (97, None),
     },
 ]
 
@@ -67,28 +68,22 @@ def _md_heading(cell: dict) -> str:
 
 
 def _find_section_index(cells: list, heading_prefix: str | None) -> int | None:
+    """Return index of first markdown cell whose *heading line* matches prefix."""
     if heading_prefix is None:
         return len(cells)
-    for i, cell in enumerate(cells):
-        if cell.get("cell_type") != "markdown":
-            continue
-        src = "".join(cell.get("source", [])).lstrip()
-        if src.startswith(heading_prefix) or heading_prefix in src.splitlines()[0] if src else False:
-            # Prefer startswith on first line
-            first = src.splitlines()[0] if src else ""
-            if first.startswith(heading_prefix) or heading_prefix in first:
-                return i
-    # Fuzzy: heading text without emoji quirks
     key = re.sub(r"[^a-z0-9]+", "", heading_prefix.lower())
     for i, cell in enumerate(cells):
         if cell.get("cell_type") != "markdown":
             continue
-        first = "".join(cell.get("source", [])).strip().splitlines()
-        if not first:
-            continue
-        compact = re.sub(r"[^a-z0-9]+", "", first[0].lower())
-        if key and key in compact:
-            return i
+        for line in "".join(cell.get("source", [])).splitlines():
+            s = line.strip()
+            if not s.startswith("#"):
+                continue
+            if s.startswith(heading_prefix):
+                return i
+            compact = re.sub(r"[^a-z0-9]+", "", s.lower())
+            if key and compact.startswith(key):
+                return i
     return None
 
 
@@ -200,7 +195,11 @@ def _nb_skeleton(title: str) -> dict:
 
 def slice_main_cells(main_nb: dict, spec: dict) -> list:
     cells = main_nb["cells"]
-    start = _find_section_index(cells, spec["start_section"])
+    start_key = spec["start_section"]
+    if start_key in (None, "", "__START__"):
+        start = 0
+    else:
+        start = _find_section_index(cells, start_key)
     end = _find_section_index(cells, spec["end_section"]) if spec["end_section"] else len(cells)
     if start is None or end is None or start >= (end or 0):
         a, b = spec["fallback_range"]

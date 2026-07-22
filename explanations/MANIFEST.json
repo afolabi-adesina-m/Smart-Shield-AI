@@ -1,14 +1,14 @@
 {
-  "generated_at": "2026-07-02 05:23 UTC",
+  "generated_at": "2026-07-22 15:31 UTC",
   "generator": "explanations/build_all.py",
   "sources": {
-    "explanations\\definitions.json": 1782966213.0432851,
-    "notebooks\\capstone_with_results.ipynb": 1782969776.1013327,
-    "notebooks\\capstone.ipynb": 1782969776.071076,
+    "explanations/definitions.json": 1784734285.938357,
+    "notebooks/capstone_with_results.ipynb": 1784733469.1705194,
+    "notebooks/capstone.ipynb": 1784733405.933595,
     "src": null,
-    "models\\README.md": 1782507554.5715895,
-    "Data\\README.md": 1782960626.9085047,
-    "notebook_sections_found": 8
+    "models/README.md": 1784733405.9255948,
+    "Data/README.md": 1784733405.9175947,
+    "notebook_sections_found": 31
   },
   "outputs": [
     "Glossary.docx",

@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Smart-Shield AI · Ontario Highway Safety</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="/static/css/demo.css?v=20260628" />
-  <link rel="stylesheet" href="/static/css/weather-picker.css?v=20260627" />
+  <link rel="stylesheet" href="/static/css/demo.css?v=20260722c" />
+  <link rel="stylesheet" href="/static/css/weather-picker.css?v=20260722c" />
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
 </head>
 <body>
@@ -34,14 +34,15 @@
       <input id="origin" type="text" placeholder="Toronto, Ontario" value="Toronto, Ontario" />
       <label>To</label>
       <input id="destination" type="text" placeholder="Barrie, Ontario" value="Barrie, Ontario" />
-      <label>Weather / 511 scenario</label>
-      <input type="hidden" id="weather" value="clear" />
-      <div id="weather-picker" class="weather-picker"></div>
+      <label for="weather">Road conditions</label>
+      <select id="weather" class="weather-select" aria-label="Road conditions">
+        <option value="auto" selected>Auto (live)</option>
+        <option value="clear">Clear</option>
+        <option value="wet">Wet / rain</option>
+        <option value="blizzard">Blizzard</option>
+        <option value="ice_storm">Ice storm</option>
+      </select>
       <p id="weather-summary" class="weather-selected-summary" aria-live="polite"></p>
-      <label class="force-preset-row" for="force-preset">
-        <input type="checkbox" id="force-preset" />
-        Force this scenario (ignore live 511 &amp; weather)
-      </label>
       <button id="btn-route" class="btn-primary">Find safest routes</button>
       <p id="status" class="status-msg"></p>
     </section>
@@ -68,7 +69,7 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="/static/js/weather-picker.js?v=20260627"></script>
-  <script src="/static/js/app.js?v=20260628" defer></script>
+  <script src="/static/js/weather-picker.js?v=20260722c"></script>
+  <script src="/static/js/app.js?v=20260722c" defer></script>
 </body>
 </html>

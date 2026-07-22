@@ -11,10 +11,13 @@ const ROUTE_COLORS = ["#1a73e8", "#e8710a", "#9334e6"];
 
 document.addEventListener("DOMContentLoaded", () => {
   initMap();
-  initWeatherPicker("weather-picker", "weather");
+  initWeatherPicker(null, "weather");
   updateWeatherSummary(document.getElementById("weather").value);
-  document.getElementById("weather-picker").addEventListener("weather-change", (e) => {
+  document.getElementById("weather").addEventListener("weather-change", (e) => {
     updateWeatherSummary(e.detail.value);
+  });
+  document.getElementById("weather").addEventListener("change", (e) => {
+    updateWeatherSummary(e.target.value);
   });
   document.getElementById("btn-route").addEventListener("click", findRoutes);
 });
@@ -22,7 +25,7 @@ document.addEventListener("DOMContentLoaded", () => {
 function updateWeatherSummary(value) {
   const el = document.getElementById("weather-summary");
   if (el) {
-    el.innerHTML = `Selected: <strong>${getWeatherLabel(value)}</strong> — tap Find to score routes.`;
+    el.innerHTML = `Selected: <strong>${getWeatherLabel(value)}</strong>`;
   }
 }
 
@@ -99,11 +102,10 @@ async function findRoutes() {
 
     status.textContent = "Scoring routes with Smart-Shield models…";
 
-    const forcePreset = document.getElementById("force-preset")?.checked ?? false;
     const resp = await fetch("/api/score-routes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ routes, weather, force_preset: forcePreset }),
+      body: JSON.stringify({ routes, weather }),
     });
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.error || "API error");

@@ -1,4 +1,4 @@
-/* Weather scenario chips — shared desktop + mobile */
+/* Weather / road-conditions dropdown — shared desktop + mobile */
 
 .weather-picker-label {
   display: block;
@@ -9,91 +9,31 @@
 }
 
 .weather-picker {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
   margin-bottom: 4px;
 }
 
-.weather-chip {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
+.weather-picker--select {
+  display: block;
+}
+
+.weather-select {
   width: 100%;
-  min-height: 72px;
+  min-height: 42px;
   padding: 10px 12px;
-  border: 2px solid #dadce0;
-  border-radius: 12px;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
   background: #fff;
-  cursor: pointer;
-  text-align: left;
-  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
-  font-family: inherit;
-}
-
-.weather-chip:hover {
-  border-color: #bdc1c6;
-  background: #f8f9fa;
-}
-
-.weather-chip.selected {
-  border-color: #1a73e8;
-  background: #e8f0fe;
-  box-shadow: 0 0 0 1px #1a73e8;
-}
-
-.weather-chip:focus-visible {
-  outline: 2px solid #1a73e8;
-  outline-offset: 2px;
-}
-
-.weather-chip-icon {
-  font-size: 1.25rem;
-  line-height: 1;
-}
-
-.weather-chip-title {
-  display: block;
-  font-size: 0.82rem;
-  font-weight: 600;
   color: #202124;
+  font-family: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
 }
 
-.weather-chip-sub {
-  display: block;
-  font-size: 0.68rem;
-  color: #5f6368;
-  line-height: 1.2;
-}
-
-.weather-chip-hint {
-  font-size: 0.62rem;
-  font-weight: 600;
-  margin-top: 4px;
-  padding: 2px 6px;
-  border-radius: 6px;
-}
-
-.weather-chip.tone-low .weather-chip-hint {
-  color: #137333;
-  background: #e6f4ea;
-}
-
-.weather-chip.tone-med .weather-chip-hint {
-  color: #b06000;
-  background: #fef7e0;
-}
-
-.weather-chip.tone-high .weather-chip-hint {
-  color: #c5221f;
-  background: #fce8e6;
-}
-
-.weather-chip.tone-high.selected {
-  border-color: #c73e1d;
-  background: #fce8e6;
-  box-shadow: 0 0 0 1px #c73e1d;
+.weather-select:focus {
+  outline: none;
+  border-color: #1a73e8;
+  box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2);
 }
 
 .weather-selected-summary {
@@ -106,23 +46,6 @@
 .weather-selected-summary strong {
   color: #202124;
   font-weight: 600;
-}
-
-.force-preset-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 10px 0 4px;
-  font-size: 0.72rem;
-  color: var(--google-grey, #5f6368);
-  cursor: pointer;
-}
-
-.force-preset-row input[type="checkbox"] {
-  width: auto;
-  min-height: 0;
-  margin: 0;
-  accent-color: #1a73e8;
 }
 
 .data-source-line {
@@ -191,20 +114,3 @@
   font-style: italic;
 }
 
-@media (max-width: 360px) {
-  .weather-picker {
-    grid-template-columns: 1fr;
-  }
-
-  .weather-chip {
-    min-height: 64px;
-    flex-direction: row;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .weather-chip-hint {
-    margin-top: 0;
-    margin-left: auto;
-  }
-}

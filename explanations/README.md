@@ -1,7 +1,7 @@
 # Explanations
 
 Auto-generated documentation for the Smart-Shield capstone.  
-**Last built:** 2026-07-02 05:23 UTC  
+**Last built:** 2026-07-22 15:31 UTC  
 **Regenerate:** `python explanations/build_all.py`
 
 ## Outputs
@@ -19,12 +19,10 @@ Auto-generated documentation for the Smart-Shield capstone.
 
 Explanations rebuild automatically when:
 
-1. **Notebook Run All completes** — last cell runs `scripts/post_notebook_run.py` (sync outputs, annotations, docs)
-2. **Cursor hook** — saving `notebooks/*.ipynb` or `explanations/definitions.json` (`.cursor/hooks.json`)
-3. **Git pre-commit** — run `git config core.hooksPath .githooks` once, then each commit rebuilds docs
-4. **Manual** — double-click `explanations/update.bat` or run `python explanations/build_all.py`
-5. **Headless pipeline** — `run_notebook.bat` or `python scripts/run_notebook_pipeline.py`
-6. **Watch mode** — `python explanations/build_all.py --watch` (polls every 30s)
+1. **Cursor hook** — saving `notebooks/*.ipynb` or `explanations/definitions.json` (`.cursor/hooks.json`)
+2. **Git pre-commit** — run `git config core.hooksPath .githooks` once, then each commit rebuilds docs
+3. **Manual** — double-click `explanations/update.bat` or run `python explanations/build_all.py`
+4. **Watch mode** — `python explanations/build_all.py --watch` (polls every 30s)
 
 ## Customize content
 

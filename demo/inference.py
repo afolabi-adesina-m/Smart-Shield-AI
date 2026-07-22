@@ -108,7 +108,7 @@ class SmartShieldEngine:
       *,
       distance_m: float,
       duration_s: float,
-      weather: str = "clear",
+      weather: str = "auto",
       custom_alert: str = "",
       hour: Optional[int] = None,
       month: Optional[int] = None,
@@ -119,23 +119,29 @@ class SmartShieldEngine:
   ) -> Dict[str, Any]:
       """Fuse T+V+E into Safety Score S for one Directions API route leg.
 
-      lat/lon (Fix 2 + Fix 3): when provided, real conditions near the route
-      are used instead of the manual weather dropdown:
-        - E_index comes from Live_weather.live_risk_components() (real
-          surface/visibility/wind/temp), via safety_score.compute_e_index().
-        - The NLP alert text comes from Live_alerts.nearby_alert_text()
-          (real Ontario 511 events) instead of the fixed preset string.
-      Either live source can fail independently (no network, nothing
-      nearby, etc). Each falls back on its own to the previous behaviour —
-      the calendar-based E_index guess, and the fixed preset/custom text —
-      so the demo never breaks when live data isn't available.
+      Dropdown rules (no separate Force checkbox):
+        - weather='auto' → live Open-Meteo + nearby 511 when lat/lon exist
+        - weather=clear|wet|blizzard|ice_storm → that demo preset only
+
+      Live sources fail independently and fall back to calendar / preset text
+      so the demo never breaks offline.
       """
       now = datetime.now()
       hour = hour if hour is not None else now.hour
       month = month if month is not None else now.month
       is_rush = 1 if hour in (7, 8, 9, 16, 17, 18) else 0
 
-      use_live = not force_preset and lat is not None and lon is not None
+      mode = (weather or "auto").strip().lower()
+      if mode not in {"auto", "clear", "wet", "blizzard", "ice_storm"}:
+          mode = "auto"
+      # Selecting a named preset always uses that scenario; Auto uses live.
+      use_live = (
+          mode == "auto"
+          and not force_preset
+          and lat is not None
+          and lon is not None
+      )
+      preset = "clear" if mode == "auto" else mode
 
       # --- Fix 2: prefer a real nearby 511 alert over the fixed preset text.
       live_alert = nearby_alert_text(lat, lon) if use_live else None
@@ -146,7 +152,7 @@ class SmartShieldEngine:
           alert = live_alert
           alert_source = "live_511"
       else:
-          alert = WEATHER_PRESETS.get(weather, WEATHER_PRESETS["clear"])
+          alert = WEATHER_PRESETS.get(preset, WEATHER_PRESETS["clear"])
           alert_source = "preset_fallback"
       t_nlp = t_score_from_text(alert, self.tfidf)
 
@@ -162,13 +168,21 @@ class SmartShieldEngine:
           is_night = 0 if live_weather["is_day"] else 1
           is_winter_storm = False  # unused once e_index_override is set
           e_source = "live_weather"
+          # Align vision proxy with live surface risk when Auto is selected.
+          sr = float(live_weather.get("surface_risk", 0.0))
+          if sr >= 0.75:
+              preset = "blizzard"
+          elif sr >= 0.45:
+              preset = "wet"
+          else:
+              preset = "clear"
       else:
           e_index_override = None
           is_night = 1 if hour < 6 or hour >= 20 else 0
-          is_winter_storm = weather in ("blizzard", "ice_storm")
+          is_winter_storm = preset in ("blizzard", "ice_storm")
           e_source = "calendar_fallback"
 
-      v_vision = VISION_BY_PRESET.get(weather, 0.15)
+      v_vision = VISION_BY_PRESET.get(preset, 0.15)
 
       fused = fuse_scenario(
           t_nlp=t_nlp,
@@ -213,7 +227,7 @@ class SmartShieldEngine:
           "E_index": fused["E_index"],
           "collision_risk_index": round(collision_risk, 3) if collision_risk is not None else None,
           "collision_risk_calibrated": False,
-          "weather_preset": weather,
+          "weather_preset": preset if mode == "auto" else mode,
           "alert_preview": alert[:120] + ("..." if len(alert) > 120 else ""),
           "alert_source": alert_source,
           "e_index_source": e_source,
@@ -233,7 +247,7 @@ def _fmt_duration(minutes: float) -> str:
 
 def score_routes_batch(
     routes: List[Dict],
-    weather: str = "clear",
+    weather: str = "auto",
     custom_alert: str = "",
     force_preset: bool = False,
 ) -> List[Dict]:
