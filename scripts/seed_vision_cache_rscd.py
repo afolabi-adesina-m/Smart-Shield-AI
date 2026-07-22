@@ -8,6 +8,9 @@ Usage:
   source .venv/bin/activate
   python scripts/seed_vision_cache_rscd.py
   python scripts/seed_vision_cache_rscd.py --per-label 80
+  # Boost Snow / Ice toward ~33% of the training mix:
+  python scripts/seed_vision_cache_rscd.py --balance-snow
+  python scripts/seed_vision_cache_rscd.py --labels fresh_snow,ice --per-label 200
 """
 from __future__ import annotations
 
@@ -38,6 +41,10 @@ LABEL_TO_FOLDER = {
     "ice": "ice",
 }
 
+# Fine-grained RSCD labels that map into DISPLAY_ORDER "Snow / Ice"
+# (melted_snow is intentionally Wet / Slush in vision_brain.CACHE_FOLDERS)
+SNOW_LABELS = ("fresh_snow", "ice")
+
 WANTED = list(LABEL_TO_FOLDER.keys())
 
 
@@ -45,7 +52,58 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--per-label", type=int, default=40)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--labels",
+        type=str,
+        default="",
+        help="Comma-separated RSCD labels to download (default: all). "
+             "Example for snow boost: fresh_snow,ice",
+    )
+    parser.add_argument(
+        "--balance-snow",
+        action="store_true",
+        help="Auto-pick fresh_snow+ice + per-label so Snow/Ice ≈ 33.3%% of usable cache "
+             "(keeps existing Clear/Wet counts).",
+    )
     args = parser.parse_args()
+
+    wanted = WANTED
+    if args.labels.strip():
+        wanted = [x.strip() for x in args.labels.split(",") if x.strip()]
+        unknown = [x for x in wanted if x not in LABEL_TO_FOLDER]
+        if unknown:
+            print(f"Unknown labels: {unknown}", file=sys.stderr)
+            print(f"Known: {list(LABEL_TO_FOLDER)}", file=sys.stderr)
+            return 2
+
+    per_label = args.per_label
+    if args.balance_snow:
+        wanted = list(SNOW_LABELS)
+        sys.path.insert(0, str(ROOT / "src"))
+        from collections import Counter
+
+        from vision_brain import _load_all_from_cache
+
+        _, labels, _real = _load_all_from_cache(CACHE)
+        counts = Counter(labels)
+        clear_n = counts.get("Clear Asphalt", 0)
+        wet_n = counts.get("Wet / Slush", 0)
+        snow_n = counts.get("Snow / Ice", 0)
+        # Exact 1/3 with fixed Clear+Wet: snow = (clear+wet)/2
+        target_snow = max(snow_n, int(round((clear_n + wet_n) / 2)))
+        need = max(0, target_snow - snow_n)
+        # Only download *additional* images, split across snow labels (+small cushion)
+        cushion = min(20, max(6, need // 10))
+        per_label = max(1, int((need + cushion + len(SNOW_LABELS) - 1) / max(len(SNOW_LABELS), 1)))
+        print(
+            f"Balance-snow: Clear={clear_n} Wet={wet_n} Snow={snow_n} → "
+            f"target Snow≈{target_snow} (+{need} new). "
+            f"Downloading ~{per_label} fresh images per {wanted}"
+        )
+        # When balancing, only pick fresh (uncached) files — never re-select the whole quota
+        balance_fresh_only = True
+    else:
+        balance_fresh_only = False
 
     print(f"Listing {REPO} files...")
     files = list_repo_files(REPO, repo_type="dataset")
@@ -62,11 +120,23 @@ def main() -> int:
 
     rng = random.Random(args.seed)
     selected: list[tuple[str, str]] = []
-    for lab in WANTED:
+    for lab in wanted:
         pool = by_label.get(lab, [])
         rng.shuffle(pool)
-        take = pool[: args.per_label]
-        print(f"  {lab}: available={len(pool)} selected={len(take)}")
+        # Prefer files not already in cache so we grow the set
+        folder = CACHE / LABEL_TO_FOLDER[lab]
+        existing = {p.name for p in folder.glob("*") if p.suffix.lower() in {".jpg", ".jpeg", ".png"}} if folder.is_dir() else set()
+        fresh = [f for f in pool if Path(f).name not in existing]
+        reuse = [f for f in pool if Path(f).name in existing]
+        if balance_fresh_only:
+            take = fresh[:per_label]
+        else:
+            ordered = fresh + reuse
+            take = ordered[:per_label]
+        print(
+            f"  {lab}: available={len(pool)} cached={len(existing)} "
+            f"fresh_pick={sum(1 for f in take if Path(f).name not in existing)} selected={len(take)}"
+        )
         selected.extend((lab, f) for f in take)
 
     print(f"Downloading {len(selected)} images → {CACHE}")

@@ -378,11 +378,16 @@ def build_training_dataset(
 
     cache = resolve_cache_dir(cache_dir)
     cache.mkdir(parents=True, exist_ok=True)
-    added = sync_cache_from_hf_snapshot(cache)
-    if added:
-        print(f"Synced {added} RSCD photo(s) from local HuggingFace cache → {cache}")
-
-    images, labels, real = _load_all_from_cache(cache)
+    # Only auto-import from HF when the curated cache is empty — otherwise
+    # a full snapshot sync undoes intentional class balancing (e.g. Snow≈33%).
+    probe_images, probe_labels, probe_real = _load_all_from_cache(cache)
+    if probe_real == 0:
+        added = sync_cache_from_hf_snapshot(cache)
+        if added:
+            print(f"Synced {added} RSCD photo(s) from local HuggingFace cache → {cache}")
+        images, labels, real = _load_all_from_cache(cache)
+    else:
+        images, labels, real = probe_images, probe_labels, probe_real
     per_class = {c: sum(1 for l in labels if l == c) for c in DISPLAY_ORDER}
     print(f"Real photos by class: {per_class}  (total={real})")
 
@@ -593,8 +598,10 @@ def build_clear_only_dataset(max_per_class: int = 120, cache_dir: Optional[str] 
         transforms.ToTensor(),
     ])
     cache = resolve_cache_dir(cache_dir)
-    sync_cache_from_hf_snapshot(cache)
     images, labels, _real = _load_all_from_cache(cache)
+    if _real == 0:
+        sync_cache_from_hf_snapshot(cache)
+        images, labels, _real = _load_all_from_cache(cache)
     clear_arrs = [arr for arr, lbl in zip(images, labels) if lbl == CLEAR_CLASS]
     if not clear_arrs:
         syn, syn_lbl = _synthetic_samples(max_per_class)
