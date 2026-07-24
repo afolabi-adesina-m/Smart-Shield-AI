@@ -4,7 +4,8 @@
   --panel: rgba(18, 28, 47, 0.92);
   --line: rgba(148, 163, 184, 0.22);
   --text: #e8eef8;
-  --muted: #9aabc4;
+  --muted: #c8d4e8;
+  --muted-strong: #e8eef8;
   --amber: #f0b429;
   --ice: #5ec8ff;
   --safe: #3dcf8e;
@@ -265,6 +266,13 @@ section {
 
 .section-head {
   margin-bottom: 1.2rem;
+  padding: 1rem 1.15rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: rgba(7, 16, 28, 0.82);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+  max-width: 52rem;
 }
 
 .section-head h2 {
@@ -272,12 +280,29 @@ section {
   font-family: var(--font-display);
   font-size: clamp(1.45rem, 3vw, 2rem);
   letter-spacing: -0.03em;
+  color: #fff;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
 }
 
 .section-head p {
-  margin: 0.45rem 0 0;
-  color: var(--muted);
-  max-width: 42rem;
+  margin: 0.55rem 0 0;
+  color: var(--muted-strong);
+  max-width: 46rem;
+  font-size: 1.02rem;
+  line-height: 1.55;
+  font-weight: 500;
+}
+
+.section-head code.formula,
+.section-head .formula {
+  display: inline-block;
+  margin-top: 0.35rem;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(240, 180, 41, 0.35);
+  border-radius: 10px;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.95rem;
 }
 
 .pillars {
@@ -287,23 +312,24 @@ section {
 }
 
 .card {
-  background: var(--panel);
+  background: rgba(10, 18, 32, 0.92);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 1.15rem 1.2rem;
   box-shadow: var(--shadow);
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(12px);
 }
 
 .card h3 {
   margin: 0 0 0.45rem;
   font-family: var(--font-display);
   font-size: 1.12rem;
+  color: #fff;
 }
 
 .card p {
   margin: 0;
-  color: var(--muted);
+  color: var(--muted-strong);
   line-height: 1.55;
   font-size: 0.95rem;
 }
@@ -322,8 +348,9 @@ section {
 .formula {
   font-family: var(--font-mono);
   font-size: 0.95rem;
-  background: rgba(0, 0, 0, 0.28);
-  border: 1px solid var(--line);
+  color: #fff;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(240, 180, 41, 0.35);
   border-radius: 12px;
   padding: 0.9rem 1rem;
   overflow-x: auto;
@@ -346,7 +373,7 @@ section {
 }
 
 .live-score-label {
-  color: var(--muted);
+  color: var(--muted-strong);
   font-size: 0.9rem;
 }
 
@@ -361,8 +388,9 @@ section {
 .sliders label {
   display: block;
   margin: 0.85rem 0 0.35rem;
-  color: var(--muted);
-  font-size: 0.88rem;
+  color: var(--muted-strong);
+  font-size: 0.92rem;
+  font-weight: 500;
 }
 
 .sliders input[type="range"] {
@@ -394,7 +422,8 @@ section {
   padding: 0.85rem 1rem;
   border-radius: 12px;
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--muted-strong);
 }
 
 .advice strong {
@@ -405,7 +434,8 @@ section {
   overflow-x: auto;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: var(--panel);
+  background: rgba(10, 18, 32, 0.92);
+  backdrop-filter: blur(12px);
 }
 
 table {
@@ -422,11 +452,15 @@ td {
 }
 
 th {
-  color: var(--muted);
+  color: #d7e2f2;
   font-weight: 600;
   font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+td {
+  color: var(--muted-strong);
 }
 
 tr:last-child td {
@@ -449,10 +483,11 @@ tr:last-child td {
   padding: 1rem 1.1rem;
   border-radius: var(--radius);
   border: 1px solid var(--line);
-  background: var(--panel);
+  background: rgba(10, 18, 32, 0.92);
   color: var(--text);
   text-decoration: none;
   transition: border-color 0.18s ease, transform 0.18s ease;
+  backdrop-filter: blur(12px);
 }
 
 .link-card:hover {
@@ -465,19 +500,21 @@ tr:last-child td {
   display: block;
   font-family: var(--font-display);
   margin-bottom: 0.25rem;
+  color: #fff;
 }
 
 .link-card span {
-  color: var(--muted);
-  font-size: 0.9rem;
+  color: var(--muted-strong);
+  font-size: 0.92rem;
 }
 
 footer {
   border-top: 1px solid var(--line);
   padding: 1.6rem 0 2.4rem;
-  color: var(--muted);
+  color: var(--muted-strong);
   font-size: 0.88rem;
   line-height: 1.55;
+  background: rgba(7, 16, 28, 0.75);
 }
 
 @media (max-width: 860px) {
