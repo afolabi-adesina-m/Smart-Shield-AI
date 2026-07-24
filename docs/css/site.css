@@ -1,7 +1,7 @@
 :root {
   --bg: #0b1220;
   --bg-2: #121c2f;
-  --panel: rgba(18, 28, 47, 0.9);
+  --panel: rgba(18, 28, 47, 0.92);
   --line: rgba(148, 163, 184, 0.22);
   --text: #e8eef8;
   --muted: #9aabc4;
@@ -39,7 +39,7 @@ body {
   inset: 0;
   z-index: -1;
   background:
-    linear-gradient(180deg, rgba(7, 16, 28, 0.72) 0%, rgba(7, 16, 28, 0.88) 45%, #07101c 100%),
+    linear-gradient(180deg, rgba(7, 16, 28, 0.28) 0%, rgba(7, 16, 28, 0.45) 40%, rgba(7, 16, 28, 0.82) 100%),
     url("../assets/highway-401.jpg") center top / cover no-repeat;
   pointer-events: none;
 }
@@ -113,9 +113,9 @@ a:hover {
   display: flex;
   align-items: flex-end;
   background:
-    linear-gradient(100deg, rgba(7, 16, 28, 0.88) 0%, rgba(7, 16, 28, 0.55) 48%, rgba(7, 16, 28, 0.35) 100%),
-    linear-gradient(180deg, rgba(7, 16, 28, 0.25) 0%, rgba(7, 16, 28, 0.75) 100%),
-    url("../assets/highway-401.jpg") center 40% / cover no-repeat;
+    linear-gradient(105deg, rgba(7, 16, 28, 0.62) 0%, rgba(7, 16, 28, 0.28) 42%, rgba(7, 16, 28, 0.08) 72%, rgba(7, 16, 28, 0.18) 100%),
+    linear-gradient(180deg, rgba(7, 16, 28, 0.1) 0%, rgba(7, 16, 28, 0.2) 55%, rgba(7, 16, 28, 0.55) 100%),
+    url("../assets/highway-401.jpg") center 38% / cover no-repeat;
   border-bottom: 1px solid var(--line);
 }
 
@@ -137,6 +137,7 @@ a:hover {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   margin-bottom: 0.85rem;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.7);
 }
 
 h1 {
@@ -145,16 +146,16 @@ h1 {
   font-size: clamp(2.2rem, 5vw, 3.6rem);
   line-height: 1.05;
   letter-spacing: -0.035em;
-  text-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.8), 0 0 32px rgba(0, 0, 0, 0.5);
 }
 
 .lead {
   margin: 1.1rem 0 0;
   max-width: 38rem;
-  color: #c5d0e0;
+  color: #e8eef8;
   font-size: 1.08rem;
   line-height: 1.6;
-  text-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.75), 0 0 24px rgba(0, 0, 0, 0.45);
 }
 
 .cta-row {
