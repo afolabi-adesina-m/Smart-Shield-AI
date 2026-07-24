@@ -4,19 +4,21 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Smart-Shield AI — Highway Safety Score</title>
-  <meta name="description" content="Ontario Smart-Shield AI: multimodal highway safety scoring with NLP alerts, vision road conditions, and collision-risk fusion." />
+  <meta name="description" content="Ontario Smart-Shield AI: multimodal highway safety scoring with NLP alerts, vision road conditions, and collision-risk fusion for Highway 401 and 400-series corridors." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Sora:wght@600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/site.css" />
 </head>
 <body>
+  <div class="page-bg" aria-hidden="true"></div>
+
   <header class="nav">
     <div class="wrap nav-inner">
       <a class="brand" href="#top">Smart-<span>Shield</span> AI</a>
       <nav class="nav-links" aria-label="Primary">
         <a href="#pillars">Pillars</a>
-        <a href="#score">Live score</a>
+        <a href="#live-score">Live score</a>
         <a href="#pipeline">Pipeline</a>
         <a href="#run">Run locally</a>
         <a href="https://github.com/afolabi-adesina-m/Smart-Shield-AI">GitHub</a>
@@ -25,33 +27,35 @@
   </header>
 
   <main id="top">
-    <section class="wrap hero">
-      <div>
-        <div class="kicker">Sheridan INFO53883 · Capstone Team 2B</div>
-        <h1>Highway risk you can read before you drive.</h1>
-        <p class="lead">
-          Smart-Shield fuses Ontario 511-style alerts (NLP), road-surface vision, and
-          environmental collision risk into one Safety Score <strong>S</strong> — with
-          speed guidance for 400-series corridors.
-        </p>
-        <div class="cta-row">
-          <a class="btn btn-primary" href="#score">Try the Safety Score</a>
-          <a class="btn btn-ghost" href="https://github.com/afolabi-adesina-m/Smart-Shield-AI">View repository</a>
-        </div>
-      </div>
-      <aside class="hero-panel" aria-label="Current fused score preview">
-        <div class="score-ring" id="scoreRing" style="--pct: 42; --score-color: #f0b429;">
-          <div>
-            <strong id="score">42</strong>
-            <small>Safety Score S</small>
+    <section class="hero-stage">
+      <div class="wrap hero">
+        <div>
+          <div class="kicker">Sheridan INFO53883 · Capstone Team 2B · Hwy 401 focus</div>
+          <h1>Highway risk you can read before you drive.</h1>
+          <p class="lead">
+            Smart-Shield fuses Ontario 511-style alerts (NLP), road-surface vision, and
+            environmental collision risk into one Safety Score <strong>S</strong> — with
+            speed guidance for Highway 401 and other 400-series corridors.
+          </p>
+          <div class="cta-row">
+            <a class="btn btn-primary" href="#live-score">Try the Safety Score</a>
+            <a class="btn btn-ghost" href="https://github.com/afolabi-adesina-m/Smart-Shield-AI">View repository</a>
           </div>
         </div>
-        <div class="meta-grid">
-          <div class="meta"><b id="tMeta">0.35</b><span>Text T</span></div>
-          <div class="meta"><b id="vMeta">0.40</b><span>Vision V</span></div>
-          <div class="meta"><b id="eMeta">0.50</b><span>Env E</span></div>
-        </div>
-      </aside>
+        <aside class="hero-panel" aria-label="Current fused score preview">
+          <div class="score-ring" id="scoreRing" style="--pct: 42; --score-color: #f0b429;">
+            <div>
+              <strong id="scoreValue">42</strong>
+              <small>Safety Score S</small>
+            </div>
+          </div>
+          <div class="meta-grid">
+            <div class="meta"><b id="tMeta">0.35</b><span>Text T</span></div>
+            <div class="meta"><b id="vMeta">0.40</b><span>Vision V</span></div>
+            <div class="meta"><b id="eMeta">0.50</b><span>Env E</span></div>
+          </div>
+        </aside>
+      </div>
     </section>
 
     <section class="wrap" id="pillars">
@@ -78,16 +82,22 @@
       </div>
     </section>
 
-    <section class="wrap" id="score">
+    <section class="wrap" id="live-score">
       <div class="section-head">
         <h2>Interactive Safety Score</h2>
         <p>
-          Explore <code class="formula" style="display:inline;padding:0.15rem 0.4rem;">S = (w<sub>T</sub>·T + w<sub>V</sub>·V + w<sub>E</sub>·E) × 100</code>
-          — a static demo of the fusion formula (full map UI runs locally via Flask).
+          Drag the sliders — <strong>S</strong>, risk band, and speed advice update live.
+          Formula:
+          <code class="formula" style="display:inline;padding:0.15rem 0.4rem;">S = (w<sub>T</sub>·T + w<sub>V</sub>·V + w<sub>E</sub>·E) × 100</code>
         </p>
       </div>
       <div class="interactive">
         <div class="card sliders">
+          <div class="live-score-row">
+            <span class="live-score-label">Live fused score</span>
+            <strong class="live-score-num" id="scoreValueInline">42</strong>
+          </div>
+
           <label for="t">Text risk T = <span id="tVal">0.35</span></label>
           <input id="t" type="range" min="0" max="1" step="0.01" value="0.35" />
 
@@ -97,18 +107,18 @@
           <label for="e">Environment E = <span id="eVal">0.50</span></label>
           <input id="e" type="range" min="0" max="1" step="0.01" value="0.50" />
 
-          <label for="wt">Weight w<sub>T</sub></label>
+          <label for="wt">Weight w<sub>T</sub> = <span id="wtVal">0.33</span></label>
           <input id="wt" type="range" min="0" max="1" step="0.01" value="0.33" />
 
-          <label for="wv">Weight w<sub>V</sub></label>
+          <label for="wv">Weight w<sub>V</sub> = <span id="wvVal">0.33</span></label>
           <input id="wv" type="range" min="0" max="1" step="0.01" value="0.33" />
 
-          <label for="we">Weight w<sub>E</sub></label>
+          <label for="we">Weight w<sub>E</sub> = <span id="weVal">0.34</span></label>
           <input id="we" type="range" min="0" max="1" step="0.01" value="0.34" />
         </div>
         <div class="card">
           <div class="kicker">Decision table</div>
-          <p id="riskLabel" style="font-family:var(--font-display);font-size:1.4rem;margin:0.4rem 0 0.6rem;">Moderate Risk</p>
+          <p id="riskLabel" class="risk-label">Moderate Risk</p>
           <p id="speedAdvice" class="advice">Recommended speed: ~80% of posted limit (e.g. 80 km/h).</p>
           <div class="table-wrap" style="margin-top:1rem;">
             <table>
@@ -156,11 +166,11 @@
           <b>Repository</b>
           <span>Source, notebooks, docs, and demo code.</span>
         </a>
-        <a class="link-card" href="https://github.com/afolabi-adesina-m/Smart-Shield-AI/blob/main/PROJECT_FILES.md">
+        <a class="link-card" href="https://github.com/afolabi-adesina-m/Smart-Shield-AI/blob/master/PROJECT_FILES.md">
           <b>File guide</b>
           <span>PROJECT_FILES.md — every folder explained.</span>
         </a>
-        <a class="link-card" href="https://github.com/afolabi-adesina-m/Smart-Shield-AI/tree/main/notebooks/parts">
+        <a class="link-card" href="https://github.com/afolabi-adesina-m/Smart-Shield-AI/tree/master/notebooks/parts">
           <b>Notebook parts</b>
           <span>Split pipeline for GPU vision + fusion.</span>
         </a>
@@ -183,6 +193,14 @@ python api_server.py
     <div class="wrap">
       Smart-Shield AI · Sheridan College INFO53883 · Team 2B ·
       <a href="https://github.com/afolabi-adesina-m/Smart-Shield-AI">GitHub</a>
+      <br />
+      Background:
+      <a href="https://commons.wikimedia.org/wiki/File:Ontario_Highway_401_looking_east_from_Dufferin_Street.jpg" rel="noopener">Highway 401 looking east from Dufferin Street</a>
+      by
+      <a href="https://commons.wikimedia.org/wiki/User:Hi%C3%A0n" rel="noopener">Jason Zhang</a>
+      /
+      <a href="https://creativecommons.org/licenses/by-sa/3.0/" rel="noopener">CC BY-SA 3.0</a>
+      (cropped/compressed for web).
     </div>
   </footer>
 

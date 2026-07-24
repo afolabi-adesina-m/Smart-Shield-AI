@@ -1,67 +1,95 @@
 (() => {
-  const t = document.getElementById("t");
-  const v = document.getElementById("v");
-  const e = document.getElementById("e");
-  const wt = document.getElementById("wt");
-  const wv = document.getElementById("wv");
-  const we = document.getElementById("we");
-  const tVal = document.getElementById("tVal");
-  const vVal = document.getElementById("vVal");
-  const eVal = document.getElementById("eVal");
-  const scoreEl = document.getElementById("score");
-  const scoreRing = document.getElementById("scoreRing");
-  const riskLabel = document.getElementById("riskLabel");
-  const speedAdvice = document.getElementById("speedAdvice");
-  const tMeta = document.getElementById("tMeta");
-  const vMeta = document.getElementById("vMeta");
-  const eMeta = document.getElementById("eMeta");
+  const els = {
+    t: document.getElementById("t"),
+    v: document.getElementById("v"),
+    e: document.getElementById("e"),
+    wt: document.getElementById("wt"),
+    wv: document.getElementById("wv"),
+    we: document.getElementById("we"),
+    tVal: document.getElementById("tVal"),
+    vVal: document.getElementById("vVal"),
+    eVal: document.getElementById("eVal"),
+    wtVal: document.getElementById("wtVal"),
+    wvVal: document.getElementById("wvVal"),
+    weVal: document.getElementById("weVal"),
+    scoreValue: document.getElementById("scoreValue"),
+    scoreValueInline: document.getElementById("scoreValueInline"),
+    scoreRing: document.getElementById("scoreRing"),
+    riskLabel: document.getElementById("riskLabel"),
+    speedAdvice: document.getElementById("speedAdvice"),
+    tMeta: document.getElementById("tMeta"),
+    vMeta: document.getElementById("vMeta"),
+    eMeta: document.getElementById("eMeta"),
+  };
+
+  const required = ["t", "v", "e", "wt", "wv", "we", "scoreValue", "scoreRing", "riskLabel", "speedAdvice"];
+  if (required.some((k) => !els[k])) {
+    console.error("Smart-Shield score UI: missing required elements", required.filter((k) => !els[k]));
+    return;
+  }
 
   function clamp01(x) {
     return Math.min(1, Math.max(0, x));
   }
 
+  function cssVar(name, fallback) {
+    const val = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return val || fallback;
+  }
+
   function update() {
-    const T = clamp01(Number(t.value));
-    const V = clamp01(Number(v.value));
-    const E = clamp01(Number(e.value));
-    let wT = Number(wt.value);
-    let wV = Number(wv.value);
-    let wE = Number(we.value);
+    const T = clamp01(Number(els.t.value));
+    const V = clamp01(Number(els.v.value));
+    const E = clamp01(Number(els.e.value));
+    let wT = Number(els.wt.value);
+    let wV = Number(els.wv.value);
+    let wE = Number(els.we.value);
     const sum = wT + wV + wE || 1;
     wT /= sum;
     wV /= sum;
     wE /= sum;
 
     const S = Math.round((wT * T + wV * V + wE * E) * 100);
-    scoreEl.textContent = String(S);
-    scoreRing.style.setProperty("--pct", String(S));
+    const scoreText = String(S);
 
-    tVal.textContent = T.toFixed(2);
-    vVal.textContent = V.toFixed(2);
-    eVal.textContent = E.toFixed(2);
-    tMeta.textContent = T.toFixed(2);
-    vMeta.textContent = V.toFixed(2);
-    eMeta.textContent = E.toFixed(2);
+    els.scoreValue.textContent = scoreText;
+    if (els.scoreValueInline) els.scoreValueInline.textContent = scoreText;
+    els.scoreRing.style.setProperty("--pct", String(S));
+
+    els.tVal.textContent = T.toFixed(2);
+    els.vVal.textContent = V.toFixed(2);
+    els.eVal.textContent = E.toFixed(2);
+    if (els.wtVal) els.wtVal.textContent = Number(els.wt.value).toFixed(2);
+    if (els.wvVal) els.wvVal.textContent = Number(els.wv.value).toFixed(2);
+    if (els.weVal) els.weVal.textContent = Number(els.we.value).toFixed(2);
+    if (els.tMeta) els.tMeta.textContent = T.toFixed(2);
+    if (els.vMeta) els.vMeta.textContent = V.toFixed(2);
+    if (els.eMeta) els.eMeta.textContent = E.toFixed(2);
 
     let risk = "Low Risk";
-    let color = getComputedStyle(document.documentElement).getPropertyValue("--safe").trim();
+    let color = cssVar("--safe", "#3dcf8e");
     let advice = "Recommended speed: ~100% of posted limit (e.g. 100–110 km/h).";
 
     if (S >= 71) {
       risk = "High Risk";
-      color = getComputedStyle(document.documentElement).getPropertyValue("--danger").trim();
+      color = cssVar("--danger", "#ff6b6b");
       advice = "Recommended speed: ~60% of posted limit (e.g. 60 km/h). Consider postponing travel.";
     } else if (S >= 31) {
       risk = "Moderate Risk";
-      color = getComputedStyle(document.documentElement).getPropertyValue("--warn").trim();
+      color = cssVar("--warn", "#f0b429");
       advice = "Recommended speed: ~80% of posted limit (e.g. 80 km/h).";
     }
 
-    scoreRing.style.setProperty("--score-color", color);
-    riskLabel.textContent = risk;
-    speedAdvice.textContent = advice;
+    els.scoreRing.style.setProperty("--score-color", color);
+    els.riskLabel.textContent = risk;
+    els.riskLabel.dataset.band = risk.split(" ")[0].toLowerCase();
+    els.speedAdvice.textContent = advice;
   }
 
-  [t, v, e, wt, wv, we].forEach((el) => el.addEventListener("input", update));
+  ["t", "v", "e", "wt", "wv", "we"].forEach((key) => {
+    els[key].addEventListener("input", update);
+    els[key].addEventListener("change", update);
+  });
+
   update();
 })();
