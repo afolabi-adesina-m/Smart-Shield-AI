@@ -39,7 +39,7 @@ body {
   inset: 0;
   z-index: -1;
   background:
-    linear-gradient(180deg, rgba(7, 16, 28, 0.28) 0%, rgba(7, 16, 28, 0.45) 40%, rgba(7, 16, 28, 0.82) 100%),
+    linear-gradient(180deg, rgba(7, 16, 28, 0.18) 0%, rgba(7, 16, 28, 0.32) 35%, rgba(7, 16, 28, 0.78) 100%),
     url("../assets/highway-401.jpg") center top / cover no-repeat;
   pointer-events: none;
 }
@@ -113,9 +113,9 @@ a:hover {
   display: flex;
   align-items: flex-end;
   background:
-    linear-gradient(105deg, rgba(7, 16, 28, 0.62) 0%, rgba(7, 16, 28, 0.28) 42%, rgba(7, 16, 28, 0.08) 72%, rgba(7, 16, 28, 0.18) 100%),
-    linear-gradient(180deg, rgba(7, 16, 28, 0.1) 0%, rgba(7, 16, 28, 0.2) 55%, rgba(7, 16, 28, 0.55) 100%),
-    url("../assets/highway-401.jpg") center 38% / cover no-repeat;
+    linear-gradient(105deg, rgba(7, 16, 28, 0.55) 0%, rgba(7, 16, 28, 0.22) 40%, rgba(7, 16, 28, 0.05) 70%, rgba(7, 16, 28, 0.12) 100%),
+    linear-gradient(180deg, rgba(7, 16, 28, 0.05) 0%, rgba(7, 16, 28, 0.12) 50%, rgba(7, 16, 28, 0.45) 100%),
+    url("../assets/highway-401.jpg") center 42% / cover no-repeat;
   border-bottom: 1px solid var(--line);
 }
 
