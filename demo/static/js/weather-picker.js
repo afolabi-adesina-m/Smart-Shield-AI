@@ -41,6 +41,9 @@ function escapeHtml(s) {
 function dataSourceLabel(route) {
   const weatherLive = route.e_index_source === "live_weather";
   const alertLive = route.alert_source === "live_511";
+  const visionReal = route.vision_source === "resnet18_cache"
+    || route.vision_source === "resnet18_live_cctv";
+  const visionLive = route.vision_source === "resnet18_live_cctv";
   const weatherTag = weatherLive
     ? '<span class="live-tag">● Live weather</span>'
     : '<span class="fallback-tag">● Demo weather</span>';
@@ -49,7 +52,12 @@ function dataSourceLabel(route) {
     : route.alert_source === "custom"
     ? '<span class="fallback-tag">● Custom alert</span>'
     : '<span class="fallback-tag">● Demo 511</span>';
-  return `${weatherTag} · ${alertTag}`;
+  const visionTag = visionLive
+    ? '<span class="live-tag">● Live CCTV + ResNet</span>'
+    : visionReal
+    ? '<span class="live-tag">● ResNet V</span>'
+    : '<span class="fallback-tag">● Proxy V</span>';
+  return `${weatherTag} · ${alertTag} · ${visionTag}`;
 }
 
 function weatherConditionsChips(raw) {
@@ -92,11 +100,37 @@ function renderLiveDetails(route) {
     ? '<div class="live-fallback-note">Showing demo scenario — live weather/511 data wasn\'t available for this route.</div>'
     : "";
 
+  let visionBlock = "";
+  if (route.vision_source === "resnet18_live_cctv") {
+    const pred = route.vision_pred_class ? escapeHtml(route.vision_pred_class) : "—";
+    const loc = route.cctv_location
+      ? escapeHtml(route.cctv_location)
+      : escapeHtml(route.cctv_roadway || "Ontario 511 camera");
+    const dist =
+      route.cctv_distance_km != null ? ` · ${escapeHtml(route.cctv_distance_km)} km away` : "";
+    visionBlock = `
+      <div class="live-alert-quote">
+        <span class="live-alert-label">Live CCTV + ResNet:</span>
+        V=${escapeHtml(route.V_vision)} · ${pred} · ${loc}${dist}
+      </div>`;
+  } else if (route.vision_source === "resnet18_cache") {
+    const pred = route.vision_pred_class ? escapeHtml(route.vision_pred_class) : "—";
+    const img = route.vision_image ? escapeHtml(route.vision_image) : "cache photo";
+    visionBlock = `
+      <div class="live-alert-quote">
+        <span class="live-alert-label">Vision ResNet (cache fallback):</span>
+        V=${escapeHtml(route.V_vision)} · predicted ${pred} · frame ${img}
+      </div>`;
+  } else if (route.vision_note) {
+    visionBlock = `<div class="live-fallback-note">${escapeHtml(route.vision_note)}</div>`;
+  }
+
   return `
     <div class="live-details">
       <div class="data-source-line">${dataSourceLabel(route)}</div>
       ${conditions}
       ${alertBlock}
+      ${visionBlock}
       ${fallbackNote}
     </div>
   `;

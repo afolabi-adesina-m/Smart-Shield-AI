@@ -65,6 +65,7 @@ async function findRoutes() {
   const origin = document.getElementById("origin").value.trim();
   const destination = document.getElementById("destination").value.trim();
   const weather = document.getElementById("weather").value;
+  const visionMode = (document.getElementById("vision-mode") || {}).value || "real";
 
   if (!origin || !destination) {
     status.textContent = "Enter origin and destination.";
@@ -100,12 +101,15 @@ async function findRoutes() {
       mid_lon: route.mid_lon,
     }));
 
-    status.textContent = "Scoring routes with Smart-Shield models…";
+    status.textContent =
+      visionMode === "proxy"
+        ? "Scoring routes (Vision proxy)…"
+        : "Scoring routes with ResNet + NLP models…";
 
     const resp = await fetch("/api/score-routes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ routes, weather }),
+      body: JSON.stringify({ routes, weather, vision_mode: visionMode }),
     });
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.error || "API error");
@@ -241,6 +245,8 @@ function renderRouteCards(scored) {
       <div class="route-brains">
         ${r.tier} risk · T=${r.T_nlp} V=${r.V_vision} E=${r.E_index}
         ${r.collision_risk_index != null && !r.collision_risk_calibrated ? " · Collision model (uncalibrated demo)" : ""}
+        ${r.stage_a_fatal && r.stage_a_fatal.flagged ? " · Stage A fatal flag" : ""}
+        ${r.vision_source === "resnet18_live_cctv" ? " · live CCTV" : ""}
       </div>
       ${renderLiveDetails(r)}
     `;

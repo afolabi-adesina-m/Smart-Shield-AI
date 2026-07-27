@@ -22,7 +22,13 @@ This folder powers the project site when Pages is enabled on
 | `css/site.css` | Styles |
 | `js/site.js` | Score calculator |
 
-Static only — the Flask map demo still runs locally from `demo/`.
+Static only — the Flask map demo (live Ontario 511 CCTV + ResNet + Open-Meteo)
+still runs locally from `demo/` on a machine with the trained `models/` weights.
+GitHub Pages cannot host that API (no Flask/GPU process).
+
+To put a **public map link** on the Pages site, deploy `demo/api_server.py` to any
+always-on host (campus GPU, VPS, or an ngrok/cloudflare tunnel) and add that URL
+as a button on `docs/index.html`.
 
 ## Local preview
 

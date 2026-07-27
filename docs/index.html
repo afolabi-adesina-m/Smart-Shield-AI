@@ -159,7 +159,12 @@
     <section class="wrap" id="run">
       <div class="section-head">
         <h2>Links &amp; local demo</h2>
-        <p>GitHub Pages hosts this static showcase. The interactive map demo needs Flask + trained models.</p>
+        <p>
+          This GitHub Pages site is <strong>static only</strong> (formula explorer + docs).
+          The map demo with live Ontario 511 CCTV, Open-Meteo, and ResNet scoring needs a
+          Python/Flask process — run it on your GPU machine or any always-on host, then
+          optionally link that URL here.
+        </p>
       </div>
       <div class="links">
         <a class="link-card" href="https://github.com/afolabi-adesina-m/Smart-Shield-AI">
@@ -180,11 +185,17 @@
         </a>
       </div>
       <div class="card stack" style="margin-top:1rem;">
-        <div class="kicker">Local map demo</div>
+        <div class="kicker">Local map demo (live CCTV + models)</div>
         <pre class="formula" style="margin:0;">cd demo
 pip install -r requirements-demo.txt
 python api_server.py
-# → http://127.0.0.1:5050</pre>
+# → http://127.0.0.1:5050
+# Real Vision mode: nearest Ontario 511 CCTV → ResNet18 → V in Safety Score S</pre>
+        <p style="margin:0.75rem 0 0; opacity:0.85; font-size:0.92rem;">
+          Why not on Pages? GitHub Pages cannot run Flask, CUDA, or private model weights.
+          Host the API on a VPS / campus GPU box / ngrok tunnel if you want a public demo link
+          from this site.
+        </p>
       </div>
     </section>
   </main>

@@ -41,6 +41,13 @@ def index():
 
 
 if __name__ == "__main__":
+    try:
+        from vision_runtime import get_vision_runtime
+
+        ready = get_vision_runtime().warmup()
+        print(f"  Vision ResNet warmup: {'ready (GPU/CPU)' if ready else 'unavailable — proxy fallback'}")
+    except Exception as exc:
+        print(f"  Vision warmup skipped: {exc}")
     print(f"\n  Smart-Shield DESKTOP demo → http://127.0.0.1:{PORT}")
     print(f"  Smart-Shield MOBILE demo  → http://127.0.0.1:{MOBILE_PORT}  (run mobile_server.py)")
     print("  Uses OpenStreetMap + OSRM — no API key or billing.\n")

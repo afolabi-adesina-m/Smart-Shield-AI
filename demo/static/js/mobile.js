@@ -95,6 +95,7 @@ async function findRoutes() {
   const origin = document.getElementById("origin").value.trim();
   const destination = document.getElementById("destination").value.trim();
   const weather = document.getElementById("weather").value;
+  const visionMode = (document.getElementById("vision-mode") || {}).value || "real";
 
   if (!origin || !destination) {
     status.textContent = "Enter origin and destination.";
@@ -126,11 +127,12 @@ async function findRoutes() {
       mid_lon: route.mid_lon,
     }));
 
-    status.textContent = "Scoring with Smart-Shield…";
+    status.textContent =
+      visionMode === "proxy" ? "Scoring (Vision proxy)…" : "Scoring with ResNet + NLP…";
     const resp = await fetch("/api/score-routes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ routes, weather }),
+      body: JSON.stringify({ routes, weather, vision_mode: visionMode }),
     });
     const data = await resp.json();
     if (!resp.ok) throw new Error(data.error || "API error");
@@ -262,7 +264,7 @@ function renderRouteCards(scored) {
         <span>📍 ${r.distance_km} km</span>
         ${speedLine}
       </div>
-      <div class="route-brains">${r.tier} · T=${r.T_nlp} V=${r.V_vision} E=${r.E_index}</div>
+      <div class="route-brains">${r.tier} · T=${r.T_nlp} V=${r.V_vision} E=${r.E_index}${r.vision_source === "resnet18_live_cctv" ? " · live CCTV" : r.vision_source === "resnet18_cache" ? " · ResNet" : " · proxy V"}</div>
       ${renderLiveDetails(r)}
     `;
 

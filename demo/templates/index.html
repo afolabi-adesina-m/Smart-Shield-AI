@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Smart-Shield AI · Ontario Highway Safety</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="/static/css/demo.css?v=20260722c" />
-  <link rel="stylesheet" href="/static/css/weather-picker.css?v=20260722c" />
+  <link rel="stylesheet" href="/static/css/demo.css?v=20260727b" />
+  <link rel="stylesheet" href="/static/css/weather-picker.css?v=20260727b" />
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
 </head>
 <body>
@@ -43,6 +43,13 @@
         <option value="ice_storm">Ice storm</option>
       </select>
       <p id="weather-summary" class="weather-selected-summary" aria-live="polite"></p>
+      <label for="vision-mode">Vision brain (V in Safety Score)</label>
+      <select id="vision-mode" class="weather-select" aria-label="Vision brain mode">
+        <option value="real" selected>Real ResNet18 (live 511 CCTV)</option>
+        <option value="proxy">Proxy table (old demo)</option>
+        <option value="auto">Auto (real if model loads)</option>
+      </select>
+      <p class="weather-selected-summary">Real mode scores the nearest <strong>Ontario 511 CCTV</strong> still with <strong>vision_resnet18.pt</strong> (cache photo if the camera is down).</p>
       <button id="btn-route" class="btn-primary">Find safest routes</button>
       <p id="status" class="status-msg"></p>
     </section>
@@ -69,7 +76,7 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="/static/js/weather-picker.js?v=20260722c"></script>
-  <script src="/static/js/app.js?v=20260722c" defer></script>
+  <script src="/static/js/weather-picker.js?v=20260727b"></script>
+  <script src="/static/js/app.js?v=20260727b" defer></script>
 </body>
 </html>

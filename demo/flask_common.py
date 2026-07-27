@@ -8,7 +8,8 @@ from pathlib import Path
 import requests
 from flask import Flask, jsonify, request
 
-from inference import WEATHER_PRESETS, score_routes_batch
+from inference import WEATHER_PRESETS, score_routes_batch, DEFAULT_VISION_MODE
+from vision_runtime import get_vision_runtime
 
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 OSRM_URL = os.getenv("OSRM_URL", "https://router.project-osrm.org/route/v1/driving")
@@ -31,12 +32,15 @@ def register_api_routes(app: Flask) -> None:
     @app.get("/api/health")
     def health():
         models_dir = Path(__file__).resolve().parent.parent / "models"
+        vision = get_vision_runtime().status()
         return jsonify({
             "status": "ok",
             "map_provider": "OpenStreetMap + OSRM (free)",
             "billing_required": False,
             "models_dir": str(models_dir),
             "models_present": models_dir.is_dir() and any(models_dir.glob("*.joblib")),
+            "vision": vision,
+            "default_vision_mode": DEFAULT_VISION_MODE,
         })
 
     @app.get("/api/geocode")
@@ -119,6 +123,13 @@ def register_api_routes(app: Flask) -> None:
                 "blizzard": "Blizzard — Hwy 400 night",
                 "ice_storm": "Ice storm — QEW rush",
             },
+            "vision_modes": {
+                "real": "Trained ResNet18 on live 511 CCTV (cache fallback)",
+                "proxy": "Hardcoded VISION_BY_PRESET (old demo)",
+                "auto": "Real ResNet when available, else proxy",
+            },
+            "default_vision_mode": DEFAULT_VISION_MODE,
+            "vision": get_vision_runtime().status(),
         })
 
     @app.post("/api/score-routes")
@@ -133,12 +144,18 @@ def register_api_routes(app: Flask) -> None:
         # Legacy flag only. UI removed Force checkbox: Auto → live,
         # named presets → that scenario only (see inference.score_route).
         force_preset = bool(body.get("force_preset", False))
+        vision_mode = (body.get("vision_mode") or DEFAULT_VISION_MODE)
         scored = score_routes_batch(
-            routes, weather=weather, custom_alert=custom_alert, force_preset=force_preset
+            routes,
+            weather=weather,
+            custom_alert=custom_alert,
+            force_preset=force_preset,
+            vision_mode=vision_mode,
         )
         return jsonify({
             "routes": scored,
             "best_route_index": scored[0]["route_index"] if scored else 0,
+            "vision_mode": (vision_mode or DEFAULT_VISION_MODE),
         })
 
 
