@@ -37,6 +37,8 @@
     return val || fallback;
   }
 
+  const HIGHWAY_FLOOR_KMH = 80;
+
   function update() {
     const T = clamp01(Number(els.t.value));
     const V = clamp01(Number(els.v.value));
@@ -73,7 +75,7 @@
     if (S >= 71) {
       risk = "High Risk";
       color = cssVar("--danger", "#ff6b6b");
-      advice = "Recommended speed: ~60% of posted limit (e.g. 60 km/h). Consider postponing travel.";
+      advice = `Recommended speed: ~60% of posted limit; on freeway corridors we display a practical advisory floor around ${HIGHWAY_FLOOR_KMH} km/h. Consider postponing travel.`;
     } else if (S >= 31) {
       risk = "Moderate Risk";
       color = cssVar("--warn", "#f0b429");
