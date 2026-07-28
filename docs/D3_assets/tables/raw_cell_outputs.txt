@@ -1,0 +1,98 @@
+===== cell_107 =====
+Using df_model from Section 3  (809,030 rows) — same object as EDA/preprocessing
+Feature matrix : (809030, 8)
+Features       : ['OCC_HOUR', 'MONTH_NUM', 'SEASON_NUM', 'IS_NIGHT', 'IS_RUSHHOUR', 'PEDESTRIAN_BIN', 'BICYCLE_BIN', 'AUTOMOBILE_BIN']
+Class distribution:
+  Class 0: 698,656  (86.4%)
+  Class 1: 109,712  (13.6%)
+  Class 2: 662  (0.1%)
+
+Train: 647,224   Test: 161,806
+After SMOTE: 1,676,775 samples
+Scaling done.
+DATA PROVENANCE OK — modeling uses same Toronto source as Section 3 (TorontoCollisionData.csv / df_model).
+
+
+===== cell_116 =====
+Imbalance ratio (raw): 1051:1  → SMOTE compressed to 1.0:1
+
+=== Fairness Audit 2 · Per-Class Recall (Equal Opportunity) ===
+              Model  Recall PD-Only  Recall Injury  Recall Fatal KPI Met (≥0.92)
+Logistic Regression          0.8874         0.0846        0.6617            NO ✗
+      Decision Tree          0.8545         0.1732        0.3910            NO ✗
+      Random Forest          0.8436         0.1738        0.3985            NO ✗
+           LightGBM          0.8512         0.1753        0.3835            NO ✗
+
+=== Fairness Audit 3 · Geographic Subgroup (Urban vs. Suburban/Rural) ===
+Geo audit features (8): ['OCC_HOUR', 'MONTH_NUM', 'SEASON_NUM', 'IS_NIGHT', 'IS_RUSHHOUR', 'PEDESTRIAN_BIN', 'BICYCLE_BIN', 'AUTOMOBILE_BIN']
+Using model: Random Forest
+     Geography     N  Accuracy  F1 (Macro)  Recall Fatal
+         Urban 43102    0.7457      0.3802        0.7045
+Suburban/Rural  6898    0.7844      0.3487        0.0000
+
+Demographic Parity Gap (Accuracy): 0.0387  (PASS ≤0.05)
+
+Note: highest PD-Only recall = Logistic Regression (0.8874) — above typical 'catch majority class' expectations.
+However, deployment pick is Random Forest (tuned) for EXPLAINABILITY (SHAP + Paper 2), not because it leads PD-Only recall or MCC.
+
+=== AI Ethics Audit Complete ===
+Summary:
+  1. Class imbalance disclosed — SMOTE applied to training set
+  2. Per-class recall measured — check Fatal Recall KPI (≥ 0.92)
+  3. Geographic parity: DONE
+  4. Headline: no *3-class baseline* in THIS table met Fatal recall ≥ 0.92 (best Fatal recall in this table: LR ~0.66). Stage A Fatal-vs-Not separately MET the KPI.
+  5. Selection note: KNN may lead PD-Only recall / MCC; Random Forest kept for explainability (SHAP) and Paper 2 alignment
+
+
+===== cell_122 =====
+  loaded Logistic Regression (Tuned) <- lr_tuned.joblib
+  loaded Random Forest (Tuned) <- rf_tuned.joblib
+  loaded LightGBM (Tuned) <- lgbm_tuned.joblib
+Warm-start complete: ['Logistic Regression (Tuned)', 'Random Forest (Tuned)', 'LightGBM (Tuned)']
+
+
+===== cell_157 =====
+NLP Brain — TF-IDF hazard scores (T)
+======================================================================
+  TC-1 Clear rush-hour (401 Jul 5pm)          T=0.000
+    Alert: Hwy 401 eastbound Mississauga: moderate traffic flow. Road surface clear. No wea...
+  TC-2 Blizzard night (Hwy400 Jan 2am)        T=0.688
+    Alert: Hwy 400 north of Barrie: blizzard conditions. Black ice reported. Multiple vehic...
+  TC-3 Wet dawn bicycle (Hwy7 Apr 6am)        T=0.000
+    Alert: Hwy 7 eastbound: light rain at dawn. Wet pavement. Reduced visibility. Cyclist s...
+  TC-4 Clear Sunday (Hwy115 Jun 9am)          T=0.000
+    Alert: Hwy 115 Peterborough: clear skies Sunday morning. Dry road surface. Normal traff...
+  TC-5 Ice storm rush (QEW Feb 5pm)           T=1.000
+    Alert: QEW Toronto bound: ice storm warning. Freezing rain and black ice. Multi-vehicle...
+
+
+
+===== cell_160 =====
+
+=== Safety Score Fusion (Sprint 3) ===
+Scenario_id                             Scenario  T_nlp  V_vision  E_index    S tier  V_rec_kmh
+       TC-1   TC-1 Clear rush-hour (401 Jul 5pm)  0.000      0.15    0.165 11.9  LOW        100
+       TC-2 TC-2 Blizzard night (Hwy400 Jan 2am)  0.688      0.92    0.940 87.0 HIGH         80
+       TC-3 TC-3 Wet dawn bicycle (Hwy7 Apr 6am)  0.000      0.45    0.165 22.4  LOW        100
+       TC-4   TC-4 Clear Sunday (Hwy115 Jun 9am)  0.000      0.10    0.165 10.1  LOW        100
+       TC-5    TC-5 Ice storm rush (QEW Feb 5pm)  1.000      0.88    0.760 86.2 HIGH         80
+
+
+===== cell_166 =====
+  Saved rf_tuned → /home/afolabimayowa/Documents/INFO53883 - AI & ML Capstone Project/models/rf_tuned.joblib
+  Saved lr_tuned → /home/afolabimayowa/Documents/INFO53883 - AI & ML Capstone Project/models/lr_tuned.joblib
+  Saved scaler → /home/afolabimayowa/Documents/INFO53883 - AI & ML Capstone Project/models/scaler.joblib
+  Saved feature_names → /home/afolabimayowa/Documents/INFO53883 - AI & ML Capstone Project/models/feature_names.joblib
+  Saved tfidf_vectorizer → /home/afolabimayowa/Documents/INFO53883 - AI & ML Capstone Project/models/tfidf_vectorizer.joblib
+
+Load test OK — sample preds: [1 0 2 0 0]
+  Saved DNN weights → /home/afolabimayowa/Documents/INFO53883 - AI & ML Capstone Project/models/dnn_smart_shield.pt
+  Saved Vision model → /home/afolabimayowa/Documents/INFO53883 - AI & ML Capstone Project/models/vision_resnet18.pt
+  Saved Stage A Fatal-vs-Not → /home/afolabimayowa/Documents/INFO53883 - AI & ML Capstone Project/models/fatal_vs_not_stage_a.joblib
+
+=== Sprint 3 Complete ===
+  ✓ NLP Brain (TF-IDF T scores)
+  ✓ Vision Brain (Section 6 V scores)
+  ✓ Safety Score fusion + dashboard
+  ✓ SHAP explainability
+  ✓ Models saved to ./models/

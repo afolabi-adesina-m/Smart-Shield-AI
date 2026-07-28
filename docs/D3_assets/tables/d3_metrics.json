@@ -1,0 +1,192 @@
+{
+  "source_notebook": "notebooks/capstone_with_results.ipynb",
+  "data_provenance": {
+    "file": "TorontoCollisionData.csv / df_model",
+    "rows": 809030,
+    "features": 8,
+    "feature_list": [
+      "OCC_HOUR",
+      "MONTH_NUM",
+      "SEASON_NUM",
+      "IS_NIGHT",
+      "IS_RUSHHOUR",
+      "PEDESTRIAN_BIN",
+      "BICYCLE_BIN",
+      "AUTOMOBILE_BIN"
+    ],
+    "class_counts": {
+      "PD-Only": 698656,
+      "Injury": 109712,
+      "Fatal": 662
+    },
+    "train_test": {
+      "train": 647224,
+      "test": 161806
+    },
+    "smote_train": 1676775
+  },
+  "stage_a_fatal_vs_not": {
+    "model": "Logistic Regression",
+    "threshold": 0.5,
+    "fatal_recall": 1.0,
+    "fatal_precision": 0.0008,
+    "kpi_target_recall": 0.92,
+    "kpi_met": true,
+    "note": "Binary safety screen; not the 3-class deploy model"
+  },
+  "baselines_3class": [
+    {
+      "model": "Logistic Regression",
+      "accuracy": 0.7837,
+      "macro_f1": 0.3518,
+      "mcc": 0.1494,
+      "auc_ovr": 0.6609
+    },
+    {
+      "model": "Decision Tree",
+      "accuracy": 0.7688,
+      "macro_f1": 0.383,
+      "mcc": 0.165,
+      "auc_ovr": 0.5921
+    },
+    {
+      "model": "K-Nearest Neighbours",
+      "accuracy": 0.8859,
+      "macro_f1": 0.429,
+      "mcc": 0.3819,
+      "auc_ovr": 0.5914
+    },
+    {
+      "model": "Random Forest",
+      "accuracy": 0.7671,
+      "macro_f1": 0.3828,
+      "mcc": 0.164,
+      "auc_ovr": 0.6
+    },
+    {
+      "model": "LightGBM",
+      "accuracy": 0.7869,
+      "macro_f1": 0.3869,
+      "mcc": 0.1768,
+      "auc_ovr": 0.6321
+    }
+  ],
+  "best_baseline_by_mcc": "K-Nearest Neighbours",
+  "tuned_3class": [
+    {
+      "model": "Logistic Regression (Tuned)",
+      "accuracy": 0.7819,
+      "macro_recall": 0.588,
+      "mcc": 0.148,
+      "auc_ovr": 0.6609
+    },
+    {
+      "model": "Random Forest (Tuned)",
+      "accuracy": 0.7672,
+      "macro_recall": 0.4859,
+      "mcc": 0.1641,
+      "auc_ovr": 0.6002
+    },
+    {
+      "model": "LightGBM (Tuned)",
+      "accuracy": 0.7651,
+      "macro_recall": 0.4865,
+      "mcc": 0.1618,
+      "auc_ovr": 0.608
+    }
+  ],
+  "deploy_model": "Random Forest (Tuned) \u2014 explainability/SHAP/Paper 2, not MCC leader",
+  "final_rf_fatal_class": {
+    "precision": 0.004,
+    "recall": 0.5564,
+    "support": 133,
+    "overall_accuracy": 0.77
+  },
+  "fairness": {
+    "geo_parity_gap_accuracy": 0.0387,
+    "geo_pass_threshold": 0.05,
+    "geo_pass": true,
+    "urban": {
+      "n": 43102,
+      "accuracy": 0.7457,
+      "f1_macro": 0.3802,
+      "recall_fatal": 0.7045
+    },
+    "suburban_rural": {
+      "n": 6898,
+      "accuracy": 0.7844,
+      "f1_macro": 0.3487,
+      "recall_fatal": 0.0
+    },
+    "best_3class_fatal_recall_in_fairness_table": {
+      "model": "Logistic Regression",
+      "recall_fatal": 0.6617
+    },
+    "kpi_3class_met": false
+  },
+  "nlp_t_scores": {
+    "TC-1": 0.0,
+    "TC-2": 0.688,
+    "TC-3": 0.0,
+    "TC-4": 0.0,
+    "TC-5": 1.0
+  },
+  "safety_score_canonical": [
+    {
+      "id": "TC-1",
+      "T": 0.0,
+      "V": 0.15,
+      "E": 0.165,
+      "S": 11.9,
+      "tier": "LOW",
+      "v_rec_kmh": 100
+    },
+    {
+      "id": "TC-2",
+      "T": 0.688,
+      "V": 0.92,
+      "E": 0.94,
+      "S": 87.0,
+      "tier": "HIGH",
+      "v_rec_kmh": 80
+    },
+    {
+      "id": "TC-3",
+      "T": 0.0,
+      "V": 0.45,
+      "E": 0.165,
+      "S": 22.4,
+      "tier": "LOW",
+      "v_rec_kmh": 100
+    },
+    {
+      "id": "TC-4",
+      "T": 0.0,
+      "V": 0.1,
+      "E": 0.165,
+      "S": 10.1,
+      "tier": "LOW",
+      "v_rec_kmh": 100
+    },
+    {
+      "id": "TC-5",
+      "T": 1.0,
+      "V": 0.88,
+      "E": 0.76,
+      "S": 86.2,
+      "tier": "HIGH",
+      "v_rec_kmh": 80
+    }
+  ],
+  "fusion_weights": {
+    "w_T": 0.25,
+    "w_V": 0.35,
+    "w_E": 0.4
+  },
+  "honesty_notes": [
+    "Vision fine-tune and DNN training were skipped in the last chart-refresh save; disclose warm-load vs full train.",
+    "KNN leads MCC among 3-class baselines; RF chosen for SHAP/explainability.",
+    "Stage A meets Fatal recall KPI with near-zero precision.",
+    "Use \u00a710.2 Safety Scores as canonical (not \u00a78.6 placeholders)."
+  ]
+}

@@ -33,6 +33,7 @@ disable_demo_cache(APP)
 
 PORT = int(os.getenv("SMART_SHIELD_PORT", "5050"))
 MOBILE_PORT = int(os.getenv("SMART_SHIELD_MOBILE_PORT", "5051"))
+HOST = os.getenv("SMART_SHIELD_HOST", "0.0.0.0")
 
 
 @APP.get("/")
@@ -48,7 +49,7 @@ if __name__ == "__main__":
         print(f"  Vision ResNet warmup: {'ready (GPU/CPU)' if ready else 'unavailable — proxy fallback'}")
     except Exception as exc:
         print(f"  Vision warmup skipped: {exc}")
-    print(f"\n  Smart-Shield DESKTOP demo → http://127.0.0.1:{PORT}")
-    print(f"  Smart-Shield MOBILE demo  → http://127.0.0.1:{MOBILE_PORT}  (run mobile_server.py)")
+    print(f"\n  Smart-Shield DESKTOP demo → http://{HOST}:{PORT}")
+    print(f"  Smart-Shield MOBILE demo  → http://{HOST}:{MOBILE_PORT}  (run mobile_server.py)")
     print("  Uses OpenStreetMap + OSRM — no API key or billing.\n")
-    APP.run(host="127.0.0.1", port=PORT, debug=False)
+    APP.run(host=HOST, port=PORT, debug=False)

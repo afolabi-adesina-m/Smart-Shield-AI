@@ -1,0 +1,4 @@
+model,accuracy,macro_recall,mcc,auc_ovr
+Logistic Regression (Tuned),0.7819,0.588,0.148,0.6609
+Random Forest (Tuned),0.7672,0.4859,0.1641,0.6002
+LightGBM (Tuned),0.7651,0.4865,0.1618,0.608

@@ -1,0 +1,6 @@
+model,accuracy,macro_f1,mcc,auc_ovr
+Logistic Regression,0.7837,0.3518,0.1494,0.6609
+Decision Tree,0.7688,0.383,0.165,0.5921
+K-Nearest Neighbours,0.8859,0.429,0.3819,0.5914
+Random Forest,0.7671,0.3828,0.164,0.6
+LightGBM,0.7869,0.3869,0.1768,0.6321

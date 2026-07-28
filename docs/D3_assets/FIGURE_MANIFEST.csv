@@ -1,0 +1,22 @@
+file,d3_sections,caption,bytes
+figures/fig01_swimlane.png,1 Progress,End-to-end swimlane,136414
+figures/fig02_pearson_heatmap.png,2 Performance,Pearson correlation heatmap,91466
+figures/fig03_feature_importance.png,2 Performance,Feature importance voting charts,84959
+figures/fig04_vision_sample_grid.png,2 Performance,Vision sample road-condition grid,696981
+figures/fig05a_class_imbalance.png,2 Performance; 4 Ethics,Class imbalance disclosure,61501
+figures/fig05b_per_class_recall.png,2 Performance; 4 Ethics,Per-class recall fairness table chart,53321
+figures/fig05c_geo_parity.png,4 Ethics,Geographic parity Urban vs Suburban,36990
+figures/fig06_baseline_comparison.png,2 Performance,Baseline model comparison,69884
+figures/fig07a_cm_lr_tuned.png,2 Performance; 3 Math,Confusion matrix LR Tuned,73326
+figures/fig07b_cm_rf_tuned.png,2 Performance; 3 Math,Confusion matrix RF Tuned (deploy),70561
+figures/fig07c_cm_lgbm_tuned.png,2 Performance,Confusion matrix LightGBM Tuned,67235
+figures/fig08a_full_model_comparison.png,2 Performance,Full model comparison,90543
+figures/fig08b_full_comparison_extra.png,2 Performance,Full comparison supporting chart,112121
+figures/fig09a_final_rf_evaluation.png,2 Performance; 3 Math,Final RF evaluation,46595
+figures/fig09b_final_rf_extra.png,2 Performance,Final RF supporting chart,72530
+figures/fig10_nlp_tfidf.png,2 Performance,NLP TF-IDF T-scores,56826
+figures/fig11_safety_score_fusion.png,2 Performance; 3 Math,Safety Score fusion dashboard,118786
+figures/fig12a_shap_summary.png,2 Performance; 4 Ethics,SHAP explainability,90278
+figures/fig12b_shap_extra.png,4 Ethics,SHAP supporting plot,49112
+figures/figA1_toronto_distributions.png,Appendix,Toronto EDA distributions,177676
+figures/figA2_surface_weather_heatmap.png,Appendix,Surface × weather heatmap,98479
