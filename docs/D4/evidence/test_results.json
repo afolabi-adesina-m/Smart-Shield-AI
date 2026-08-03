@@ -1,0 +1,42 @@
+[
+  {
+    "weather": "clear",
+    "file": "SYS-01_clear_toronto_barrie.png",
+    "n_routes": 2,
+    "banner": "",
+    "cards": [
+      "\u2605 SAFEST PICK | Fastest route \u00b7 95 km \u00b7 84 min | S 22.5 | Conditions appear favourable \u2014 drive to posted limit and stay alert. | \ud83d\udd50 1 hr 24 min | \ud83d\udccd 95.2 km | \ud83d\ude97 ~100 km/h advisory | LOW risk \u00b7 T=0 V=0.08 E=0.345 \u00b7 Collision model (uncalibrated demo) \u00b7 Stage A fatal flag | \u25cf Demo weather \u00b7 \u25cf Demo 511 \u00b7 \u25cf Proxy V | V from scenario proxy table (VISION_BY_PRESET) \u2014 not ResNet. | Showing demo scenario \u2014 live weather/511 dat",
+      "OPTION 2 | Alternate route \u00b7 109 km \u00b7 95 min | S 25.3 | Conditions appear favourable \u2014 drive to posted limit and stay alert. | \ud83d\udd50 1 hr 35 min | \ud83d\udccd 108.9 km | \ud83d\ude97 ~100 km/h advisory | LOW risk \u00b7 T=0 V=0.08 E=0.345 \u00b7 Collision model (uncalibrated demo) \u00b7 Stage A fatal flag | \u25cf Demo weather \u00b7 \u25cf Demo 511 \u00b7 \u25cf Proxy V | V from scenario proxy table (VISION_BY_PRESET) \u2014 not ResNet. | Showing demo scenario \u2014 live weather/511 data"
+    ]
+  },
+  {
+    "weather": "ice_storm",
+    "file": "SYS-02_ice_storm_toronto_barrie.png",
+    "n_routes": 2,
+    "banner": "\u26a0 HIGH RISK \u2014 TRIP ADVISORY\nConsider postponing this trip \u2014 conditions are hazardous.\nConsider postponing travel or waiting until conditions improve.\nIf you must travel, use the lowest Safety Score route shown.\nRight lane, hazard lights, match truck pace \u2014 avoid isolated slow driving in passing lane",
+    "cards": [
+      "\u2605 SAFEST PICK | Fastest route \u00b7 95 km \u00b7 84 min | S 91.8 | \u26a0 Consider postponing this trip \u2014 conditions are hazardous. | \ud83d\udd50 1 hr 24 min | \ud83d\udccd 95.2 km | \u26a0 If driving, reduce speed by about 25 km/h below typical highway flow (~105 km/h). | HIGH risk \u00b7 T=1 V=0.82 E=0.805 \u00b7 Collision model (uncalibrated demo) \u00b7 Stage A fatal flag | \u25cf Demo weather \u00b7 \u25cf Demo 511 \u00b7 \u25cf Proxy V | V from scenario proxy table (VISION_BY_PRESET) \u2014 n",
+      "OPTION 2 | Alternate route \u00b7 109 km \u00b7 95 min | S 94.6 | \u26a0 Consider postponing this trip \u2014 conditions are hazardous. | \ud83d\udd50 1 hr 35 min | \ud83d\udccd 108.9 km | \u26a0 If driving, reduce speed by about 25 km/h below typical highway flow (~105 km/h). | HIGH risk \u00b7 T=1 V=0.82 E=0.805 \u00b7 Collision model (uncalibrated demo) \u00b7 Stage A fatal flag | \u25cf Demo weather \u00b7 \u25cf Demo 511 \u00b7 \u25cf Proxy V | V from scenario proxy table (VISION_BY_PRESET) \u2014 no"
+    ]
+  },
+  {
+    "weather": "blizzard",
+    "file": "SYS-03_blizzard_toronto_barrie.png",
+    "n_routes": 2,
+    "banner": "\u26a0 HIGH RISK \u2014 TRIP ADVISORY\nConsider postponing this trip \u2014 conditions are hazardous.\nConsider postponing travel or waiting until conditions improve.\nIf you must travel, use the lowest Safety Score route shown.\nRight lane, hazard lights, match truck pace \u2014 avoid isolated slow driving in passing lane",
+    "cards": [
+      "\u2605 SAFEST PICK | Fastest route \u00b7 95 km \u00b7 84 min | S 86.1 | \u26a0 Consider postponing this trip \u2014 conditions are hazardous. | \ud83d\udd50 1 hr 24 min | \ud83d\udccd 95.2 km | \u26a0 If driving, reduce speed by about 25 km/h below typical highway flow (~105 km/h). | HIGH risk \u00b7 T=0.688 V=0.88 E=0.805 \u00b7 Collision model (uncalibrated demo) \u00b7 Stage A fatal flag | \u25cf Demo weather \u00b7 \u25cf Demo 511 \u00b7 \u25cf Proxy V | V from scenario proxy table (VISION_BY_PRESET)",
+      "OPTION 2 | Alternate route \u00b7 109 km \u00b7 95 min | S 88.9 | \u26a0 Consider postponing this trip \u2014 conditions are hazardous. | \ud83d\udd50 1 hr 35 min | \ud83d\udccd 108.9 km | \u26a0 If driving, reduce speed by about 25 km/h below typical highway flow (~105 km/h). | HIGH risk \u00b7 T=0.688 V=0.88 E=0.805 \u00b7 Collision model (uncalibrated demo) \u00b7 Stage A fatal flag | \u25cf Demo weather \u00b7 \u25cf Demo 511 \u00b7 \u25cf Proxy V | V from scenario proxy table (VISION_BY_PRESET) "
+    ]
+  },
+  {
+    "weather": "wet",
+    "file": "SYS-05_wet_toronto_barrie.png",
+    "n_routes": 2,
+    "banner": "",
+    "cards": [
+      "\u2605 SAFEST PICK | Fastest route \u00b7 95 km \u00b7 84 min | S 34.4 | Increase caution \u2014 reduce speed and following distance. | \ud83d\udd50 1 hr 24 min | \ud83d\udccd 95.2 km | \ud83d\ude97 ~80 km/h advisory | MEDIUM risk \u00b7 T=0 V=0.42 E=0.345 \u00b7 Collision model (uncalibrated demo) \u00b7 Stage A fatal flag | \u25cf Demo weather \u00b7 \u25cf Demo 511 \u00b7 \u25cf Proxy V | V from scenario proxy table (VISION_BY_PRESET) \u2014 not ResNet. | Showing demo scenario \u2014 live weather/511 data wasn't av",
+      "OPTION 2 | Alternate route \u00b7 109 km \u00b7 95 min | S 37.2 | Increase caution \u2014 reduce speed and following distance. | \ud83d\udd50 1 hr 35 min | \ud83d\udccd 108.9 km | \ud83d\ude97 ~80 km/h advisory | MEDIUM risk \u00b7 T=0 V=0.42 E=0.345 \u00b7 Collision model (uncalibrated demo) \u00b7 Stage A fatal flag | \u25cf Demo weather \u00b7 \u25cf Demo 511 \u00b7 \u25cf Proxy V | V from scenario proxy table (VISION_BY_PRESET) \u2014 not ResNet. | Showing demo scenario \u2014 live weather/511 data wasn't ava"
+    ]
+  }
+]
