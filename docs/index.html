@@ -161,8 +161,8 @@
 
     <section class="wrap" id="pipeline">
       <div class="section-head">
-        <h2>How to complete / run the project</h2>
-        <p>Prefer the satellite notebooks under <code>notebooks/parts/</code> — cleaner than one giant Run All.</p>
+        <h2>How to run the project</h2>
+        <p>Prefer the split notebooks under <code>notebooks/parts/</code> — cleaner than one giant Run All.</p>
       </div>
       <div class="table-wrap">
         <table>
@@ -211,17 +211,18 @@
           <span>Exported figures, metrics tables, and draft outline for Week 12 report prep.</span>
         </a>
       </div>
-      <div class="card stack" style="margin-top:1rem;">
+      <div class="card stack" style="margin-top:1.25rem;">
         <div class="kicker">Local map demo (live CCTV + models)</div>
         <pre class="formula" style="margin:0;">cd demo
 pip install -r requirements-demo.txt
 python api_server.py
 # → http://127.0.0.1:5050
 # Real Vision mode: nearest Ontario 511 CCTV → ResNet18 → V in Safety Score S</pre>
-        <p style="margin:0.75rem 0 0; opacity:0.85; font-size:0.92rem;">
-          Why not on Pages? GitHub Pages cannot run Flask, CUDA, or private model weights.
-          Host the API on a VPS / campus GPU box / ngrok tunnel if you want a public demo link
-          from this site.
+        <p class="demo-note">
+          This live demo runs locally because GitHub Pages serves static files only — it cannot
+          host Flask, GPU inference (CUDA), or private model weights. To share a public demo from
+          this site, deploy the API on a VPS, campus GPU machine, or secure tunnel (for example
+          ngrok), then add that URL as a link above.
         </p>
       </div>
     </section>

@@ -7,7 +7,7 @@ This folder powers the project site when Pages is enabled on
 
 1. Open the repo on GitHub → **Settings** → **Pages**
 2. **Source:** Deploy from a branch
-3. **Branch:** `main` (or your default) → folder **`/docs`**
+3. **Branch:** `master` (or your default) → folder **`/docs`**
 4. Save. Site URL will be:
 
    `https://afolabi-adesina-m.github.io/Smart-Shield-AI/`
