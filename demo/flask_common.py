@@ -11,6 +11,12 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 
 from inference import WEATHER_PRESETS, score_routes_batch, DEFAULT_VISION_MODE
+from geocode_suggest import (
+    configured_provider,
+    provider_ready,
+    resolve_place,
+    suggest_places,
+)
 from speed_limit import lookup_posted_speed, overpass_urls, safe_speed_kmh
 from vision_runtime import get_vision_runtime
 
@@ -31,6 +37,17 @@ def apply_public_cors(app: Flask) -> None:
         return
     origins = [part.strip() for part in raw.split(",") if part.strip()]
     CORS(app, origins=origins)
+
+
+def _public_geocode_error(exc: Exception) -> str:
+    text = str(exc)
+    for secret in (
+        os.getenv("GOOGLE_PLACES_API_KEY", ""),
+        os.getenv("MAPBOX_ACCESS_TOKEN", ""),
+    ):
+        if secret:
+            text = text.replace(secret, "***")
+    return text
 
 
 def _optional_float(name: str):
@@ -81,7 +98,39 @@ def register_api_routes(app: Flask) -> None:
             "overpass_urls": overpass_urls(),
             "osrm_url": OSRM_URL,
             "nominatim_url": NOMINATIM_URL,
+            "geocode_provider": configured_provider(),
+            "geocode_key_configured": provider_ready(),
         })
+
+    @app.get("/api/suggest")
+    def suggest():
+        """Address autocomplete. Proxied so the browser does not call Photon directly."""
+        q = (request.args.get("q") or "").strip()
+        if len(q) > 120:
+            return jsonify({"error": "Query is too long"}), 400
+        lat = lon = None
+        try:
+            if request.args.get("lat"):
+                lat = float(request.args["lat"])
+            if request.args.get("lon"):
+                lon = float(request.args["lon"])
+        except ValueError:
+            return jsonify({"error": "lat and lon must be numeric"}), 400
+        try:
+            return jsonify(suggest_places(q, lat=lat, lon=lon))
+        except Exception as exc:
+            return jsonify({"error": _public_geocode_error(exc)}), 502
+
+    @app.get("/api/place")
+    def place():
+        """Resolve a Google place id to coordinates. Photon hits already include lat/lon."""
+        place_id = (request.args.get("id") or "").strip()
+        if not place_id:
+            return jsonify({"error": "Missing place id"}), 400
+        try:
+            return jsonify(resolve_place(place_id))
+        except Exception as exc:
+            return jsonify({"error": _public_geocode_error(exc)}), 502
 
     @app.get("/api/speed-limit")
     def speed_limit():

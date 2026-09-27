@@ -41,6 +41,20 @@ function initSpeedAwareness(map) {
 
   const center = map.getCenter();
   setSpeedLocation(center.lat, center.lng, "map");
+  window.SmartShieldMapCenter = () => {
+    if (!speedMap) return null;
+    const c = speedMap.getCenter();
+    return { lat: c.lat, lon: c.lng };
+  };
+  document.addEventListener("smartshield:focus", (e) => {
+    const detail = e.detail || {};
+    const lat = Number(detail.lat);
+    const lon = Number(detail.lon);
+    if (!speedMap || Number.isNaN(lat) || Number.isNaN(lon)) return;
+    stopDrive();
+    speedMap.flyTo([lat, lon], 16, { duration: 0.55 });
+    setSpeedLocation(lat, lon, "search");
+  });
 
   map.on("click", (e) => {
     stopDrive();

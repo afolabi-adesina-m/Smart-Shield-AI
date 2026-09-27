@@ -105,6 +105,16 @@ The map shows a Google Maps-style cluster: a **MAXIMUM** sign (posted limit), a 
 
 Click the map to read the limit at that point. Choosing a route snaps the reading to the route midpoint.
 
+## Address search
+
+The map has a search box, and the **From** and **To** fields use the same suggestions. After 3 characters, and a 300 ms pause, a dropdown lists matching places. Arrow keys move through it, Enter picks the highlighted row, and Escape closes it. On a phone, tap a row.
+
+Picking a place moves the map there and loads the posted limit and safe speed for that point. The map search also has **Set as From** and **Set as To**, which fill the route fields. Picking a suggestion in From or To does that directly. **Find safest routes** then uses those coordinates.
+
+The default provider is the public [Photon](https://photon.komoot.io/) service (Komoot), which is built for this kind of typeahead and does not need an API key. The browser talks only to this app. The server sends an identifying User-Agent, caches repeats for two minutes, and waits so Photon sees at most one request per second. Results are biased toward Ontario (Toronto) and Canadian matches are listed first; other countries can still appear. If Photon is down, one Nominatim search is used as a backup. Nominatim's public usage policy asks apps not to use it for autocomplete, so it is not the default.
+
+To switch providers, set `GEOCODE_PROVIDER` in `demo/.env` to `photon`, `nominatim`, `google`, or `mapbox`. Google needs `GOOGLE_PLACES_API_KEY`. Mapbox needs `MAPBOX_ACCESS_TOKEN`. If that key is missing, suggestions stay on Photon. Google results are limited to Canada; Mapbox uses `country=ca` plus a proximity bias. Neither key is required for the demo.
+
 ## Live demo / deployment
 
 **Best host for this stack: [Render](https://render.com) Docker web service.** The demo is one Flask process (Leaflet in the browser, scoring and Overpass on the server). It is not a static site and not a Streamlit app, so Vercel/Netlify static hosting and Streamlit Community Cloud do not fit without a rewrite. Render gives a public HTTPS URL, which is what browser geolocation requires, and `render.yaml` is already in the repo.

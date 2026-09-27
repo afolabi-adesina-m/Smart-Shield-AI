@@ -121,7 +121,10 @@ async function findRoutes() {
   status.textContent = "Looking up addresses…";
 
   try {
-    const [o, d] = await Promise.all([geocode(origin), geocode(destination)]);
+    const [o, d] = await Promise.all([
+      endpointPoint("origin"),
+      endpointPoint("destination"),
+    ]);
 
     status.textContent = "Fetching routes (OSRM)…";
     const osrmData = await fetchRoutes(o, d);
@@ -173,6 +176,16 @@ async function findRoutes() {
   }
 
   btn.disabled = false;
+}
+
+async function endpointPoint(inputId) {
+  const el = document.getElementById(inputId);
+  const lat = el ? parseFloat(el.dataset.lat) : NaN;
+  const lon = el ? parseFloat(el.dataset.lon) : NaN;
+  if (!Number.isNaN(lat) && !Number.isNaN(lon)) {
+    return { lat, lon, display_name: el.value.trim() };
+  }
+  return geocode((el && el.value.trim()) || "");
 }
 
 async function geocode(query) {
