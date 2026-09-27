@@ -12,14 +12,19 @@ html, body { overflow: hidden; }
   display: flex;
   flex-direction: column;
   min-height: 0;
-  background: var(--card);
+  background: var(--card-solid);
   color: var(--text);
   border: 1px solid var(--line);
   border-radius: 20px;
   box-shadow: var(--shadow);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
   overflow: hidden;
+}
+
+/* A blur on this scrolling card hides its text in Chrome. Keep the panel opaque. */
+.side-panel,
+.side-panel * {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .panel-head {
@@ -47,7 +52,13 @@ html, body { overflow: hidden; }
 
 .panel-collapse { flex: 0 0 auto; width: 40px; height: 40px; border-radius: 12px; }
 
-.side-panel .search-slot { padding: 8px 12px 0; }
+/* demo.css gives .search-slot flex-basis 100%, which eats the column and
+   crushes the sections into a blank panel with only the footer left. */
+.side-panel .search-slot {
+  flex: 0 0 auto;
+  width: auto;
+  padding: 8px 12px 0;
+}
 
 #panel-body {
   display: flex;
@@ -63,12 +74,16 @@ html, body { overflow: hidden; }
 }
 
 .panel-scroll {
+  position: relative;
+  z-index: 1;
   flex: 1;
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 4px 12px 8px;
+  background: var(--card-solid);
+  color: var(--text);
   scrollbar-width: thin;
   scrollbar-color: rgba(22, 25, 31, 0.28) transparent;
 }
@@ -100,6 +115,8 @@ html, body { overflow: hidden; }
 .section-body { padding-bottom: 4px; }
 
 .panel-foot {
+  position: relative;
+  z-index: 2;
   flex: 0 0 auto;
   padding: 8px 12px 12px;
   border-top: 1px solid var(--line);
@@ -107,20 +124,27 @@ html, body { overflow: hidden; }
 }
 
 .panel-foot .btn-primary { margin-top: 0; }
+.panel-foot .btn-primary[hidden] { display: none !important; }
 
-.section-action {
-  position: sticky;
-  bottom: 0;
-  z-index: 2;
-  padding: 8px 0;
-  background: linear-gradient(to top, var(--card-solid), rgba(255, 255, 255, 0));
+.side-panel .map-search {
+  background: var(--input);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
-html[data-theme="dark"] .section-action {
-  background: linear-gradient(to top, var(--card-solid), rgba(42, 49, 64, 0));
+.btn-secondary {
+  width: 100%;
+  margin-top: 8px;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--chip);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 650;
+  cursor: pointer;
 }
-
-.section-action .btn-primary { margin-top: 0; }
 
 .side-panel .safety-card,
 .side-panel .fleet-panel,
@@ -177,3 +201,50 @@ html[data-theme="dark"] .section-action {
 }
 
 .approx-note { font-size: 12px; color: var(--warn); margin: 6px 0 0; }
+
+.prep-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  color: var(--text);
+}
+.prep-legend li { display: flex; align-items: center; gap: 6px; }
+
+.prep-pin {
+  background: transparent;
+  border: none;
+}
+.prep-pin span {
+  display: block;
+  min-width: 28px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: #1a56db;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 750;
+  text-align: center;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+}
+.prep-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 750;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+}
+.prep-dot.turn { background: #1a56db; }
+.prep-dot.signal { background: #8a5a00; }
+.prep-dot.stop { background: #b3261e; }
+.prep-dot.school { background: #0d7a45; }
+.prep-dot.ramp { background: #6d28d9; }
+.prep-dot.other { background: #526072; }

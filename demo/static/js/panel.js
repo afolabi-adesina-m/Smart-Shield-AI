@@ -40,6 +40,24 @@
     if (scroll) {
       scroll.addEventListener("wheel", (event) => event.stopPropagation(), { passive: true });
     }
+    function showAction(name) {
+      document.querySelectorAll(".panel-foot [data-panel-action]").forEach((btn) => {
+        btn.hidden = btn.dataset.panelAction !== name;
+      });
+      const status = document.getElementById("status");
+      if (status) status.hidden = name !== "directions";
+    }
+    let currentAction = "directions";
+    document.querySelectorAll(".panel-section[data-panel-action]").forEach((section) => {
+      section.addEventListener("toggle", () => {
+        const name = section.dataset.panelAction || "directions";
+        if (section.open) currentAction = name;
+        else if (currentAction === name) currentAction = "directions";
+        showAction(currentAction);
+      });
+    });
+    showAction("directions");
+
     const button = document.getElementById("panel-collapse");
     if (!panel || !button) return;
     button.addEventListener("click", () => {

@@ -10,13 +10,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/css/theme.css?v=20260927i" />
-  <link rel="stylesheet" href="/static/css/demo.css?v=20260927i" />
-  <link rel="stylesheet" href="/static/css/side-panel.css?v=20260927i" />
-  <link rel="stylesheet" href="/static/css/weather-picker.css?v=20260927i" />
-  <link rel="stylesheet" href="/static/css/speed-panel.css?v=20260927i" />
-  <link rel="stylesheet" href="/static/css/address-search.css?v=20260927i" />
-  <link rel="stylesheet" href="/static/css/fleet.css?v=20260927i" />
+  <link rel="stylesheet" href="/static/css/theme.css?v=20260927k" />
+  <link rel="stylesheet" href="/static/css/demo.css?v=20260927k" />
+  <link rel="stylesheet" href="/static/css/side-panel.css?v=20260927k" />
+  <link rel="stylesheet" href="/static/css/weather-picker.css?v=20260927k" />
+  <link rel="stylesheet" href="/static/css/speed-panel.css?v=20260927k" />
+  <link rel="stylesheet" href="/static/css/address-search.css?v=20260927k" />
+  <link rel="stylesheet" href="/static/css/fleet.css?v=20260927k" />
   <script>
     try {
       var savedTheme = localStorage.getItem("smartshield-theme");
@@ -44,7 +44,7 @@
       <div id="search-slot" class="search-slot"></div>
       <div id="panel-body">
         <div id="panel-scroll" class="panel-scroll">
-          <details class="panel-section" open>
+          <details class="panel-section" data-panel-action="directions" open>
             <summary>Directions</summary>
             <div class="section-body">
               <label for="origin">From</label>
@@ -73,7 +73,7 @@
             </div>
           </details>
 
-          <details class="panel-section" id="safety-section" open>
+          <details class="panel-section" id="safety-section" data-panel-action="directions" open>
             <summary>Safety rating</summary>
             <article id="safety-card" class="safety-card" hidden>
               <button type="button" id="safety-toggle" class="safety-compact" aria-expanded="false" aria-controls="routes-section">
@@ -97,7 +97,7 @@
             <p id="safety-empty" class="fine-print section-body">Find a route to see the safety rating.</p>
           </details>
 
-          <details class="panel-section" open>
+          <details class="panel-section" data-panel-action="trip" open>
             <summary>Trip safety</summary>
             <section id="fleet-panel" class="fleet-panel">
               <div class="fleet-score-row">
@@ -108,9 +108,6 @@
                 </div>
               </div>
               <p id="fleet-hazard" class="fleet-hazard"></p>
-              <div class="section-action">
-                <button id="fleet-play" type="button" class="btn-primary">Play 403 exit demo</button>
-              </div>
               <div class="fleet-actions">
                 <button id="fleet-csv" type="button">Export CSV</button>
                 <button id="fleet-reset" type="button">Reset trip</button>
@@ -124,13 +121,15 @@
             </section>
           </details>
 
-          <details class="panel-section" id="test-prep-section">
+          <details class="panel-section" id="test-prep-section" data-panel-action="prep">
             <summary>Driving test prep</summary>
             <div id="test-prep" class="section-body"></div>
           </details>
         </div>
         <footer class="panel-foot">
-          <button id="btn-route" class="btn-primary" type="button">Find safest route</button>
+          <button id="btn-route" class="btn-primary" type="button" data-panel-action="directions">Find safest route</button>
+          <button id="fleet-play" class="btn-primary" type="button" data-panel-action="trip" hidden>Play 403 exit demo</button>
+          <button id="test-build" class="btn-primary" type="button" data-panel-action="prep" hidden>Build practice loop</button>
           <p id="status" class="status-msg" role="status">Set a start and destination.</p>
         </footer>
       </div>
@@ -146,13 +145,13 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="/static/js/theme.js?v=20260927i"></script>
-  <script src="/static/js/weather-picker.js?v=20260927i"></script>
-  <script src="/static/js/speed-panel.js?v=20260927i"></script>
-  <script src="/static/js/address-search.js?v=20260927i"></script>
-  <script src="/static/js/fleet.js?v=20260927i"></script>
-  <script src="/static/js/test-prep.js?v=20260927i"></script>
-  <script src="/static/js/panel.js?v=20260927i"></script>
-  <script src="/static/js/app.js?v=20260927i" defer></script>
+  <script src="/static/js/theme.js?v=20260927k"></script>
+  <script src="/static/js/weather-picker.js?v=20260927k"></script>
+  <script src="/static/js/speed-panel.js?v=20260927k"></script>
+  <script src="/static/js/address-search.js?v=20260927k"></script>
+  <script src="/static/js/fleet.js?v=20260927k"></script>
+  <script src="/static/js/test-prep.js?v=20260927k"></script>
+  <script src="/static/js/panel.js?v=20260927k"></script>
+  <script src="/static/js/app.js?v=20260927k" defer></script>
 </body>
 </html>

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 from pathlib import Path
 from typing import Callable, List, Optional
 
@@ -93,22 +94,42 @@ def build_practice_loop(
         raise TestPrepError("Level must be G2 or G.")
     centre = centre_by_id(centre_id)
     getter = fetch or _http_get
-    radius_km = 2.2 if exam == "G" else 1.4
+    radius_km = 2.4 if exam == "G" else 1.8
+    lat, lon = float(centre["lat"]), float(centre["lon"])
+    elements = _public_elements(lat, lon, getter, radius_km)
+    rings = _candidate_rings(lat, lon, elements, radius_km)
+    if not rings:
+        rings = [_offset_ring(lat, lon, radius_km * scale) for scale in (1.0, 0.7)]
     route = None
+    best = None
+    best_key = None
     last_error = "Routing failed."
-    for scale in (1.0, 0.55):
-        points = _loop_points(centre["lat"], centre["lon"], radius_km * scale)
-        try:
-            candidate = _osrm_route(points, getter, osrm_url)
-        except TestPrepError as exc:
-            last_error = str(exc)
+    for via in rings[:3]:
+        if len(via) < 3:
             continue
-        if route is None or candidate["distance_m"] < route["distance_m"]:
-            route = candidate
-        if route["distance_m"] <= 12000:
+        for ordered in _ring_orders(via):
+            points = [(lat, lon)] + ordered + [(lat, lon)]
+            try:
+                candidate = _osrm_route(points, getter, osrm_url)
+            except TestPrepError as exc:
+                last_error = str(exc)
+                continue
+            faults = _circuit_faults(candidate, lat, lon)
+            serious = [fault for fault in faults if fault != "revisit"]
+            key = (len(set(serious)), len(set(faults)), float(candidate["distance_m"]))
+            if best is None or key < best_key:
+                best = candidate
+                best_key = key
+            if not faults:
+                route = candidate
+                break
+        if route:
             break
+    route = route or best
     if not route:
         raise TestPrepError(last_error, 502)
+    route["geometry"] = _strip_spurs(route["geometry"])
+    route["geometry"] = _pin_ends(route["geometry"], lat, lon)
 
     geometry = route["geometry"]
     steps = _points_from_steps(route.get("steps") or [], exam)
@@ -138,17 +159,372 @@ def build_practice_loop(
     }
 
 
-def _loop_points(lat: float, lon: float, radius_km: float) -> List[tuple]:
+_THROUGH = {"trunk", "primary", "secondary", "tertiary", "unclassified", "residential"}
+_RANK = {"trunk": 0, "primary": 0, "secondary": 1, "tertiary": 2, "unclassified": 3, "residential": 4}
+# Parking aisles, park paths, and freeway collectors are not practice streets.
+_SKIP_WAY_NAME = re.compile(
+    r"parking|parkade|service road|collector|expressway|"
+    r"\b(garden|gardens|grove|trail|crescent|court|lane|mews|park)\b",
+    re.I,
+)
+_FREEWAY_NAME = re.compile(r"highway|collector|expressway|freeway", re.I)
+_SPUR_NAME = re.compile(r"\b(garden|gardens|grove|trail|crescent|court|lane|mews)\b", re.I)
+_PARK_ROAD = re.compile(r"\bpark\b", re.I)
+
+
+def _ring_orders(via: List[tuple]) -> List[List[tuple]]:
+    """Clockwise and counter-clockwise rotations. The first is the bearing order."""
+    if len(via) > 4:
+        return [via, list(reversed(via))]
+    orders = []
+    for sequence in (via, list(reversed(via))):
+        for shift in range(len(sequence)):
+            orders.append(sequence[shift:] + sequence[:shift])
+    return orders
+
+
+def _offset_ring(lat: float, lon: float, radius_km: float) -> List[tuple]:
     north = radius_km / 111.0
     east = radius_km / (111.0 * max(0.2, math.cos(math.radians(lat))))
     return [
-        (lat, lon),
-        (lat + north, lon + east * 0.15),
-        (lat + north * 0.25, lon + east),
-        (lat - north * 0.55, lon + east * 0.35),
-        (lat - north * 0.2, lon - east * 0.75),
-        (lat, lon),
+        (lat + north, lon),
+        (lat + north * 0.5, lon + east),
+        (lat - north * 0.5, lon + east * 0.6),
+        (lat - north, lon - east * 0.2),
+        (lat, lon - east),
     ]
+
+
+def _public_elements(lat: float, lon: float, fetch: Callable, radius_km: float) -> List[dict]:
+    """Through-street geometries around the centre. Empty when Overpass is down."""
+    meters = int(max(radius_km, 2.2) * 1000)
+    query = f"""
+[out:json][timeout:18];
+way(around:{meters},{lat},{lon})["highway"~"^(trunk|primary|secondary|tertiary|unclassified|residential)$"];
+out geom;
+""".strip()
+    for url in OVERPASS_URLS:
+        try:
+            data = fetch(url, {"data": query}, method="post")
+        except Exception:
+            continue
+        elements = (data or {}).get("elements") or []
+        if elements:
+            return elements
+    return []
+
+
+def _candidate_rings(lat: float, lon: float, elements: List[dict], radius_km: float) -> List[List[tuple]]:
+    """Arterial circuits first, then a wider street ring if the tight one cannot route."""
+    # Near-side bearings first so the loop stays on arterials beside the centre
+    # instead of hopping a freeway to hit a due-east point.
+    specs = (
+        (1.0, (30, 230, 285), 2),
+        (1.3, (15, 200, 290), 2),
+        (1.6, (0, 90, 180, 270), 1),
+        (min(2.2, radius_km + 0.4), (20, 110, 200, 290), 2),
+    )
+    rings = []
+    seen = set()
+    for target, bearings, max_rank in specs:
+        ring = _waypoints_from_ways(
+            lat, lon, elements, target_km=target, bearings=bearings, max_rank=max_rank,
+        )
+        if len(ring) < 3:
+            continue
+        key = tuple((round(point[0], 3), round(point[1], 3)) for point in ring)
+        if key in seen:
+            continue
+        seen.add(key)
+        rings.append(ring)
+    return rings
+
+
+def _waypoints_from_ways(
+    lat: float,
+    lon: float,
+    elements: List[dict],
+    target_km: float = 1.6,
+    sectors: int = 6,
+    max_rank: int = 4,
+    bearings: Optional[List[float]] = None,
+) -> List[tuple]:
+    ways = []
+    ends: dict = {}
+    expressway = []
+    blocked_names = set()
+    blocked_points = []
+    for element in elements or []:
+        tags = element.get("tags") or {}
+        name = tags.get("name") or ""
+        if tags.get("expressway") == "yes" or tags.get("highway") in {"motorway", "motorway_link"}:
+            if name:
+                blocked_names.add(name)
+            for point in element.get("geometry") or []:
+                if "lat" in point:
+                    expressway.append((float(point["lat"]), float(point["lon"])))
+        elif name and _SKIP_WAY_NAME.search(name):
+            for point in (element.get("geometry") or [])[::3]:
+                if "lat" in point:
+                    blocked_points.append((float(point["lat"]), float(point["lon"])))
+    for element in elements or []:
+        if element.get("type") != "way":
+            continue
+        tags = element.get("tags") or {}
+        highway = tags.get("highway") or ""
+        if highway not in _THROUGH or highway not in _RANK:
+            continue
+        rank = _RANK[highway]
+        if rank > max_rank:
+            continue
+        if tags.get("access") in {"private", "no", "customers"}:
+            continue
+        if tags.get("motor_vehicle") in {"private", "no"}:
+            continue
+        if tags.get("expressway") == "yes" or tags.get("motorroad") == "yes":
+            continue
+        name = tags.get("name") or ""
+        if not name or name in blocked_names or _SKIP_WAY_NAME.search(name):
+            continue
+        geom = element.get("geometry") or []
+        coords = [(float(point["lat"]), float(point["lon"])) for point in geom if "lat" in point]
+        if len(coords) < 2:
+            continue
+        ways.append((rank, name, coords))
+        for index, point in enumerate(coords):
+            if index not in (0, len(coords) - 1):
+                continue
+            key = (round(point[0], 5), round(point[1], 5))
+            ends[key] = ends.get(key, 0) + 1
+    through = []
+    for rank, name, coords in ways:
+        start = (round(coords[0][0], 5), round(coords[0][1], 5))
+        finish = (round(coords[-1][0], 5), round(coords[-1][1], 5))
+        # Arterials continue past the search window, so a free end is not a cul-de-sac.
+        if rank > 1 and (ends.get(start, 0) < 2 or ends.get(finish, 0) < 2):
+            continue
+        through.append((rank, name, coords))
+    express_samples = expressway[:: max(1, len(expressway) // 80)] if expressway else []
+    chosen = []
+    used_names = set()
+    blocked_samples = [(pair[1], pair[0]) for pair in blocked_points[:: max(1, len(blocked_points) // 100 or 1)]]
+    aims = list(bearings) if bearings else [sector * (360.0 / sectors) for sector in range(sectors)]
+    for aim in aims:
+        ideal = _destination(lat, lon, aim, target_km)
+        best = None
+        best_name = ""
+        best_score = 1e9
+        for rank, name, coords in through:
+            if name in used_names:
+                continue
+            point, offset_m = _clear_point(
+                coords, ideal[0], ideal[1], lat, lon, express_samples, blocked_samples,
+            )
+            if point is None:
+                continue
+            # An arterial a block off the ideal beats a side street sitting on it.
+            score = offset_m + rank * 900
+            if score < best_score:
+                best_score = score
+                best = point
+                best_name = name
+        if best and all(_haversine_m(best[0], best[1], other[0], other[1]) > 400 for other in chosen):
+            chosen.append(best)
+            if best_name:
+                used_names.add(best_name)
+    chosen.sort(key=lambda point: _bearing(lat, lon, point[0], point[1]))
+    return chosen[:6]
+
+
+def _circuit_faults(route: dict, lat: float, lon: float) -> List[str]:
+    """Reasons a driven line is not a public-street circuit around the centre."""
+    faults = []
+    if float(route.get("distance_m") or 0) > 16000:
+        faults.append("long")
+    farthest = 0.0
+    geometry = route.get("geometry") or []
+    for pair in geometry[:: max(1, len(geometry) // 80)]:
+        if len(pair) < 2:
+            continue
+        farthest = max(farthest, _haversine_m(lat, lon, float(pair[1]), float(pair[0])))
+    if farthest > 3400:
+        faults.append("far")
+    if _revisit_count(geometry) >= 1:
+        faults.append("revisit")
+    chunks = []
+    for step in route.get("steps") or []:
+        maneuver = step.get("maneuver") or {}
+        kind = maneuver.get("type") or ""
+        name = step.get("name") or ""
+        dist = float(step.get("distance") or 0)
+        modifier = maneuver.get("modifier") or ""
+        if kind in {"on ramp", "off ramp"} or (kind == "merge" and (not name or _FREEWAY_NAME.search(name))):
+            faults.append("freeway")
+        if (modifier == "uturn" or kind == "uturn") and dist > 150:
+            faults.append("uturn")
+        if _FREEWAY_NAME.search(name) or "parking" in name.lower() or "parkade" in name.lower():
+            faults.append("restricted")
+        if dist > 100 and (_SPUR_NAME.search(name) or _PARK_ROAD.search(name)):
+            faults.append("spur-street")
+        if name and dist >= 120:
+            if chunks and chunks[-1][0] == name:
+                chunks[-1][1] += dist
+            else:
+                chunks.append([name, dist])
+    seen = {}
+    for name, dist in chunks:
+        seen.setdefault(name, []).append(dist)
+    home = chunks[0][0] if chunks else ""
+    for name, dists in seen.items():
+        if name == home:
+            continue
+        dists.sort(reverse=True)
+        # A second long stretch on the same street is an out-and-back, not the short
+        # return from the loop onto the centre's access road.
+        if len(dists) >= 2 and dists[1] >= 700:
+            faults.append("backtrack")
+            break
+    return faults
+
+
+def _revisit_count(geometry: List[list]) -> int:
+    """How many samples come back near an earlier part of the drive, a spur or double-back."""
+    if len(geometry) < 8:
+        return 0
+    samples = []
+    walked = 0.0
+    previous = geometry[0]
+    samples.append((0.0, previous))
+    for pair in geometry[1:]:
+        if len(pair) < 2 or len(previous) < 2:
+            previous = pair
+            continue
+        walked += _haversine_m(float(previous[1]), float(previous[0]), float(pair[1]), float(pair[0]))
+        if walked - samples[-1][0] >= 90:
+            samples.append((walked, pair))
+        previous = pair
+    revisits = 0
+    for index, (along, point) in enumerate(samples):
+        for later, other in samples[index + 5:]:
+            gap = later - along
+            # Short out-and-back spurs. A loop that briefly rejoins its start road is kept.
+            if gap < 200 or gap > 950:
+                continue
+            if _haversine_m(float(point[1]), float(point[0]), float(other[1]), float(other[0])) < 45:
+                revisits += 1
+                break
+    return revisits
+
+
+def _destination(lat: float, lon: float, bearing_deg: float, distance_km: float) -> tuple:
+    bearing = math.radians(bearing_deg)
+    north = distance_km / 111.0
+    east = distance_km / (111.0 * max(0.2, math.cos(math.radians(lat))))
+    return lat + north * math.cos(bearing), lon + east * math.sin(bearing)
+
+
+def _separated_by_expressway(lat: float, lon: float, point_lat: float, point_lon: float, expressway: List[tuple]) -> bool:
+    """True when the waypoint sits past a freeway that lies between it and the centre."""
+    dist = _haversine_m(lat, lon, point_lat, point_lon)
+    heading = _bearing(lat, lon, point_lat, point_lon)
+    for elat, elon in expressway[:: max(1, len(expressway) // 120)]:
+        freeway = _haversine_m(lat, lon, elat, elon)
+        if freeway > dist - 40:
+            continue
+        delta = abs(((_bearing(lat, lon, elat, elon) - heading + 180) % 360) - 180)
+        if delta < 26:
+            return True
+    return False
+
+
+def _clear_point(coords, ideal_lat, ideal_lon, centre_lat, centre_lon, expressway, blocked):
+    """Point on a street near the ideal, off freeways, park roads, and parking aisles."""
+    express_samples = [(pair[1], pair[0]) for pair in expressway] if expressway else []
+    best = None
+    best_m = 1e9
+    for start, end in zip(coords, coords[1:]):
+        for point in (start, end):
+            offset = _haversine_m(ideal_lat, ideal_lon, point[0], point[1])
+            if offset > 1300 or offset >= best_m:
+                continue
+            centre_m = _haversine_m(centre_lat, centre_lon, point[0], point[1])
+            if not (450 <= centre_m <= 3000):
+                continue
+            if express_samples and _nearest_m(point[0], point[1], express_samples) < 80:
+                continue
+            if expressway and _separated_by_expressway(centre_lat, centre_lon, point[0], point[1], expressway):
+                continue
+            if blocked and _nearest_m(point[0], point[1], blocked) < 45:
+                continue
+            best_m = offset
+            best = point
+    return best, best_m
+
+
+def _closest_on_way(coords: List[tuple], lat: float, lon: float):
+    best = None
+    best_m = 1e9
+    for start, end in zip(coords, coords[1:]):
+        for step in (0.0, 0.5, 1.0):
+            point = (start[0] + (end[0] - start[0]) * step, start[1] + (end[1] - start[1]) * step)
+            dist = _haversine_m(lat, lon, point[0], point[1])
+            if dist < best_m:
+                best_m = dist
+                best = point
+    return best, best_m
+
+
+def _bearing(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    phi1, phi2 = math.radians(lat1), math.radians(lat2)
+    delta = math.radians(lon2 - lon1)
+    y = math.sin(delta) * math.cos(phi2)
+    x = math.cos(phi1) * math.sin(phi2) - math.sin(phi1) * math.cos(phi2) * math.cos(delta)
+    return (math.degrees(math.atan2(y, x)) + 360) % 360
+
+
+def _pin_ends(geometry: List[list], lat: float, lon: float) -> List[list]:
+    pin = [round(lon, 6), round(lat, 6)]
+    body = [list(pair) for pair in geometry if len(pair) >= 2]
+    if body and _haversine_m(lat, lon, float(body[0][1]), float(body[0][0])) < 25:
+        body = body[1:]
+    if body and _haversine_m(lat, lon, float(body[-1][1]), float(body[-1][0])) < 25:
+        body = body[:-1]
+    return [pin] + body + [pin]
+
+
+def _strip_spurs(coords: List[list]) -> List[list]:
+    """Drop out-and-back spurs. The overall loop from start back to start is kept."""
+    points = [list(pair) for pair in coords if len(pair) >= 2]
+    changed = True
+    while changed and len(points) > 4:
+        changed = False
+        for index in range(1, len(points) - 2):
+            window_m = 0.0
+            for follow in range(index + 1, min(index + 50, len(points) - 1)):
+                window_m += _haversine_m(
+                    float(points[follow - 1][1]), float(points[follow - 1][0]),
+                    float(points[follow][1]), float(points[follow][0]),
+                )
+                if window_m > 450:
+                    break
+                gap = _haversine_m(
+                    float(points[index][1]), float(points[index][0]),
+                    float(points[follow][1]), float(points[follow][0]),
+                )
+                if window_m < 120 or gap > 40:
+                    continue
+                mid = points[(index + follow) // 2]
+                bulge = _haversine_m(
+                    float(points[index][1]), float(points[index][0]),
+                    float(mid[1]), float(mid[0]),
+                )
+                if bulge > 70:
+                    del points[index + 1:follow]
+                    changed = True
+                    break
+            if changed:
+                break
+    return points
 
 
 def _osrm_route(points: List[tuple], fetch: Callable, osrm_url: str) -> dict:
@@ -327,7 +703,7 @@ def _haversine_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 def _http_get(url: str, params: dict, method: str = "get"):
     headers = {"User-Agent": "SmartShieldCapstone/1.0 (Sheridan practice-route demo)"}
     if method == "post":
-        response = requests.post(url, data=params, headers=headers, timeout=8)
+        response = requests.post(url, data=params, headers=headers, timeout=20)
     else:
         response = requests.get(url, params=params, headers=headers, timeout=20)
     response.raise_for_status()

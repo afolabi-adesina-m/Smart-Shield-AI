@@ -58,10 +58,14 @@
         </select>
       </div>
       <p id="test-centre-note" class="approx-note" hidden></p>
-      <div class="section-action">
-        <button id="test-build" type="button" class="btn-primary">Build practice loop</button>
-      </div>
-      <button id="test-play" type="button" class="btn-primary" disabled>Start practice drive</button>
+      <ul class="prep-legend" aria-label="Practice point legend">
+        <li><i class="prep-dot turn">L</i> Turn</li>
+        <li><i class="prep-dot signal">S</i> Signal</li>
+        <li><i class="prep-dot stop">■</i> Stop</li>
+        <li><i class="prep-dot school">A</i> School</li>
+        <li><i class="prep-dot ramp">R</i> Ramp</li>
+      </ul>
+      <button id="test-play" type="button" class="btn-secondary" disabled>Start practice drive</button>
       <div class="test-score"><strong id="test-score">—</strong><span>Practice score</span></div>
       <p id="test-status" class="status-msg" role="status"></p>
       <ul id="test-points" class="test-points"></ul>
@@ -80,7 +84,8 @@
       });
     });
     document.getElementById("test-centre").addEventListener("change", noteCentre);
-    document.getElementById("test-build").addEventListener("click", () => {
+    const build = document.getElementById("test-build");
+    if (build) build.addEventListener("click", () => {
       buildLoop().catch((err) => setStatus(err.message || "Could not build a loop."));
     });
     document.getElementById("test-play").addEventListener("click", () => {
@@ -151,26 +156,57 @@
     if (play) play.disabled = true;
   }
 
+  function practiceIcon(kind) {
+    const family = kind === "left_turn" || kind === "right_turn" ? "turn"
+      : kind === "signal" ? "signal"
+      : kind === "stop" ? "stop"
+      : kind === "school" ? "school"
+      : kind === "ramp" ? "ramp"
+      : "other";
+    const glyph = family === "turn" ? (kind === "left_turn" ? "L" : "R")
+      : family === "signal" ? "S"
+      : family === "stop" ? "■"
+      : family === "school" ? "A"
+      : family === "ramp" ? "R"
+      : "•";
+    return L.divIcon({
+      className: "prep-pin",
+      html: `<span class="prep-dot ${family}">${glyph}</span>`,
+      iconSize: [22, 22],
+      iconAnchor: [11, 11],
+    });
+  }
+
   function drawLoop(data) {
     const group = ensureLayer();
     const leaflet = map();
     if (!group || !leaflet) return;
     group.clearLayers();
     const latlngs = (data.geometry || []).map(([lon, lat]) => [lat, lon]);
-    const line = L.polyline(latlngs, { color: "#1a56db", weight: 6, opacity: 0.9 }).addTo(group);
+    const line = L.polyline(latlngs, { color: "#1a56db", weight: 6, opacity: 0.92 }).addTo(group);
     const bounds = line.getBounds();
     (data.points || []).forEach((point) => {
-      const marker = L.circleMarker([point.lat, point.lon], {
-        radius: 7,
-        color: "#1a56db",
-        weight: 2,
-        fillColor: "#ffffff",
-        fillOpacity: 1,
+      const marker = L.marker([point.lat, point.lon], {
+        icon: practiceIcon(point.kind),
+        keyboard: false,
+        zIndexOffset: 400,
       }).addTo(group);
       marker.bindTooltip(point.label, { direction: "top" });
       bounds.extend([point.lat, point.lon]);
     });
-    if (data.centre) bounds.extend([data.centre.lat, data.centre.lon]);
+    if (data.centre) {
+      const start = L.marker([data.centre.lat, data.centre.lon], {
+        icon: L.divIcon({
+          className: "prep-pin",
+          html: "<span>Start</span>",
+          iconSize: [52, 22],
+          iconAnchor: [26, 28],
+        }),
+        zIndexOffset: 800,
+      }).addTo(group);
+      start.bindTooltip("Start and finish · " + data.centre.name, { direction: "top" });
+      bounds.extend([data.centre.lat, data.centre.lon]);
+    }
     const pad = window.SmartShieldMapPadding ? window.SmartShieldMapPadding() : { padding: [40, 40] };
     if (bounds.isValid()) leaflet.fitBounds(bounds, pad);
     const list = document.getElementById("test-points");
