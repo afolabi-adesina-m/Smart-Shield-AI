@@ -79,6 +79,12 @@
       "enc": "protected/models/feature_names.joblib.enc",
       "sha256": "45e902608a5a52a315d26813f60696466feb8aefc27d78807726e6b3d0db4456",
       "bytes": 125
+    },
+    {
+      "path": "models/fatal_vs_not_stage_a.joblib",
+      "enc": "protected/models/fatal_vs_not_stage_a.joblib.enc",
+      "sha256": "ece47bc33aecb4476cff2abe8440ee55ca92b9766fb3ac9c4a2381f9ed3314b6",
+      "bytes": 1640
     }
   ]
 }
