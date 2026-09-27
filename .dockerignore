@@ -1,5 +1,6 @@
 .git
 **/.git
+mobile
 **/__pycache__
 **/*.pyc
 **/.venv

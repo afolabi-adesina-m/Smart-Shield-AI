@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "Smart-Shield AI",
+    "slug": "smart-shield-ai",
+    "scheme": "smartshield",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": false,
+    "splash": {
+      "backgroundColor": "#e8edf3"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.smartshield.ai",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Smart-Shield uses your location for the trip start, the posted speed on the road you are on, and your live speed during a fleet trip."
+      }
+    },
+    "android": {
+      "package": "com.smartshield.ai",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ],
+      "adaptiveIcon": {
+        "backgroundColor": "#1a56db"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Smart-Shield uses your location for the trip start, the posted speed on the road you are on, and your live speed during a fleet trip."
+        }
+      ],
+      "expo-asset"
+    ]
+  }
+}
