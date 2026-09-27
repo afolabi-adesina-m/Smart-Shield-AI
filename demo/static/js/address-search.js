@@ -112,11 +112,13 @@ function attachAddressField(input, options) {
 
   function placeList() {
     const rect = input.getBoundingClientRect();
-    const space = Math.max(140, window.innerHeight - rect.bottom - 12);
+    const hud = document.getElementById("speed-panel");
+    const limitBottom = hud ? hud.getBoundingClientRect().top - 12 : window.innerHeight - 16;
+    const space = Math.max(120, limitBottom - rect.bottom - 8);
     list.style.left = Math.max(8, rect.left) + "px";
     list.style.top = (rect.bottom + 4) + "px";
     list.style.width = Math.max(180, rect.width) + "px";
-    list.style.maxHeight = Math.min(280, space) + "px";
+    list.style.maxHeight = Math.min(320, space) + "px";
   }
 
   function close() {

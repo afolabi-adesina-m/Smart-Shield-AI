@@ -15,6 +15,16 @@
   top: calc(10px + env(safe-area-inset-top, 0px));
   left: 10px;
   right: 10px;
+  width: auto;
+  flex-wrap: nowrap;
+}
+
+.search-slot { flex: 1 1 auto; }
+
+.top-actions {
+  position: static;
+  top: auto;
+  right: auto;
 }
 
 .brand span { font-size: 14px; }
@@ -72,8 +82,8 @@
 .fab-map {
   position: absolute;
   z-index: 740;
-  right: 12px;
-  bottom: calc(var(--sheet-peek) + 132px);
+  right: 10px;
+  bottom: calc(var(--sheet-peek) + 16px);
   width: 44px;
   height: 44px;
   border-radius: 14px;
@@ -85,13 +95,13 @@
 }
 
 .leaflet-bottom.leaflet-right {
-  bottom: calc(var(--sheet-peek) + 188px);
+  bottom: calc(var(--sheet-peek) + 210px);
   margin-right: 8px;
 }
 
 .leaflet-control-attribution {
-  max-width: 46vw;
-  margin-bottom: calc(var(--sheet-peek) + 188px) !important;
+  max-width: 42vw;
+  margin-bottom: calc(var(--sheet-peek) + 210px) !important;
   margin-left: 8px !important;
 }
 

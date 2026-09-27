@@ -34,6 +34,8 @@
 
 .map-search input:focus { outline: none; box-shadow: none; }
 
+.address-assign[hidden] { display: none !important; }
+
 .address-assign {
   display: flex;
   gap: 6px;

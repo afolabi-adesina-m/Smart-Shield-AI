@@ -14,10 +14,11 @@
   z-index: 800;
   top: 16px;
   left: 16px;
-  right: 16px;
+  width: min(400px, calc(100vw - 96px));
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   pointer-events: none;
 }
 
@@ -44,9 +45,17 @@
   letter-spacing: -0.02em;
 }
 
-.search-slot { flex: 1; min-width: 0; max-width: 640px; }
+.search-slot { flex: 1 1 100%; min-width: 0; max-width: none; }
 
-.top-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.top-actions {
+  position: fixed;
+  z-index: 810;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
 .icon-btn {
   width: 48px;
@@ -73,10 +82,10 @@
 .left-stack {
   position: absolute;
   z-index: 700;
-  top: 76px;
+  top: 128px;
   left: 16px;
-  width: min(380px, calc(100vw - 32px));
-  max-height: calc(100dvh - 210px);
+  width: min(400px, calc(100vw - 96px));
+  max-height: calc(100dvh - 300px);
   display: flex;
   flex-direction: column;
   gap: 12px;

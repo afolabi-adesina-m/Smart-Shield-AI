@@ -36,11 +36,11 @@ html[data-theme="dark"] {
   --accent: #9ec1ff;
   --accent-ink: #0d1b33;
   --bg: #0e1116;
-  --card: rgba(24, 28, 36, 0.9);
-  --card-solid: #1a1f28;
+  --card: rgba(39, 46, 58, 0.94);
+  --card-solid: #2a3140;
   --text: #f4f7fb;
   --muted: #c5ced8;
-  --line: rgba(255, 255, 255, 0.12);
+  --line: rgba(255, 255, 255, 0.18);
   --shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
   --ok: #8ee0b0;
   --ok-bg: rgba(13, 122, 69, 0.35);
@@ -52,7 +52,7 @@ html[data-theme="dark"] {
   --med: #ffd56a;
   --high: #ffb4ab;
   --sign-ring: #ff6b6b;
-  --hud: rgba(20, 24, 31, 0.94);
+  --hud: rgba(32, 38, 50, 0.96);
   --input: #12161d;
   --chip: rgba(255, 255, 255, 0.08);
   --focus: 0 0 0 3px rgba(158, 193, 255, 0.35);

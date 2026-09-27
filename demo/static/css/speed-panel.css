@@ -23,7 +23,7 @@ body[data-speed-layout="desktop"] .speed-panel {
 
 body[data-speed-layout="mobile"] .speed-panel {
   left: 10px;
-  right: 10px;
+  right: 64px;
   width: auto;
   bottom: calc(var(--sheet-peek) + 8px);
   transform: none;
@@ -134,13 +134,13 @@ body[data-speed-layout="mobile"] .speed-panel {
 .speed-panel.amber-alert .now-num { color: var(--warn); }
 .speed-panel.red-alert .now-num { color: var(--danger); }
 
-.speed-panel.red-alert .speed-now {
-  animation: overspeed-pulse 1.5s ease-in-out infinite;
+.speed-panel.red-alert .now-num {
+  animation: overspeed-pulse 1.15s ease-in-out infinite;
 }
 
 @keyframes overspeed-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(179, 38, 30, 0.28); }
-  50% { box-shadow: 0 0 0 12px rgba(179, 38, 30, 0); }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 
 .speed-road, .speed-safe-note {
