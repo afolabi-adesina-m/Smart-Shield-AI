@@ -124,6 +124,104 @@ class TreeTests(unittest.TestCase):
                         sys.modules.pop(name, None)
 
 
+class UnlockedImportTests(unittest.TestCase):
+    def test_decrypted_tree_can_import_plaintext_live_helpers(self):
+        """Mirror inference.py: it puts <decrypt>/src first, then imports Live_alerts.
+
+        Those helpers are not part of the encrypted engine. They live in the
+        repository src tree. The loader has to leave that tree on sys.path.
+        """
+        import importlib
+        import tempfile
+
+        from engine_loader import _keep_repo_src_importable
+
+        probe_name = "inference_live_probe"
+        with tempfile.TemporaryDirectory(prefix="smart-shield-engine-") as tmp:
+            root = Path(tmp)
+            demo = root / "demo"
+            src = root / "src"
+            demo.mkdir()
+            src.mkdir()
+            (src / "nlp_brain.py").write_text("MARKER = 'temp-engine'\n", encoding="utf-8")
+            (demo / f"{probe_name}.py").write_text(
+                "import sys\n"
+                "from pathlib import Path\n"
+                "_SRC = Path(__file__).resolve().parent.parent / 'src'\n"
+                "if str(_SRC) not in sys.path:\n"
+                "    sys.path.insert(0, str(_SRC))\n"
+                "from nlp_brain import MARKER\n"
+                "from Live_alerts import nearby_alert_text\n"
+                "from Live_weather import live_risk_components\n"
+                "from Live_cameras import fetch_nearby_still\n",
+                encoding="utf-8",
+            )
+            before_path = list(sys.path)
+            before_modules = set(sys.modules)
+            try:
+                sys.path.insert(0, str(demo))
+                sys.path.insert(0, str(src))
+                _keep_repo_src_importable(ROOT)
+                module = importlib.import_module(probe_name)
+                self.assertEqual(module.MARKER, "temp-engine")
+                self.assertTrue(callable(module.nearby_alert_text))
+                self.assertTrue(callable(module.live_risk_components))
+                self.assertTrue(callable(module.fetch_nearby_still))
+                self.assertIn(str((ROOT / "src").resolve()), sys.path)
+                self.assertNotEqual(
+                    Path(module.nearby_alert_text.__code__.co_filename).resolve().parent,
+                    src.resolve(),
+                )
+            finally:
+                sys.path[:] = before_path
+                for name in list(sys.modules):
+                    if name not in before_modules:
+                        sys.modules.pop(name, None)
+
+    def test_unlock_keeps_repository_src_on_path(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            rel = "demo/ss_path_probe.py"
+            (root / "demo").mkdir()
+            (root / "src").mkdir()
+            (root / rel).write_text("VALUE = 'unlocked-path'\n", encoding="utf-8")
+            plain = (root / rel).read_bytes()
+            key_text = generate_key()
+            key = encode_roundtrip_key(key_text)
+            enc_rel = f"protected/{rel}.enc"
+            dest = root / enc_rel
+            dest.parent.mkdir(parents=True)
+            dest.write_bytes(encrypt_bytes(key, plain, rel.encode()))
+            manifest = {
+                "version": 1,
+                "scheme": "AES-256-GCM",
+                "files": [{
+                    "path": rel,
+                    "enc": enc_rel,
+                    "sha256": hashlib.sha256(plain).hexdigest(),
+                }],
+            }
+            (root / "protected" / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+            (root / rel).unlink()
+            before_path = list(sys.path)
+            before_modules = set(sys.modules)
+            try:
+                opened = prepare_engine(
+                    root, sources=[rel], environ={"SMART_SHIELD_KEY": key_text}
+                )
+                self.assertEqual(opened["mode"], "unlocked")
+                self.assertIn(str((root / "src").resolve()), sys.path)
+                import ss_path_probe
+                self.assertEqual(ss_path_probe.VALUE, "unlocked-path")
+            finally:
+                sys.path[:] = before_path
+                for name in list(sys.modules):
+                    if name not in before_modules:
+                        sys.modules.pop(name, None)
+
+
 class FallbackTests(unittest.TestCase):
     def test_locked_scoring_is_not_a_model_score(self):
         rows = _locked_score_routes([{"distance_m": 1000, "duration_s": 60, "summary": "401"}])

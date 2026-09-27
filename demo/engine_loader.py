@@ -88,7 +88,26 @@ def prepare_engine(
         sys.path.insert(0, str(demo_path))
     if src_path.is_dir():
         sys.path.insert(0, str(src_path))
+    # Decrypted inference.py computes src from its own file
+    # (/tmp/.../demo/inference.py -> /tmp/.../src). That folder only has the
+    # encrypted modules. Live_alerts, Live_weather, and Live_cameras stay in
+    # the repository tree and must remain importable after the temp src is
+    # placed first on sys.path.
+    _keep_repo_src_importable(repo)
     return _set("unlocked", "Engine decrypted in a temporary directory for this process.")
+
+
+def _keep_repo_src_importable(repo: Path) -> None:
+    """Keep plaintext helpers in ``<repo>/src`` on ``sys.path``.
+
+    Appended, not inserted, so a decrypted module of the same name still wins.
+    """
+    src = (repo / "src").resolve()
+    if not src.is_dir():
+        return
+    entry = str(src)
+    if entry not in sys.path:
+        sys.path.append(entry)
 
 
 def _materialize(repo: Path, manifest_path: Path, key: bytes) -> Path:
