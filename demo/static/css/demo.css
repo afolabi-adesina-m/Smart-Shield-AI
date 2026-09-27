@@ -43,6 +43,7 @@
   color: var(--text);
   font-weight: 650;
   letter-spacing: -0.02em;
+  font-size: 14px;
 }
 
 .search-slot { flex: 1 1 100%; min-width: 0; max-width: none; }

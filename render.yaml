@@ -13,3 +13,7 @@ services:
         value: "*"
       - key: PYTHONUNBUFFERED
         value: "1"
+      # Set this in the Render dashboard after you encrypt the engine.
+      # Leave it empty while the plaintext engine is still what the image runs.
+      - key: SMART_SHIELD_KEY
+        sync: false

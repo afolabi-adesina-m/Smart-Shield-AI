@@ -10,6 +10,7 @@ from flask import Flask, jsonify, request
 
 from flask_cors import CORS
 
+from engine_loader import engine_status
 from inference import WEATHER_PRESETS, score_routes_batch, DEFAULT_VISION_MODE
 from geocode_suggest import (
     configured_provider,
@@ -85,6 +86,8 @@ def register_api_routes(app: Flask) -> None:
             "default_vision_mode": DEFAULT_VISION_MODE,
             "speed_limit": "osm-maxspeed",
             "road_rules": "street-exit",
+            "edition": "Smart-Shield AI Enterprise",
+            "engine": engine_status(),
         })
 
     @app.get("/api/config")

@@ -1,4 +1,8 @@
-# Smart-Shield AI - INFO53883 Capstone (Team 2B)
+# Smart-Shield AI Enterprise
+
+This is the Enterprise edition: the navigation map, posted and safe speeds, street and exit rules, and fleet trip scoring. The scoring engine can be encrypted at rest. See [PROTECTING_IP.md](PROTECTING_IP.md).
+
+The submitted academic capstone stays fully readable and unencrypted for teammates. It is the branch `capstone-submitted` and the tag `v1.0-capstone-submitted` (commit `754ef29a315a1a5c984632311fe6f7abe33a33a4`, 27 August 2026). Do not encrypt that branch or move that tag.
 
 Multimodal highway safety scoring: **NLP alerts** + **vision road conditions** + **tabular collision risk** -> fused Smart-Shield score.
 

@@ -17,6 +17,7 @@ RUN pip install --upgrade pip && pip install -r /tmp/requirements-demo.txt
 COPY src /app/src
 COPY models /app/models
 COPY demo /app/demo
+COPY protected /app/protected
 
 WORKDIR /app/demo
 EXPOSE 5050
