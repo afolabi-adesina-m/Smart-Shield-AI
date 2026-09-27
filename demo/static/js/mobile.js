@@ -47,7 +47,21 @@ function initMap() {
   }).addTo(map);
 
   markerGroup = L.layerGroup().addTo(map);
+  initSpeedAwareness(map);
   document.getElementById("status").textContent = "Enter a route and tap Find safest routes.";
+}
+
+function publishSpeedContext(snapToRoute) {
+  const route = lastScoredRoutes.find((r) => r.route_index === selectedIndex) || null;
+  const osrm = lastOsrmRoutes[selectedIndex];
+  document.dispatchEvent(new CustomEvent("smartshield:context", {
+    detail: {
+      route,
+      geometry: osrm ? osrm.geometry : null,
+      weather: (document.getElementById("weather") || {}).value || "auto",
+      snapToRoute: !!snapToRoute,
+    },
+  }));
 }
 
 function initBottomSheet() {
@@ -144,6 +158,7 @@ async function findRoutes() {
     renderHighRiskBanner(lastScoredRoutes);
     renderRouteCards(lastScoredRoutes);
     drawRoutesOnMap(lastOsrmRoutes, selectedIndex, o, d);
+    publishSpeedContext(true);
 
     const worst = lastScoredRoutes.reduce(
       (a, b) => (a.safety_score >= b.safety_score ? a : b),
@@ -274,6 +289,7 @@ function renderRouteCards(scored) {
       card.classList.add("selected");
       drawRoutesOnMap(lastOsrmRoutes, idx);
       updateMapBadge(r);
+      publishSpeedContext(true);
       setSheetState("half");
     });
 

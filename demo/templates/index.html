@@ -5,11 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Smart-Shield AI · Ontario Highway Safety</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="/static/css/demo.css?v=20260727b" />
-  <link rel="stylesheet" href="/static/css/weather-picker.css?v=20260727b" />
+  <link rel="stylesheet" href="/static/css/demo.css?v=20260927b" />
+  <link rel="stylesheet" href="/static/css/weather-picker.css?v=20260927b" />
+  <link rel="stylesheet" href="/static/css/speed-panel.css?v=20260927b" />
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
 </head>
-<body>
+<body data-speed-layout="desktop">
   <div id="app">
   <aside id="smart-shield-panel" class="addon-panel">
     <header class="panel-header">
@@ -25,7 +26,7 @@
         Research prototype — not official MTO or 511 Ontario guidance.
       </p>
       <p class="mobile-link-row">
-        <a href="http://127.0.0.1:5051" target="_blank" rel="noopener">📱 Mobile demo (port 5051)</a>
+        <a id="mobile-demo-link" href="/mobile">Mobile layout</a>
       </p>
     </header>
 
@@ -51,13 +52,14 @@
       </select>
       <p class="weather-selected-summary">Real mode scores the nearest <strong>Ontario 511 CCTV</strong> still with <strong>vision_resnet18.pt</strong> (cache photo if the camera is down).</p>
       <button id="btn-route" class="btn-primary">Find safest routes</button>
+      <p class="hint">Posted limit, safe speed, and a demo speed slider are on the map.</p>
       <p id="status" class="status-msg"></p>
     </section>
 
     <section class="panel-section" id="routes-section" hidden>
       <div id="high-risk-banner" class="high-risk-banner" hidden></div>
       <h2>Route options <span class="badge">AI ranked</span></h2>
-      <p class="hint">Lower safety score = safer. Tap a card to highlight on map.</p>
+      <p class="hint">Lower safety score = safer. Tap a card to highlight on map. Speed limit and safe speed sit on the map.</p>
       <div id="route-cards"></div>
     </section>
 
@@ -76,7 +78,8 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="/static/js/weather-picker.js?v=20260727b"></script>
-  <script src="/static/js/app.js?v=20260727b" defer></script>
+  <script src="/static/js/weather-picker.js?v=20260927b"></script>
+  <script src="/static/js/speed-panel.js?v=20260927b"></script>
+  <script src="/static/js/app.js?v=20260927b" defer></script>
 </body>
 </html>

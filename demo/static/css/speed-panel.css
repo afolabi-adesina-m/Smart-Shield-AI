@@ -1,0 +1,323 @@
+/* Google Maps-style speed cluster for the Smart-Shield map. */
+
+.speed-panel {
+  position: absolute;
+  z-index: 650;
+  width: 332px;
+  max-width: calc(100% - 24px);
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(60, 64, 67, 0.3), 0 4px 12px rgba(60, 64, 67, 0.18);
+  padding: 12px 12px 10px;
+  color: #202124;
+  font-family: Roboto, Arial, sans-serif;
+}
+
+body[data-speed-layout="desktop"] .speed-panel {
+  left: 12px;
+  bottom: 18px;
+}
+
+body[data-speed-layout="mobile"] .speed-panel {
+  top: 72px;
+  left: 8px;
+  right: 8px;
+  width: auto;
+  max-height: 46%;
+  overflow: auto;
+}
+
+.speed-signs {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.limit-sign {
+  width: 74px;
+  min-height: 88px;
+  background: #fff;
+  border: 4px solid #202124;
+  border-radius: 8px;
+  text-align: center;
+  padding: 4px 2px 6px;
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.limit-sign.safe {
+  border-color: #137333;
+}
+
+.limit-sign .sign-caption {
+  display: block;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.1;
+}
+
+.limit-sign.safe .sign-caption { color: #137333; }
+
+.limit-sign .sign-num {
+  display: block;
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.05;
+  margin-top: 1px;
+}
+
+.limit-sign .sign-unit {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.limit-sign .est-tab {
+  display: none;
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: #f9ab00;
+  color: #202124;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 2px 5px;
+  border-radius: 4px;
+}
+
+.limit-sign.estimated .est-tab { display: block; }
+
+.speed-now-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
+.speed-now {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  background: #202124;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 4px solid #202124;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.speed-now .now-num {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.speed-now .now-unit {
+  font-size: 10px;
+  font-weight: 500;
+  opacity: 0.9;
+  margin-top: 2px;
+}
+
+.speed-now.amber {
+  background: #e37400;
+  border-color: #e37400;
+}
+
+.speed-now.red {
+  background: #d93025;
+  border-color: #d93025;
+  animation: speed-pulse 1s ease-in-out infinite;
+}
+
+.speed-now-caption {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #5f6368;
+}
+
+@keyframes speed-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.speed-road {
+  margin: 8px 2px 0;
+  font-size: 12px;
+  color: #3c4043;
+  line-height: 1.35;
+  min-height: 1.35em;
+}
+
+.speed-road .src-tag {
+  display: inline-block;
+  margin-left: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: #e6f4ea;
+  color: #137333;
+  vertical-align: 1px;
+}
+
+.speed-road .src-tag.estimated {
+  background: #fef7e0;
+  color: #b06000;
+}
+
+.speed-alert {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.speed-alert.ok {
+  background: #e6f4ea;
+  color: #137333;
+}
+
+.speed-alert.amber {
+  background: #fef7e0;
+  color: #b06000;
+  border: 1px solid #f9ab00;
+}
+
+.speed-alert.red {
+  background: #fce8e6;
+  color: #c5221f;
+  border: 1px solid #d93025;
+}
+
+.speed-safe-note {
+  margin: 4px 2px 0;
+  font-size: 11px;
+  color: #5f6368;
+}
+
+.speed-controls {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #dadce0;
+}
+
+.speed-toggle-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: #3c4043;
+}
+
+.speed-toggle-row label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 12px;
+  color: #3c4043;
+  cursor: pointer;
+}
+
+.speed-toggle-row input {
+  width: auto;
+  margin: 0;
+}
+
+.speed-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.speed-slider-row input[type="range"] {
+  flex: 1;
+  padding: 0;
+  border: none;
+  box-shadow: none;
+}
+
+.speed-slider-readout {
+  width: 64px;
+  text-align: right;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.speed-presets {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.speed-presets button,
+.speed-drive {
+  flex: 1;
+  border-radius: 16px;
+  border: 1px solid #dadce0;
+  background: #f8f9fa;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 4px;
+  cursor: pointer;
+  color: #202124;
+}
+
+.speed-presets button[data-preset="amber"] { border-color: #f9ab00; background: #fef7e0; }
+.speed-presets button[data-preset="red"] { border-color: #d93025; background: #fce8e6; }
+.speed-presets button[data-preset="ok"] { border-color: #137333; background: #e6f4ea; }
+
+.speed-drive {
+  width: 100%;
+  margin-top: 6px;
+  flex: none;
+}
+
+.speed-gps-note {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: #5f6368;
+  line-height: 1.35;
+}
+
+.speed-rule {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: #5f6368;
+}
+
+.speed-rule summary {
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.speed-panel.red-alert {
+  box-shadow: 0 0 0 2px #d93025, 0 4px 12px rgba(217, 48, 37, 0.25);
+}
+
+.speed-panel.amber-alert {
+  box-shadow: 0 0 0 2px #e37400, 0 4px 12px rgba(227, 116, 0, 0.2);
+}
+
+@media (max-width: 768px) {
+  body[data-speed-layout="desktop"] .speed-panel {
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    width: auto;
+  }
+}

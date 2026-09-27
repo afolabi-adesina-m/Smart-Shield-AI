@@ -72,7 +72,77 @@ On a physical phone (same Wi-Fi as your PC), use the LAN URL printed by `mobile_
 
 Both can run simultaneously - they use different ports and share the same scoring API logic.
 
-Requires trained models in `../models/` (run the notebook modeling section first).
+The desktop server also serves the mobile layout at `/mobile` on the same port. That is the URL to use on a public host. `mobile_server.py` is only needed when you want a second local port for a phone on the same Wi-Fi.
+
+Requires trained models in `../models/` for the tabular and ResNet brains. If those files are missing, route scoring still runs: NLP uses the in-repo TF-IDF fallback and vision uses the preset proxy. The speed panel does not need the model files.
+
+## Speed limit & safe speed
+
+The map shows a Google Maps-style cluster: a **MAXIMUM** sign (posted limit), a **SAFE** sign, and your current speed.
+
+| Sign | Source |
+|------|--------|
+| Posted limit | OpenStreetMap `maxspeed` via the Overpass API (`GET /api/speed-limit`). The browser never calls Overpass directly. |
+| Estimated limit | Used when the nearest road has no `maxspeed`. The sign is badged **EST** and the label says estimated. Defaults: motorway 100, trunk/primary 80, secondary 60, tertiary/unclassified 50, residential 40, living street 20, service 30, unknown 50 km/h. |
+| Safe speed | Lower than or equal to the posted limit. The fusion model is not modified. |
+| Your speed | Browser geolocation speed (`coords.speed`, m/s → km/h) when the device reports it. Otherwise **Demo speed**. |
+
+**Safe speed rule** (interface only, `demo/speed_limit.py`):
+
+1. If a route is scored, scale that route's existing `recommended_speed_kmh` from the model's 100 km/h highway assumption onto the real posted limit: `posted × recommended / 100`.
+2. Otherwise use the same fractions `risk_tier()` already returns: LOW 100%, MEDIUM 80%, HIGH 60% of posted.
+3. Before a route exists, the road-conditions preset maps onto those tiers: clear → LOW, wet → MEDIUM, blizzard and ice storm → HIGH. Auto with no score matches the posted limit.
+4. The result is never above the posted limit. Motorways posted at 100 km/h or more keep the existing 80 km/h freeway floor.
+
+**Warnings**
+
+- Speed above the **posted** limit: the speed bubble turns red and the alert reads “Over the speed limit”.
+- Speed above the **safe** speed but still at or under the posted limit: amber alert, “Above the safe speed”.
+- At or under the safe speed: green, “Within the safe speed”.
+- Optional beep on the transition into amber or red (checkbox on the panel).
+
+**Demo on a laptop:** leave **Demo speed** checked. **Under safe**, **Above safe**, and **Over limit** set the slider. Above safe switches road conditions to Wet when the safe speed is not already below the posted limit. **Drive selected route** moves along the highlighted route. **Use GPS** needs a secure context (HTTPS, or localhost). A public deploy should be HTTPS; many laptops still report no speed, which is why the slider is there.
+
+Click the map to read the limit at that point. Choosing a route snaps the reading to the route midpoint.
+
+## Live demo / deployment
+
+**Best host for this stack: [Render](https://render.com) Docker web service.** The demo is one Flask process (Leaflet in the browser, scoring and Overpass on the server). It is not a static site and not a Streamlit app, so Vercel/Netlify static hosting and Streamlit Community Cloud do not fit without a rewrite. Render gives a public HTTPS URL, which is what browser geolocation requires, and `render.yaml` is already in the repo.
+
+Railway (`railway.toml`) and any other Docker host use the same `Dockerfile`. Hugging Face Spaces can run that image too if the Space is Docker and `PORT` is `7860`.
+
+Model files (`models/*.joblib`, `models/*.pt`) are gitignored and also excluded from the Docker build. GitHub blocks files over 100 MB; ResNet weights are usually under that but should move with **Git LFS** if you stop ignoring them. The public demo still scores routes without those files. To bake trained weights into an image, delete the `models/*.pt` and `models/*.joblib` lines from `.dockerignore` and build on a machine that has the files.
+
+### Render (recommended)
+
+1. Push this branch and open a pull request, or push to the default branch.
+2. In Render: **New → Blueprint** (uses `render.yaml`) or **New → Web Service**, connect the GitHub repo, and set **Runtime** to **Docker**. Root directory stays the repo root (`Dockerfile` is there).
+3. Leave the start command empty so the image `CMD` runs: `gunicorn` on `0.0.0.0:$PORT`.
+4. Environment variables (optional; defaults are fine):
+   - `SMART_SHIELD_CORS_ORIGINS` = `*`
+   - `OVERPASS_URL` = `https://overpass.openstreetmap.fr/api/interpreter`
+   - `OSRM_URL` = `https://router.project-osrm.org/route/v1/driving`
+   - `NOMINATIM_URL` = `https://nominatim.openstreetmap.org/search`
+5. Deploy. Open the `https://…onrender.com` URL for the desktop map, and add `/mobile` for the phone layout.
+6. Health check: `GET /api/health`.
+
+The free instance sleeps when idle; the first request after sleep can take a minute. Overpass and OSRM are public services and can rate-limit; the speed panel falls back to an estimated limit if they fail.
+
+### Railway
+
+1. **New project → Deploy from GitHub repo.** Railway reads `railway.toml` and builds the `Dockerfile`.
+2. Railway sets `PORT`. Do not pin a port in the dashboard.
+3. Open the generated HTTPS URL, and `/mobile` for the phone layout.
+
+### Local check before you deploy
+
+```bash
+cd demo
+pip install -r requirements-demo.txt
+python api_server.py
+```
+
+Open the URL printed for that port, path `/` (desktop) or `/mobile`. Copy `demo/.env.example` to `demo/.env` only if you want to override ports or upstream URLs.
 
 ## Improvements & audit
 
