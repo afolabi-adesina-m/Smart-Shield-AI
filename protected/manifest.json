@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "scheme": "AES-256-GCM",
+  "files": [
+    {
+      "path": "src/safety_score.py",
+      "enc": "protected/src/safety_score.py.enc",
+      "sha256": "e377b417a5d6f3154f4ee4c4cf244b2849402723c3422da0d2ed1486bf9f24e9",
+      "bytes": 7172
+    },
+    {
+      "path": "src/nlp_brain.py",
+      "enc": "protected/src/nlp_brain.py.enc",
+      "sha256": "2849d779402bfdf740bb81a27537854a8706c4140db86e98f067546bea1c52ea",
+      "bytes": 3465
+    },
+    {
+      "path": "src/vision_brain.py",
+      "enc": "protected/src/vision_brain.py.enc",
+      "sha256": "3ffbfc85264b8c78a6ef8f3a3bec3ebac18fffc19114c19207605aecff60395a",
+      "bytes": 50322
+    },
+    {
+      "path": "demo/inference.py",
+      "enc": "protected/demo/inference.py.enc",
+      "sha256": "6e06f3ff285f454fdecbe51f4ae7d0a03ec2714521c2e3e80f71c306dcef1259",
+      "bytes": 15339
+    },
+    {
+      "path": "demo/vision_runtime.py",
+      "enc": "protected/demo/vision_runtime.py.enc",
+      "sha256": "794b2d45a9c1d85e161d2dd365d9c71d6779daf1bb0d02cd004aa68bf69d6f24",
+      "bytes": 10083
+    },
+    {
+      "path": "demo/speed_limit.py",
+      "enc": "protected/demo/speed_limit.py.enc",
+      "sha256": "1bfe30cf78b8cfb5ec62cdf75161d849c557c1badc56fd5e5a9804e3e388f22a",
+      "bytes": 12613
+    },
+    {
+      "path": "demo/road_rules.py",
+      "enc": "protected/demo/road_rules.py.enc",
+      "sha256": "ae3474f0afe5b3e7aac04cd2ecc78fc7cefb7a9af2edf816b1ac82a9a1cd8a8a",
+      "bytes": 30715
+    },
+    {
+      "path": "demo/street_rules.json",
+      "enc": "protected/demo/street_rules.json.enc",
+      "sha256": "20a2c552ad6d90f79e5d788d209c8c216d0e31aae1db049ee26cff65066dda49",
+      "bytes": 3003
+    },
+    {
+      "path": "models/vision_meta.json",
+      "enc": "protected/models/vision_meta.json.enc",
+      "sha256": "0c547d355c4a8e716cc003bf09fe443dd3699e99f0be02e0c83aba7d0319b50f",
+      "bytes": 1056
+    }
+  ]
+}
