@@ -94,6 +94,11 @@
 
 .left-stack > * { pointer-events: auto; }
 
+body.suggest-open .left-stack {
+  top: calc(128px + var(--suggest-push, 0px));
+  max-height: calc(100dvh - 380px - var(--suggest-push, 0px));
+}
+
 .float-card, .safety-card {
   background: var(--card);
   backdrop-filter: blur(18px);

@@ -127,6 +127,9 @@ function attachAddressField(input, options) {
     input.setAttribute("aria-expanded", "false");
     input.removeAttribute("aria-activedescendant");
     state.active = -1;
+    if (![...document.querySelectorAll(".address-suggest")].some((el) => !el.hidden)) {
+      document.body.classList.remove("suggest-open");
+    }
   }
 
   function open() {
@@ -134,6 +137,11 @@ function attachAddressField(input, options) {
     list.hidden = false;
     input.setAttribute("aria-expanded", "true");
     placeList();
+    document.body.classList.add("suggest-open");
+    requestAnimationFrame(() => {
+      const height = Math.ceil(list.getBoundingClientRect().height);
+      document.documentElement.style.setProperty("--suggest-push", (height + 12) + "px");
+    });
   }
 
   function render(message) {
