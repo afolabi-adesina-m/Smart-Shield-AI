@@ -1,9 +1,12 @@
 #!/usr/bin/env sh
-# Git pre-commit: regenerate explanation docs when notebook or definitions change.
+# Git pre-commit: block a committed engine key, and rebuild explanation docs
+# when the notebook or definitions change.
 # Enable once: git config core.hooksPath .githooks
 
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT" || exit 0
+
+python3 tools/protect.py check || exit 1
 
 CHANGED=$(git diff --cached --name-only)
 echo "$CHANGED" | grep -qE '^(notebooks/.*\.ipynb|explanations/definitions\.json|explanations/build_all\.py)$' || exit 0

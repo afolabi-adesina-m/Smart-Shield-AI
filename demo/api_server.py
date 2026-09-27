@@ -14,13 +14,20 @@ Run:
 from __future__ import annotations
 
 import os
+import sys
 
 from dotenv import load_dotenv
+
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
+
+from engine_loader import prepare_engine
+
+_ENGINE = prepare_engine()
+print(f"Smart-Shield AI Enterprise: {_ENGINE['message']}", file=sys.stderr)
+
 from flask import Flask, render_template
 
 from flask_common import apply_public_cors, disable_demo_cache, register_api_routes
-
-load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 APP = Flask(__name__, static_folder="static", template_folder="templates")
 apply_public_cors(APP)
