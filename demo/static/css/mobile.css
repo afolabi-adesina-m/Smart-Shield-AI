@@ -1,468 +1,125 @@
-/* Smart-Shield mobile demo — portrait-first (iPhone & Android) */
-
-:root {
-  --google-blue: #1a73e8;
-  --google-grey: #5f6368;
-  --low: #3b7a57;
-  --med: #f18f01;
-  --high: #c73e1d;
-  --border: #dadce0;
-  --sheet-peek: 42vh;
-  --sheet-half: 58vh;
-  --sheet-full: 88vh;
-  --topbar-h: calc(52px + env(safe-area-inset-top, 0px));
-}
-
-* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-
-html, body {
-  margin: 0;
-  height: 100%;
-  overflow: hidden;
-  font-family: Roboto, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: #202124;
-  background: #000;
-  touch-action: manipulation;
-}
+/* Phone shell. The map is full screen; the sheet and HUD float on it. */
 
 #mobile-app {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
+  position: relative;
+  height: 100vh;
   height: 100dvh;
   overflow: hidden;
+  background: var(--bg);
 }
 
-/* —— Top bar (notch-safe) —— */
-.mobile-topbar {
-  flex: 0 0 var(--topbar-h);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: env(safe-area-inset-top, 0px) 12px 0 12px;
-  min-height: var(--topbar-h);
-  background: #fff;
-  border-bottom: 1px solid var(--border);
-  z-index: 1200;
+#map-stage { position: absolute; inset: 0; }
+#map-stage #map { position: absolute; inset: 0; }
+
+.topbar {
+  top: calc(10px + env(safe-area-inset-top, 0px));
+  left: 10px;
+  right: 10px;
+  width: auto;
+  flex-wrap: nowrap;
 }
 
-.topbar-brand {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.search-slot { flex: 1 1 auto; }
+
+.top-actions {
+  position: static;
+  top: auto;
+  right: auto;
 }
 
-.topbar-brand .shield-icon { font-size: 1.5rem; }
+.brand span { font-size: 14px; }
+.brand { padding-right: 10px; }
+.search-slot { max-width: none; }
 
-.topbar-brand strong {
-  display: block;
-  font-size: 0.95rem;
-  font-weight: 600;
-}
-
-.topbar-sub {
-  font-size: 0.68rem;
-  color: var(--google-grey);
-}
-
-.desktop-link {
-  font-size: 0.75rem;
-  color: var(--google-blue);
-  text-decoration: none;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: #e8f0fe;
-}
-
-/* —— Full-width map stage —— */
-#map-stage {
-  flex: 1 1 auto;
-  position: relative;
-  min-height: 0;
-}
-
-#map {
-  width: 100%;
-  height: 100%;
-  z-index: 1;
-}
-
-.map-badge {
-  position: absolute;
-  top: calc(12px + env(safe-area-inset-top, 0px));
-  left: 12px;
-  background: #fff;
-  padding: 10px 14px;
-  border-radius: 14px;
-  box-shadow: 0 2px 8px rgba(0,0,0,.18);
-  text-align: center;
-  z-index: 500;
-}
-
-.map-badge strong {
-  display: block;
-  font-size: 1.5rem;
-  line-height: 1;
-}
-
-.map-badge span {
-  font-size: 0.62rem;
-  color: var(--google-grey);
-}
-
-.fab-map {
-  position: absolute;
-  right: 12px;
-  bottom: 12px;
-  width: 44px;
-  height: 44px;
-  border: none;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 2px 8px rgba(0,0,0,.2);
-  font-size: 1.2rem;
-  color: var(--google-blue);
-  z-index: 500;
-  cursor: pointer;
-}
-
-/* Leaflet zoom — thumb-friendly, above sheet peek */
-.leaflet-top.leaflet-left {
-  top: calc(8px + env(safe-area-inset-top, 0px));
-  left: auto;
-  right: 12px;
-}
-
-.leaflet-control-zoom a {
-  width: 36px !important;
-  height: 36px !important;
-  line-height: 36px !important;
-  font-size: 18px !important;
-}
-
-/* —— Bottom sheet —— */
 .bottom-sheet {
-  position: fixed;
+  position: absolute;
+  z-index: 900;
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 1100;
-  background: #fff;
-  border-radius: 20px 20px 0 0;
-  box-shadow: 0 -4px 24px rgba(0,0,0,.15);
+  height: var(--sheet-peek);
+  background: var(--card);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  border-radius: 22px 22px 0 0;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--line);
   display: flex;
   flex-direction: column;
-  max-height: var(--sheet-full);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
   transition: height 0.28s ease;
-  touch-action: none;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-.bottom-sheet[data-state="peek"] { height: var(--sheet-peek); }
 .bottom-sheet[data-state="half"] { height: var(--sheet-half); }
 .bottom-sheet[data-state="full"] { height: var(--sheet-full); }
 
 .sheet-handle {
-  flex: 0 0 auto;
-  padding: 10px 0 6px;
-  display: flex;
-  justify-content: center;
-  cursor: grab;
+  flex: 0 0 28px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
 }
-
 .sheet-handle span {
   width: 40px;
   height: 4px;
-  background: #dadce0;
   border-radius: 4px;
+  background: var(--line);
 }
 
-.sheet-scroll {
-  flex: 1 1 auto;
-  overflow-y: auto;
-  overflow-x: hidden;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
-  padding: 0 16px 16px;
+.sheet-scroll { overflow: auto; padding: 0 16px 18px; }
+
+.safety-card {
+  position: absolute;
+  z-index: 750;
+  top: calc(70px + env(safe-area-inset-top, 0px));
+  left: 10px;
+  right: 10px;
+  max-height: none;
 }
 
-.prototype-disclaimer {
-  margin: 0 0 12px;
-  font-size: 0.72rem;
-  color: #b06000;
-  background: #fef7e0;
-  border: 1px solid #f9ab00;
-  padding: 8px 10px;
-  border-radius: 8px;
-  line-height: 1.35;
-}
+.safety-card #routes-section { display: none; }
 
-label {
-  display: block;
-  font-size: 0.72rem;
-  color: var(--google-grey);
-  margin: 10px 0 4px;
-}
-
-input, select {
-  width: 100%;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  font-size: 16px; /* prevents iOS zoom-on-focus */
-  min-height: 44px;
-}
-
-input:focus, select:focus {
-  outline: none;
-  border-color: var(--google-blue);
-  box-shadow: 0 0 0 2px rgba(26,115,232,.2);
-}
-
-.btn-primary {
-  width: 100%;
-  margin-top: 14px;
-  padding: 14px;
-  min-height: 48px;
-  background: var(--google-blue);
-  color: #fff;
-  border: none;
-  border-radius: 24px;
-  font-size: 1rem;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.btn-primary:disabled {
-  background: #bdc1c6;
-}
-
-.status-msg {
-  font-size: 0.8rem;
-  color: var(--google-grey);
-  margin: 10px 0 0;
-  min-height: 1.2em;
-}
-
-.results-title {
-  margin: 16px 0 6px;
-  font-size: 0.95rem;
-  font-weight: 600;
-}
-
-.badge {
-  font-size: 0.62rem;
-  background: #e8f0fe;
-  color: var(--google-blue);
-  padding: 2px 8px;
-  border-radius: 10px;
-  font-weight: 500;
-}
-
-.hint {
-  font-size: 0.75rem;
-  color: var(--google-grey);
-  margin: 0 0 12px;
-}
-
-.high-risk-banner {
-  margin: 0 0 12px;
-  padding: 12px 14px;
-  background: #f8f9fa;
-  border: 1px solid #dadce0;
-  border-left: 3px solid #c5221f;
-  border-radius: 10px;
-  font-size: 0.82rem;
-  line-height: 1.4;
-}
-
-.high-risk-banner-title {
-  font-size: 0.65rem;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  color: #5f6368;
-  margin-bottom: 4px;
-}
-
-.high-risk-banner-lead {
-  display: block;
-  color: #202124;
-  font-size: 0.88rem;
-  font-weight: 600;
-  margin-bottom: 4px;
-}
-
-.high-risk-banner-detail {
-  margin: 0;
-  font-size: 0.78rem;
-  font-weight: 400;
-  color: #5f6368;
-}
-
-.model-bundle {
-  margin: 8px 0 0;
-  font-size: 0.7rem;
-  color: #5f6368;
-  line-height: 1.35;
-}
-
-.route-card {
-  border: 2px solid var(--border);
+.fab-map {
+  position: absolute;
+  z-index: 740;
+  right: 10px;
+  bottom: calc(var(--sheet-peek) + 16px);
+  width: 44px;
+  height: 44px;
   border-radius: 14px;
-  padding: 12px 14px;
-  margin-bottom: 10px;
-  cursor: pointer;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  font-size: 18px;
 }
 
-.route-card.selected {
-  border-color: var(--google-blue);
-  background: #f8f9ff;
+.leaflet-bottom.leaflet-right {
+  bottom: calc(var(--sheet-peek) + 210px);
+  margin-right: 8px;
 }
 
-.route-card.best {
-  border-color: var(--low);
-}
-
-.route-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 8px;
-}
-
-.route-title {
-  font-weight: 500;
-  font-size: 0.88rem;
-}
-
-.safety-pill {
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: #fff;
-  padding: 5px 10px;
-  border-radius: 12px;
-  white-space: nowrap;
-}
-
-.card-high-alert {
-  margin-top: 10px;
-  padding: 8px 10px;
-  background: #f8f9fa;
-  border: 1px solid #dadce0;
-  border-left: 3px solid #c5221f;
-  border-radius: 8px;
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: #3c4043;
-  line-height: 1.35;
-}
-
-.operational-msg {
-  margin-top: 8px;
-  font-size: 0.8rem;
-  line-height: 1.35;
-}
-
-.route-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 8px;
-  font-size: 0.82rem;
-}
-
-.route-brains {
-  margin-top: 8px;
-  font-size: 0.68rem;
-  color: var(--google-grey);
-  line-height: 1.4;
-}
-
-.rank-tag {
-  font-size: 0.62rem;
-  color: var(--low);
-  font-weight: 600;
-  text-transform: uppercase;
-}
-
-.speed-advisory {
-  color: var(--high);
-  font-weight: 500;
-  font-size: 0.78rem;
+.leaflet-control-attribution {
+  max-width: 42vw;
+  margin-bottom: calc(var(--sheet-peek) + 210px) !important;
+  margin-left: 8px !important;
 }
 
 .legend-compact {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 12px;
-  font-size: 0.68rem;
-  color: var(--google-grey);
+  gap: 8px 12px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--muted);
 }
-
-.legend-compact span {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
 .dot {
   display: inline-block;
   width: 8px;
   height: 8px;
   border-radius: 50%;
+  margin-right: 4px;
 }
-
 .dot.low { background: var(--low); }
 .dot.med { background: var(--med); }
 .dot.high { background: var(--high); }
-
-/* —— Landscape: map left, sheet right —— */
-@media (orientation: landscape) and (min-height: 400px) {
-  #mobile-app {
-    flex-direction: row;
-    flex-wrap: wrap;
-  }
-
-  .mobile-topbar {
-    flex: 0 0 100%;
-    width: 100%;
-  }
-
-  #map-stage {
-    flex: 1 1 55%;
-    min-width: 0;
-  }
-
-  .bottom-sheet {
-    position: relative;
-    flex: 0 0 45%;
-    max-width: 420px;
-    max-height: none;
-    height: calc(100dvh - var(--topbar-h)) !important;
-    border-radius: 0;
-    box-shadow: -2px 0 12px rgba(0,0,0,.08);
-  }
-
-  .bottom-sheet[data-state="peek"],
-  .bottom-sheet[data-state="half"],
-  .bottom-sheet[data-state="full"] {
-    height: calc(100dvh - var(--topbar-h)) !important;
-  }
-
-  .sheet-handle { display: none; }
-
-  .fab-map {
-    bottom: 16px;
-    right: 16px;
-  }
-}
-
-/* Very small phones */
-@media (max-height: 640px) and (orientation: portrait) {
-  :root {
-    --sheet-peek: 38vh;
-    --sheet-half: 52vh;
-  }
-}

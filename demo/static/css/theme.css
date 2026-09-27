@@ -1,0 +1,96 @@
+/* Smart-Shield design tokens. Components read these variables. */
+
+:root,
+html[data-theme="light"] {
+  --font: "Inter", system-ui, sans-serif;
+  --accent: #1a56db;
+  --accent-ink: #ffffff;
+  --bg: #e8edf3;
+  --card: rgba(255, 255, 255, 0.92);
+  --card-solid: #ffffff;
+  --text: #16191f;
+  --muted: #526072;
+  --line: rgba(22, 25, 31, 0.12);
+  --shadow: 0 10px 28px rgba(22, 25, 31, 0.12), 0 1px 2px rgba(22, 25, 31, 0.05);
+  --ok: #0d7a45;
+  --ok-bg: #e5f6ec;
+  --warn: #8a5a00;
+  --warn-bg: #fff3d6;
+  --danger: #b3261e;
+  --danger-bg: #fdeceb;
+  --low: #0d7a45;
+  --med: #8a5a00;
+  --high: #b3261e;
+  --sign-ring: #d21f1f;
+  --hud: rgba(255, 255, 255, 0.94);
+  --input: #ffffff;
+  --chip: #eef2f7;
+  --focus: 0 0 0 3px rgba(26, 86, 219, 0.28);
+  --sheet-peek: 112px;
+  --sheet-half: 52vh;
+  --sheet-full: 88vh;
+  color-scheme: light;
+}
+
+html[data-theme="dark"] {
+  --accent: #9ec1ff;
+  --accent-ink: #0d1b33;
+  --bg: #0e1116;
+  --card: rgba(39, 46, 58, 0.94);
+  --card-solid: #2a3140;
+  --text: #f4f7fb;
+  --muted: #c5ced8;
+  --line: rgba(255, 255, 255, 0.18);
+  --shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  --ok: #8ee0b0;
+  --ok-bg: rgba(13, 122, 69, 0.35);
+  --warn: #ffd56a;
+  --warn-bg: rgba(138, 90, 0, 0.4);
+  --danger: #ffb4ab;
+  --danger-bg: rgba(179, 38, 30, 0.4);
+  --low: #8ee0b0;
+  --med: #ffd56a;
+  --high: #ffb4ab;
+  --sign-ring: #ff6b6b;
+  --hud: rgba(32, 38, 50, 0.96);
+  --input: #12161d;
+  --chip: rgba(255, 255, 255, 0.08);
+  --focus: 0 0 0 3px rgba(158, 193, 255, 0.35);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  font-family: var(--font);
+  color: var(--text);
+  background: var(--bg);
+}
+
+button, input, select { font-family: inherit; color: inherit; }
+
+.icon {
+  width: 20px;
+  height: 20px;
+  display: block;
+  flex: 0 0 auto;
+}
+
+.brand .icon { width: 22px; height: 22px; color: var(--accent); }
+
+html[data-theme="light"] .icon-sun { display: none; }
+html[data-theme="dark"] .icon-moon { display: none; }
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

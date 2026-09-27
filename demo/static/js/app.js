@@ -29,20 +29,31 @@ function updateWeatherSummary(value) {
   }
 }
 
+let baseLayer = null;
+
+function applyBaseTiles(theme) {
+  if (!map || !window.SmartShieldTheme) return;
+  const url = window.SmartShieldTheme.tileUrl(theme);
+  if (baseLayer) map.removeLayer(baseLayer);
+  baseLayer = L.tileLayer(url, {
+    maxZoom: 20,
+    subdomains: "abcd",
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+  }).addTo(map);
+}
+
 function initMap() {
   map = L.map("map", { zoomControl: false }).setView([43.6532, -79.3832], 9);
 
-  L.control.zoom({ position: "topright" }).addTo(map);
-
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-  }).addTo(map);
+  L.control.zoom({ position: "bottomright" }).addTo(map);
+  applyBaseTiles(window.SmartShieldTheme ? window.SmartShieldTheme.current() : "light");
+  document.addEventListener("smartshield:theme", (event) => {
+    applyBaseTiles((event.detail || {}).theme || "light");
+  });
 
   markerGroup = L.layerGroup().addTo(map);
-  initMapBadgeControl();
   initSpeedAwareness(map);
-  document.getElementById("status").textContent = "Ready — enter routes and click Find safest routes.";
+  document.getElementById("status").textContent = "Set a start and destination.";
 }
 
 function publishSpeedContext(snapToRoute) {
@@ -87,7 +98,7 @@ async function findRoutes() {
   }
 
   btn.disabled = true;
-  status.textContent = "Looking up addresses (OpenStreetMap)…";
+    status.textContent = "Finding those places…";
 
   try {
     const [o, d] = await Promise.all([
@@ -95,7 +106,7 @@ async function findRoutes() {
       endpointPoint("destination"),
     ]);
 
-    status.textContent = "Fetching route options (OSRM)…";
+    status.textContent = "Drawing the drive…";
     const osrmData = await fetchRoutes(o, d);
 
     if (!osrmData.routes || osrmData.routes.length === 0) {
@@ -115,10 +126,7 @@ async function findRoutes() {
       mid_lon: route.mid_lon,
     }));
 
-    status.textContent =
-      visionMode === "proxy"
-        ? "Scoring routes (Vision proxy)…"
-        : "Scoring routes with ResNet + NLP models…";
+    status.textContent = "Checking safety for this drive…";
 
     const resp = await fetch("/api/score-routes", {
       method: "POST",
@@ -134,11 +142,16 @@ async function findRoutes() {
     renderHighRiskBanner(lastScoredRoutes);
     renderRouteCards(lastScoredRoutes);
     drawRoutesOnMap(lastOsrmRoutes, selectedIndex, o, d);
-    document.getElementById("routes-section").hidden = false;
+    const safetyCard = document.getElementById("safety-card");
+    if (safetyCard) safetyCard.hidden = false;
+    const worstTier = lastScoredRoutes.some((route) => route.tier === "HIGH");
+    document.getElementById("routes-section").hidden = !worstTier;
+    const safetyToggle = document.getElementById("safety-toggle");
+    if (safetyToggle) safetyToggle.setAttribute("aria-expanded", worstTier ? "true" : "false");
     publishSpeedContext(true);
-    status.textContent = `${routes.length} route(s) · safest highlighted · free OSM data`;
+    status.textContent = routes.length === 1 ? "1 route scored." : `${routes.length} routes scored.`;
   } catch (err) {
-    status.textContent = `Error: ${err.message}`;
+    status.textContent = err.message ? `Could not score the route. ${err.message}` : "Could not score the route.";
   }
 
   btn.disabled = false;
@@ -245,8 +258,8 @@ function renderRouteCards(scored) {
 
     const speedLine =
       r.tier === "HIGH"
-        ? `<span class="speed-advisory">⚠ ${escapeHtml(relText)}</span>`
-        : `<span>🚗 ~${r.recommended_speed_kmh} km/h advisory</span>`;
+        ? `<span class="speed-advisory">${escapeHtml(relText)}</span>`
+        : `<span>Advisory ${r.recommended_speed_kmh} km/h</span>`;
 
     const highAlert =
       r.tier === "HIGH"
@@ -263,17 +276,15 @@ function renderRouteCards(scored) {
       </div>
       ${highAlert}
       <div class="route-meta">
-        <span>🕐 ${r.duration_text}</span>
-        <span>📍 ${r.distance_km} km</span>
+        <span>${r.duration_text}</span>
+        <span>${r.distance_km} km</span>
         ${speedLine}
       </div>
-      <div class="route-brains">
-        ${r.tier} risk · T=${r.T_nlp} V=${r.V_vision} E=${r.E_index}
-        ${r.collision_risk_index != null && !r.collision_risk_calibrated ? " · Collision model (uncalibrated demo)" : ""}
-        ${r.stage_a_fatal && r.stage_a_fatal.flagged ? " · Stage A fatal flag" : ""}
-        ${r.vision_source === "resnet18_live_cctv" ? " · live CCTV" : ""}
-      </div>
-      ${renderLiveDetails(r)}
+      <details class="route-details">
+        <summary>Model details</summary>
+        <p class="route-brains">${r.tier} risk · text ${r.T_nlp} · vision ${r.V_vision} · environment ${r.E_index}${r.vision_source === "resnet18_live_cctv" ? " · live camera" : ""}</p>
+        ${renderLiveDetails(r)}
+      </details>
     `;
 
     card.addEventListener("click", () => {
@@ -322,7 +333,7 @@ function drawRoutesOnMap(routes, activeIndex, origin = null, dest = null) {
   }
 
   if (bounds.isValid()) {
-    map.fitBounds(bounds, { padding: [40, 40] });
+    map.fitBounds(bounds, { paddingTopLeft: [420, 100], paddingBottomRight: [80, 170] });
   }
 
   const scored = lastScoredRoutes.find((r) => r.route_index === activeIndex);
@@ -330,15 +341,19 @@ function drawRoutesOnMap(routes, activeIndex, origin = null, dest = null) {
 }
 
 function updateMapBadge(route) {
-  const badge = document.getElementById("map-badge");
+  const badge = document.getElementById("safety-card") || document.getElementById("map-badge");
   const scoreEl = document.getElementById("badge-score");
-  if (!badge || !scoreEl) return;
+  if (!badge || !scoreEl || !route) return;
 
   badge.hidden = false;
   badge.removeAttribute("hidden");
+  badge.dataset.tier = (route.tier || "").toLowerCase();
   scoreEl.textContent = route.safety_score;
-  scoreEl.style.color = route.tier_color;
-  badge.style.borderColor = route.tier_color;
+  scoreEl.style.color = "";
+  const tier = document.getElementById("safety-tier");
+  if (tier) tier.textContent = route.tier || "";
+  const line = document.getElementById("safety-line");
+  if (line) line.textContent = primaryGuidance(route);
 }
 
 

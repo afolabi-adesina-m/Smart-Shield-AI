@@ -13,12 +13,15 @@ function initAddressSearch() {
 }
 
 function mountMapSearch() {
-  const host = document.getElementById("map-wrap") || document.getElementById("map-stage");
+  const host = document.getElementById("search-slot")
+    || document.getElementById("map-wrap")
+    || document.getElementById("map-stage");
   if (!host || document.getElementById("map-search")) return;
   const box = document.createElement("div");
   box.id = "map-search";
   box.className = "map-search";
   box.innerHTML = `
+    <svg class="icon search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M16 16.5 20 20.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
     <input id="map-search-input" type="search" enterkeyhint="search"
       placeholder="Search an address or place" aria-label="Search an address or place" />
     <div id="map-search-assign" class="address-assign" hidden>
@@ -109,11 +112,13 @@ function attachAddressField(input, options) {
 
   function placeList() {
     const rect = input.getBoundingClientRect();
-    const space = Math.max(140, window.innerHeight - rect.bottom - 12);
+    const hud = document.getElementById("speed-panel");
+    const limitBottom = hud ? hud.getBoundingClientRect().top - 12 : window.innerHeight - 16;
+    const space = Math.max(120, limitBottom - rect.bottom - 8);
     list.style.left = Math.max(8, rect.left) + "px";
     list.style.top = (rect.bottom + 4) + "px";
     list.style.width = Math.max(180, rect.width) + "px";
-    list.style.maxHeight = Math.min(280, space) + "px";
+    list.style.maxHeight = Math.min(320, space) + "px";
   }
 
   function close() {
@@ -122,6 +127,9 @@ function attachAddressField(input, options) {
     input.setAttribute("aria-expanded", "false");
     input.removeAttribute("aria-activedescendant");
     state.active = -1;
+    if (![...document.querySelectorAll(".address-suggest")].some((el) => !el.hidden)) {
+      document.body.classList.remove("suggest-open");
+    }
   }
 
   function open() {
@@ -129,6 +137,11 @@ function attachAddressField(input, options) {
     list.hidden = false;
     input.setAttribute("aria-expanded", "true");
     placeList();
+    document.body.classList.add("suggest-open");
+    requestAnimationFrame(() => {
+      const height = Math.ceil(list.getBoundingClientRect().height);
+      document.documentElement.style.setProperty("--suggest-push", (height + 12) + "px");
+    });
   }
 
   function render(message) {

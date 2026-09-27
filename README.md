@@ -76,9 +76,13 @@ The desktop server also serves the mobile layout at `/mobile` on the same port. 
 
 Requires trained models in `../models/` for the tabular and ResNet brains. If those files are missing, route scoring still runs: NLP uses the in-repo TF-IDF fallback and vision uses the preset proxy. The speed panel does not need the model files.
 
+## Map interface
+
+The demo is a full-screen driving map. Search sits in a floating bar at the top. Directions and the model safety rating are floating cards on the map, and the speed readout is a driving HUD at the bottom: a round posted-limit sign, a large current-speed number, and a safe-speed chip. Day and night themes follow the device setting and can be toggled; the choice is saved in the browser. Light maps use CARTO Positron tiles and night maps use CARTO Dark Matter, both public styles that do not need an API key.
+
 ## Speed limit & safe speed
 
-The map shows a Google Maps-style cluster: a **MAXIMUM** sign (posted limit), a **SAFE** sign, and your current speed.
+The HUD shows a round **limit** sign (posted speed), your **current speed**, and a **Safe** chip.
 
 | Sign | Source |
 |------|--------|
@@ -96,10 +100,11 @@ The map shows a Google Maps-style cluster: a **MAXIMUM** sign (posted limit), a 
 
 **Warnings**
 
-- Speed above the **posted** limit: the speed bubble turns red and the alert reads “Over the speed limit”.
-- Speed above the **safe** speed but still at or under the posted limit: amber alert, “Above the safe speed”.
+- Speed above the **posted** limit: the readout turns red, pulses, and the alert reads “Over the speed limit”.
+- Speed above the **safe** speed but still at or under the posted limit: amber, “Above the safe speed”.
 - At or under the safe speed: green, “Within the safe speed”.
-- Optional beep on the transition into amber or red (checkbox on the panel).
+- Colors ease between those states. Optional beep on the transition into amber or red (inside **Practice drive**).
+- If the limit lookup fails, the sign shows an estimate and the note reads “Speed limit unavailable, showing estimate.”
 
 **Demo on a laptop:** leave **Demo speed** checked. **Under safe**, **Above safe**, and **Over limit** set the slider. Above safe switches road conditions to Wet when the safe speed is not already below the posted limit. **Drive selected route** moves along the highlighted route. **Use GPS** needs a secure context (HTTPS, or localhost). A public deploy should be HTTPS; many laptops still report no speed, which is why the slider is there.
 

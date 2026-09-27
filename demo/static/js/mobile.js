@@ -35,20 +35,30 @@ function updateWeatherSummary(value) {
   }
 }
 
-function initMap() {
-  map = L.map("map", {
-    zoomControl: true,
-    attributionControl: true,
-  }).setView([43.6532, -79.3832], 9);
+let baseLayer = null;
 
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: '&copy; OSM',
+function applyBaseTiles(theme) {
+  if (!map || !window.SmartShieldTheme) return;
+  const url = window.SmartShieldTheme.tileUrl(theme);
+  if (baseLayer) map.removeLayer(baseLayer);
+  baseLayer = L.tileLayer(url, {
+    maxZoom: 20,
+    subdomains: "abcd",
+    attribution: '&copy; OpenStreetMap &copy; CARTO',
   }).addTo(map);
+}
+
+function initMap() {
+  map = L.map("map", { zoomControl: false, attributionControl: true }).setView([43.6532, -79.3832], 9);
+  L.control.zoom({ position: "bottomright" }).addTo(map);
+  applyBaseTiles(window.SmartShieldTheme ? window.SmartShieldTheme.current() : "light");
+  document.addEventListener("smartshield:theme", (event) => {
+    applyBaseTiles((event.detail || {}).theme || "light");
+  });
 
   markerGroup = L.layerGroup().addTo(map);
   initSpeedAwareness(map);
-  document.getElementById("status").textContent = "Enter a route and tap Find safest routes.";
+  document.getElementById("status").textContent = "Set a start and destination.";
 }
 
 function publishSpeedContext(snapToRoute) {
@@ -118,7 +128,7 @@ async function findRoutes() {
 
   btn.disabled = true;
   setSheetState("half");
-  status.textContent = "Looking up addresses…";
+  status.textContent = "Finding those places…";
 
   try {
     const [o, d] = await Promise.all([
@@ -126,7 +136,7 @@ async function findRoutes() {
       endpointPoint("destination"),
     ]);
 
-    status.textContent = "Fetching routes (OSRM)…";
+    status.textContent = "Drawing the drive…";
     const osrmData = await fetchRoutes(o, d);
     if (!osrmData.routes || osrmData.routes.length === 0) {
       throw new Error("No driving routes found.");
@@ -144,8 +154,7 @@ async function findRoutes() {
       mid_lon: route.mid_lon,
     }));
 
-    status.textContent =
-      visionMode === "proxy" ? "Scoring (Vision proxy)…" : "Scoring with ResNet + NLP…";
+    status.textContent = "Checking safety for this drive…";
     const resp = await fetch("/api/score-routes", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -161,6 +170,8 @@ async function findRoutes() {
     renderHighRiskBanner(lastScoredRoutes);
     renderRouteCards(lastScoredRoutes);
     drawRoutesOnMap(lastOsrmRoutes, selectedIndex, o, d);
+    const safetyCard = document.getElementById("safety-card");
+    if (safetyCard) safetyCard.hidden = false;
     publishSpeedContext(true);
 
     const worst = lastScoredRoutes.reduce(
@@ -168,11 +179,9 @@ async function findRoutes() {
       lastScoredRoutes[0]
     );
     setSheetState(worst && worst.tier === "HIGH" ? "full" : "half");
-    status.textContent = `${routes.length} route(s) ranked · tap card for map`;
-
-    document.getElementById("high-risk-banner").scrollIntoView({ behavior: "smooth", block: "nearest" });
+    status.textContent = routes.length === 1 ? "1 route scored." : `${routes.length} routes scored.`;
   } catch (err) {
-    status.textContent = `Error: ${err.message}`;
+    status.textContent = err.message ? `Could not score the route. ${err.message}` : "Could not score the route.";
   }
 
   btn.disabled = false;
@@ -270,8 +279,8 @@ function renderRouteCards(scored) {
     const relText = relativeSpeedText(r);
     const speedLine =
       r.tier === "HIGH"
-        ? `<span class="speed-advisory">⚠ ${escapeHtml(relText)}</span>`
-        : `<span>🚗 ~${r.recommended_speed_kmh} km/h</span>`;
+        ? `<span class="speed-advisory">${escapeHtml(relText)}</span>`
+        : `<span>Advisory ${r.recommended_speed_kmh} km/h</span>`;
 
     const highAlert =
       r.tier === "HIGH"
@@ -288,12 +297,15 @@ function renderRouteCards(scored) {
       </div>
       ${highAlert}
       <div class="route-meta">
-        <span>🕐 ${r.duration_text}</span>
-        <span>📍 ${r.distance_km} km</span>
+        <span>${r.duration_text}</span>
+        <span>${r.distance_km} km</span>
         ${speedLine}
       </div>
-      <div class="route-brains">${r.tier} · T=${r.T_nlp} V=${r.V_vision} E=${r.E_index}${r.vision_source === "resnet18_live_cctv" ? " · live CCTV" : r.vision_source === "resnet18_cache" ? " · ResNet" : " · proxy V"}</div>
-      ${renderLiveDetails(r)}
+      <details class="route-details">
+        <summary>Model details</summary>
+        <p class="route-brains">${r.tier} risk · text ${r.T_nlp} · vision ${r.V_vision} · environment ${r.E_index}${r.vision_source === "resnet18_live_cctv" ? " · live camera" : ""}</p>
+        ${renderLiveDetails(r)}
+      </details>
     `;
 
     card.addEventListener("click", () => {
@@ -319,9 +331,9 @@ function drawRoutesOnMap(routes, activeIndex, origin = null, dest = null) {
   markerGroup.clearLayers();
 
   const bounds = L.latLngBounds([]);
-  const pad = window.matchMedia("(orientation: landscape)").matches
-    ? [30, 30]
-    : [20, 80];
+  const landscape = window.matchMedia("(orientation: landscape)").matches;
+  const padTopLeft = landscape ? [24, 88] : [24, 150];
+  const padBottomRight = landscape ? [72, 120] : [28, 280];
 
   routes.forEach((route, i) => {
     const latlngs = route.geometry.map(([lon, lat]) => [lat, lon]);
@@ -345,7 +357,7 @@ function drawRoutesOnMap(routes, activeIndex, origin = null, dest = null) {
 
   if (bounds.isValid()) {
     lastBounds = bounds;
-    map.fitBounds(bounds, { padding: pad });
+    map.fitBounds(bounds, { paddingTopLeft: padTopLeft, paddingBottomRight: padBottomRight });
   }
 
   const scored = lastScoredRoutes.find((r) => r.route_index === activeIndex);
@@ -354,17 +366,28 @@ function drawRoutesOnMap(routes, activeIndex, origin = null, dest = null) {
 
 function fitMapToRoute() {
   if (lastBounds && lastBounds.isValid()) {
-    const pad = window.matchMedia("(orientation: landscape)").matches ? [30, 30] : [20, 80];
-    map.fitBounds(lastBounds, { padding: pad });
+    const landscape = window.matchMedia("(orientation: landscape)").matches;
+    map.fitBounds(lastBounds, {
+      paddingTopLeft: landscape ? [24, 88] : [24, 150],
+      paddingBottomRight: landscape ? [72, 120] : [28, 280],
+    });
   }
 }
 
 function updateMapBadge(route) {
-  const badge = document.getElementById("map-badge");
+  const badge = document.getElementById("safety-card") || document.getElementById("map-badge");
   const scoreEl = document.getElementById("badge-score");
+  if (!badge || !scoreEl || !route) return;
+
   badge.hidden = false;
+  badge.removeAttribute("hidden");
+  badge.dataset.tier = (route.tier || "").toLowerCase();
   scoreEl.textContent = route.safety_score;
-  scoreEl.style.color = route.tier_color;
+  scoreEl.style.color = "";
+  const tier = document.getElementById("safety-tier");
+  if (tier) tier.textContent = route.tier || "";
+  const line = document.getElementById("safety-line");
+  if (line) line.textContent = primaryGuidance(route);
 }
 
 

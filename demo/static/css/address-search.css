@@ -1,51 +1,56 @@
-/* Address autocomplete — map search bar and From / To suggestions. */
-
-.address-field {
-  position: relative;
-}
+/* Search field and suggestion list. The list is position:fixed so cards do not clip it. */
 
 .map-search {
-  position: absolute;
-  z-index: 800;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: min(440px, calc(100% - 140px));
-  background: #fff;
-  border-radius: 24px;
-  box-shadow: 0 1px 2px rgba(60, 64, 67, 0.3), 0 2px 8px rgba(60, 64, 67, 0.15);
-  padding: 4px 4px 4px;
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-height: 48px;
+  padding: 4px 8px 4px 12px;
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
 }
+
+.search-icon { color: var(--muted); }
 
 .map-search input {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
+  width: auto;
   border: none;
-  border-radius: 20px;
-  padding: 10px 16px;
-  font-size: 16px;
   background: transparent;
   box-shadow: none;
+  min-height: 40px;
+  padding: 8px 8px;
+  font-size: 16px;
 }
 
-.map-search input:focus {
-  outline: none;
-  box-shadow: none;
-}
+.map-search input:focus { outline: none; box-shadow: none; }
+
+.address-assign[hidden] { display: none !important; }
 
 .address-assign {
   display: flex;
   gap: 6px;
-  padding: 0 8px 6px;
+  width: 100%;
+  padding: 0 4px 6px;
 }
 
 .address-assign button {
   flex: 1;
-  border: 1px solid #dadce0;
-  background: #e8f0fe;
-  color: #1a73e8;
-  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: var(--chip);
+  color: var(--accent);
+  border-radius: 999px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   padding: 6px 8px;
   cursor: pointer;
 }
@@ -56,63 +61,38 @@
   margin: 0;
   padding: 6px 0;
   list-style: none;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(60, 64, 67, 0.28);
+  background: var(--card-solid);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
   overflow: auto;
 }
 
-.address-suggest[hidden] {
-  display: none;
-}
+.address-suggest[hidden] { display: none; }
 
-.address-suggest li {
-  padding: 8px 14px;
-  cursor: pointer;
-}
+.address-suggest li { padding: 10px 14px; cursor: pointer; }
 
 .address-suggest li.active,
-.address-suggest li[aria-selected="true"] {
-  background: #e8f0fe;
-}
+.address-suggest li[aria-selected="true"] { background: var(--chip); }
 
 .address-suggest .sug-label {
   display: block;
-  font-size: 0.92rem;
-  font-weight: 500;
-  color: #202124;
+  font-size: 15px;
+  font-weight: 650;
 }
 
 .address-suggest .sug-detail {
   display: block;
   margin-top: 2px;
-  font-size: 0.75rem;
-  color: #5f6368;
+  font-size: 12px;
+  color: var(--muted);
 }
 
 .address-suggest .suggest-status {
   cursor: default;
-  color: #5f6368;
-  font-size: 0.85rem;
+  color: var(--muted);
+  font-size: 14px;
 }
 
-body[data-speed-layout="mobile"] .map-search {
-  top: 8px;
-  left: 108px;
-  right: 8px;
-  width: auto;
-  transform: none;
-}
-
-.address-field input {
-  font-size: 16px;
-}
-
-@media (max-width: 768px) {
-  body[data-speed-layout="desktop"] .map-search {
-    left: 12px;
-    right: 12px;
-    width: auto;
-    transform: none;
-  }
-}
+.address-field input { font-size: 16px; }
