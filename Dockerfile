@@ -16,6 +16,7 @@ RUN pip install --upgrade pip && pip install -r /tmp/requirements-demo.txt
 
 COPY src /app/src
 COPY models /app/models
+COPY Data /app/Data
 COPY demo /app/demo
 COPY protected /app/protected
 

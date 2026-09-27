@@ -178,6 +178,34 @@ class UnlockedImportTests(unittest.TestCase):
                     if name not in before_modules:
                         sys.modules.pop(name, None)
 
+    def test_decrypted_tree_sees_repository_models_and_cache(self):
+        import tempfile
+
+        from engine_loader import _share_repo_assets
+
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = Path(tmp) / "repo"
+            tree = Path(tmp) / "smart-shield-engine-test"
+            (repo / "models").mkdir(parents=True)
+            (repo / "models" / "rf_tuned.joblib").write_bytes(b"trained-rf")
+            (repo / "Data" / "vision_cache" / "clear").mkdir(parents=True)
+            (repo / "Data" / "vision_cache" / "clear" / "road.jpg").write_bytes(b"jpeg")
+            (tree / "demo").mkdir(parents=True)
+            (tree / "models").mkdir()
+            (tree / "models" / "vision_meta.json").write_text("{}", encoding="utf-8")
+
+            _share_repo_assets(repo, tree)
+
+            models = (tree / "demo").resolve().parent / "models"
+            cache = (tree / "demo").resolve().parent / "Data" / "vision_cache"
+            self.assertTrue((models / "rf_tuned.joblib").is_file())
+            self.assertEqual((models / "rf_tuned.joblib").read_bytes(), b"trained-rf")
+            self.assertTrue((models / "vision_meta.json").is_file())
+            self.assertEqual((repo / "models" / "vision_meta.json").read_text(), "{}")
+            self.assertTrue((cache / "clear" / "road.jpg").is_file())
+            self.assertTrue(models.is_symlink())
+            self.assertEqual(models.resolve(), (repo / "models").resolve())
+
     def test_unlock_keeps_repository_src_on_path(self):
         import tempfile
 

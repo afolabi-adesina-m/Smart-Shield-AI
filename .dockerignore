@@ -7,7 +7,6 @@
 **/*.pdf
 notebooks
 docs
-Data
 archive
 **/.env
 **/.cursor
@@ -17,5 +16,4 @@ assets
 *.mp4
 *.png
 *.jpg
-models/*.pt
-models/*.joblib
+!Data/vision_cache/**/*.jpg
