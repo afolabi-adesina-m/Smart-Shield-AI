@@ -10,13 +10,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/css/theme.css?v=20260927k" />
-  <link rel="stylesheet" href="/static/css/demo.css?v=20260927k" />
-  <link rel="stylesheet" href="/static/css/side-panel.css?v=20260927k" />
-  <link rel="stylesheet" href="/static/css/weather-picker.css?v=20260927k" />
-  <link rel="stylesheet" href="/static/css/speed-panel.css?v=20260927k" />
-  <link rel="stylesheet" href="/static/css/address-search.css?v=20260927k" />
-  <link rel="stylesheet" href="/static/css/fleet.css?v=20260927k" />
+  <link rel="stylesheet" href="/static/css/theme.css?v=20260927p" />
+  <link rel="stylesheet" href="/static/css/demo.css?v=20260927p" />
+  <link rel="stylesheet" href="/static/css/side-panel.css?v=20260927p" />
+  <link rel="stylesheet" href="/static/css/weather-picker.css?v=20260927p" />
+  <link rel="stylesheet" href="/static/css/speed-panel.css?v=20260927p" />
+  <link rel="stylesheet" href="/static/css/address-search.css?v=20260927p" />
+  <link rel="stylesheet" href="/static/css/fleet.css?v=20260927p" />
   <script>
     try {
       var savedTheme = localStorage.getItem("smartshield-theme");
@@ -32,16 +32,18 @@
     <main id="map-wrap"><div id="map"></div></main>
 
     <aside id="side-panel" class="side-panel">
-      <div class="panel-head">
-        <a class="brand" href="/">
-          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2 19 6.2v5.6c0 4.2-2.8 7.2-7 8.8-4.2-1.6-7-4.6-7-8.8V6.2L12 3.2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
-          <span>Smart-Shield AI Enterprise</span>
-        </a>
-        <button id="panel-collapse" class="icon-btn panel-collapse" type="button" aria-expanded="true" aria-controls="panel-body" aria-label="Collapse panel">
-          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 10h12M6 14h12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-        </button>
+      <div class="panel-chrome">
+        <div class="panel-head">
+          <a class="brand" href="/">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2 19 6.2v5.6c0 4.2-2.8 7.2-7 8.8-4.2-1.6-7-4.6-7-8.8V6.2L12 3.2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+            <span>Smart-Shield AI Enterprise</span>
+          </a>
+          <button id="panel-collapse" class="icon-btn panel-collapse" type="button" aria-expanded="true" aria-controls="panel-body" aria-label="Collapse panel">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 10h12M6 14h12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div id="search-slot" class="search-slot"></div>
       </div>
-      <div id="search-slot" class="search-slot"></div>
       <div id="panel-body">
         <div id="panel-scroll" class="panel-scroll">
           <details class="panel-section" data-panel-action="directions" open>
@@ -145,13 +147,13 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="/static/js/theme.js?v=20260927k"></script>
-  <script src="/static/js/weather-picker.js?v=20260927k"></script>
-  <script src="/static/js/speed-panel.js?v=20260927k"></script>
-  <script src="/static/js/address-search.js?v=20260927k"></script>
-  <script src="/static/js/fleet.js?v=20260927k"></script>
-  <script src="/static/js/test-prep.js?v=20260927k"></script>
-  <script src="/static/js/panel.js?v=20260927k"></script>
-  <script src="/static/js/app.js?v=20260927k" defer></script>
+  <script src="/static/js/theme.js?v=20260927p"></script>
+  <script src="/static/js/weather-picker.js?v=20260927p"></script>
+  <script src="/static/js/speed-panel.js?v=20260927p"></script>
+  <script src="/static/js/address-search.js?v=20260927p"></script>
+  <script src="/static/js/fleet.js?v=20260927p"></script>
+  <script src="/static/js/test-prep.js?v=20260927p"></script>
+  <script src="/static/js/panel.js?v=20260927p"></script>
+  <script src="/static/js/app.js?v=20260927p" defer></script>
 </body>
 </html>

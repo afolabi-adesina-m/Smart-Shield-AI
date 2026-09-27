@@ -22,6 +22,10 @@ The map worked, but the screen around it got in the way.
 - **Night is the same tiles, darkened.** The night theme does not download a second map. It recolors the tile pane with a CSS filter. Roads and labels stay in place.
 - **Tiles overlap by one pixel.** Each tile is drawn one pixel larger than its grid cell so the seams between tiles do not show.
 - **Driving test prep.** You can build a practice loop around an Ontario DriveTest centre. The loop is a suggestion from public maps. It is not an official test route.
+- **Both ends of the route stay on screen.** The map leaves room for the side panel, the corner speed widget, and the pin above each marker. At 1024×640 and at 1280×800, Toronto, Barrie, and the line between them stay inside the window.
+- **The header covers what you scroll.** The name and the search field sit on one solid bar. Scrolling to Trip safety or Driving test prep no longer lets the driver-score card show through the gap above the search field.
+- **The phone bar is two rows.** The shield icon, night button, and Desktop link are on the first row. Search is on its own row, full width, so the field is not cut down to “Search an ad”. The speed widget sits on the left, just above the bottom sheet, clear of that top bar.
+- **Night dropdowns match the panel.** Road conditions, camera scoring, and the test-prep centre and level lists use the dark input colour. They no longer open as a bright white box.
 
 ## How to use the screen
 
@@ -50,11 +54,11 @@ On a laptop, **Demo speed** is on because the browser usually has no travel spee
 
 ### Night mode
 
-The moon button at the top right switches between day and night. The choice is remembered in the browser. Night keeps the OpenStreetMap picture and darkens it. It does not swap in a different tile vendor.
+The moon button at the top right switches between day and night. The choice is remembered in the browser. Night keeps the OpenStreetMap picture and darkens it. It does not swap in a different tile vendor. Dropdowns in the panel, including Road conditions and the test-prep centre and level, use the same dark background as the other fields.
 
 ### Mobile
 
-Open `/mobile`. The map is full screen. Search and the theme button sit on the top bar. Directions and the other sections are in the bottom sheet. Drag or tap the handle to expand the sheet. The footer rule is the same: one primary button for the section you open. The speed widget sits above the sheet so it does not cover the button.
+Open `/mobile`. The map is full screen. The top bar is the shield icon, the night button, and a Desktop link, with search on the row below so the whole placeholder fits. Directions and the other sections are in the bottom sheet. Drag or tap the handle to expand the sheet. The sheet stops short of the speed widget, which stays on the left just above the sheet. The footer rule is the same: one primary button for the section you open.
 
 ## Driving test prep
 

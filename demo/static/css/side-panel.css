@@ -27,11 +27,21 @@ html, body { overflow: hidden; }
   -webkit-backdrop-filter: none;
 }
 
+/* Header and search stay one solid cover so a scrolled section cannot show through the gap. */
+.panel-chrome {
+  position: relative;
+  z-index: 5;
+  flex: 0 0 auto;
+  background: var(--card-solid);
+  padding-bottom: 8px;
+}
+
 .panel-head {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 10px 10px 0;
+  background: var(--card-solid);
 }
 
 .side-panel .brand {
@@ -55,9 +65,12 @@ html, body { overflow: hidden; }
 /* demo.css gives .search-slot flex-basis 100%, which eats the column and
    crushes the sections into a blank panel with only the footer left. */
 .side-panel .search-slot {
+  position: relative;
+  z-index: 1;
   flex: 0 0 auto;
   width: auto;
   padding: 8px 12px 0;
+  background: var(--card-solid);
 }
 
 #panel-body {
@@ -75,7 +88,7 @@ html, body { overflow: hidden; }
 
 .panel-scroll {
   position: relative;
-  z-index: 1;
+  z-index: 0;
   flex: 1;
   min-height: 0;
   overflow-x: hidden;

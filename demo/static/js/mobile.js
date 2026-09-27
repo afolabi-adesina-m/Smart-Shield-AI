@@ -90,15 +90,30 @@ function initBottomSheet() {
       setSheetState(states[idx - 1]);
     }
   }, { passive: true });
+
+  publishSheetOffset();
+  window.addEventListener("resize", () => {
+    publishSheetOffset();
+    setTimeout(() => map && map.invalidateSize(), 200);
+  });
+}
+
+function publishSheetOffset() {
+  const sheet = document.getElementById("bottom-sheet");
+  if (!sheet) return;
+  const height = Math.round(sheet.getBoundingClientRect().height);
+  document.documentElement.style.setProperty("--sheet-offset", height + "px");
 }
 
 function setSheetState(state) {
   const sheet = document.getElementById("bottom-sheet");
   if (sheet) {
     sheet.dataset.state = state;
-    const offsets = { peek: "176px", half: "52vh", full: "88vh" };
-    document.documentElement.style.setProperty("--sheet-offset", offsets[state] || offsets.peek);
-    setTimeout(() => map && map.invalidateSize(), 320);
+    requestAnimationFrame(publishSheetOffset);
+    setTimeout(() => {
+      publishSheetOffset();
+      if (map) map.invalidateSize();
+    }, 320);
   }
 }
 
