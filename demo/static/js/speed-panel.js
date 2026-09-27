@@ -29,6 +29,8 @@ let audioCtx = null;
 let lookupToken = 0;
 let pendingSafe = Promise.resolve();
 let speedSeeded = false;
+let fleetDemo = false;
+let lastRoadPayload = null;
 
 function initSpeedAwareness(map) {
   speedMap = map;
@@ -58,8 +60,17 @@ function initSpeedAwareness(map) {
 
   map.on("click", (e) => {
     stopDrive();
+    document.dispatchEvent(new CustomEvent("smartshield:usermove"));
     setSpeedLocation(e.latlng.lat, e.latlng.lng, "map");
   });
+  window.SmartShieldMap = () => speedMap;
+  window.SmartShieldFleetDemo = (on) => { fleetDemo = !!on; };
+  window.SmartShieldSetSpeed = (kmh, opts) => {
+    speedSeeded = true;
+    applyCurrentSpeed(Number(kmh), "fleet-demo", { silent: !!(opts && opts.silent) });
+  };
+  window.SmartShieldSetLocation = (lat, lon, source, extra) => setSpeedLocation(lat, lon, source || "fleet-demo", extra);
+  window.SmartShieldSetRouteGeometry = (geom) => { speedState.geometry = geom; };
 
   document.addEventListener("smartshield:context", (e) => {
     const detail = e.detail || {};
@@ -86,6 +97,7 @@ function initSpeedAwareness(map) {
 function speedPanelHtml() {
   return `
     <section id="speed-panel" class="speed-panel" aria-label="Speed limit and current speed">
+      <div id="road-mode-chip" class="road-mode-chip" hidden>—</div>
       <div class="speed-signs">
         <div id="posted-sign" class="limit-sign" title="Posted speed limit">
           <span class="est-tab">EST</span>
@@ -109,6 +121,7 @@ function speedPanelHtml() {
       <p id="speed-road" class="speed-road">Looking up the posted limit…</p>
       <p id="speed-safe-note" class="speed-safe-note"></p>
       <div id="speed-alert" class="speed-alert ok" role="status" aria-live="assertive">Within the safe speed</div>
+      <div id="hazard-lines" class="hazard-lines" hidden></div>
       <div class="speed-controls">
         <div class="speed-toggle-row">
           <label><input id="speed-demo" type="checkbox" checked /> Demo speed</label>
@@ -171,11 +184,15 @@ function weatherValue() {
   return el ? el.value : "auto";
 }
 
-function setSpeedLocation(lat, lon, source) {
+function setSpeedLocation(lat, lon, source, extra) {
+  if (source !== "fleet-demo") fleetDemo = false;
   speedState.lat = lat;
   speedState.lon = lon;
+  if (extra && extra.simMs != null) speedState.simMs = extra.simMs;
+  else if (source !== "fleet-demo") speedState.simMs = null;
+  if (source === "fleet-demo" || source === "gps") speedState.source = source;
   showPositionMarker(lat, lon);
-  refreshPostedAndSafe(source);
+  return refreshPostedAndSafe(source);
 }
 
 function showPositionMarker(lat, lon) {
@@ -193,24 +210,59 @@ function showPositionMarker(lat, lon) {
   }
 }
 
-async function refreshPostedAndSafe() {
+async function refreshPostedAndSafe(source) {
   if (speedState.lat == null) return;
   const token = ++lookupToken;
   const road = document.getElementById("speed-road");
-  if (road) road.textContent = "Looking up the posted limit…";
+  if (road && source !== "fleet-demo") road.textContent = "Looking up the posted limit…";
   const params = contextParams();
-  params.set("lat", String(speedState.lat));
-  params.set("lon", String(speedState.lon));
+  const body = {
+    lat: speedState.lat,
+    lon: speedState.lon,
+    geometry: downsampleGeometry(speedState.geometry),
+    weather: params.get("weather") || weatherValue(),
+    demo: fleetDemo,
+  };
+  if (!fleetDemo && params.get("recommended_kmh")) body.recommended_kmh = Number(params.get("recommended_kmh"));
+  if (!fleetDemo && params.get("tier")) body.tier = params.get("tier");
   try {
-    const resp = await fetch(`/api/speed-limit?${params.toString()}`);
+    const resp = await fetch("/api/road-context", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
     const data = await resp.json();
-    if (!resp.ok) throw new Error(data.error || "Speed limit lookup failed");
+    if (!resp.ok) throw new Error(data.error || "Road context failed");
     if (token !== lookupToken) return;
     applyLimitPayload(data);
+    return;
   } catch (err) {
     if (token !== lookupToken) return;
-    if (road) road.textContent = `Speed limit unavailable (${err.message}).`;
+    try {
+      params.set("lat", String(speedState.lat));
+      params.set("lon", String(speedState.lon));
+      const resp = await fetch(`/api/speed-limit?${params.toString()}`);
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || err.message);
+      if (token !== lookupToken) return;
+      applyLimitPayload(data);
+    } catch (fallbackErr) {
+      if (token !== lookupToken) return;
+      if (road) road.textContent = `Speed limit unavailable (${fallbackErr.message}).`;
+    }
   }
+}
+
+function downsampleGeometry(geometry) {
+  if (!geometry || geometry.length < 2) return null;
+  if (geometry.length <= 400) return geometry;
+  const step = Math.ceil(geometry.length / 400);
+  const slim = [];
+  for (let i = 0; i < geometry.length; i += step) slim.push(geometry[i]);
+  const last = geometry[geometry.length - 1];
+  const tail = slim[slim.length - 1];
+  if (!tail || tail[0] !== last[0] || tail[1] !== last[1]) slim.push(last);
+  return slim;
 }
 
 async function refreshSafeSpeed() {
@@ -256,6 +308,12 @@ function applyLimitPayload(data) {
   speedState.detail = data.detail || "";
   speedState.summary = data.summary || "";
   speedState.rule = data.rule || "";
+  speedState.roadMode = data.road_mode || null;
+  speedState.alerts = data.alerts || [];
+  speedState.exitWarning = data.exit_warning || null;
+  speedState.hazards = data.hazards || [];
+  speedState.schoolActive = !!data.school_active;
+  lastRoadPayload = data;
   if (speedState.demo && !speedSeeded && data.safe_kmh != null) {
     speedSeeded = true;
     speedState.current = Math.max(0, data.safe_kmh - 12);
@@ -265,16 +323,21 @@ function applyLimitPayload(data) {
     if (readout) readout.textContent = `${speedState.current} km/h`;
   }
   renderSpeedPanel();
+  publishTelemetry();
 }
 
-function applyCurrentSpeed(kmh, source) {
+function applyCurrentSpeed(kmh, source, opts) {
   speedState.current = Math.max(0, Math.round(kmh));
   speedState.source = source;
   const slider = document.getElementById("speed-slider");
   const readout = document.getElementById("speed-slider-readout");
-  if (slider && source === "demo") slider.value = String(speedState.current);
+  if (slider && (source === "demo" || source === "fleet-demo")) slider.value = String(speedState.current);
   if (readout) readout.textContent = `${speedState.current} km/h`;
+  const silent = opts && opts.silent;
+  if (silent) speedState.suppressBeep = true;
   renderSpeedPanel();
+  if (silent) speedState.suppressBeep = false;
+  if (!silent) publishTelemetry();
 }
 
 function warningFor(current, posted, safe) {
@@ -331,9 +394,47 @@ function renderSpeedPanel() {
     alertEl.classList.add("ok");
     alertEl.textContent = "Within the safe speed";
   }
-  if (next !== prev && (next === "red" || next === "amber")) {
+  const chip = document.getElementById("road-mode-chip");
+  if (chip) {
+    const mode = speedState.roadMode || "";
+    chip.hidden = !mode;
+    chip.textContent = mode || "—";
+    chip.className = "road-mode-chip" + (mode ? ` ${mode.toLowerCase()}` : "");
+  }
+  const hazardHost = document.getElementById("hazard-lines");
+  if (hazardHost) {
+    const lines = [];
+    if (speedState.exitWarning && speedState.exitWarning.text) lines.push(speedState.exitWarning.text);
+    (speedState.alerts || []).forEach((alert) => {
+      if (alert && alert.kind !== "exit" && alert.text) lines.push(alert.text);
+    });
+    hazardHost.hidden = lines.length === 0;
+    hazardHost.innerHTML = lines.map((line) => `<p class="hazard-line">${escapeHtml(line)}</p>`).join("");
+  }
+  if (!speedState.suppressBeep && next !== prev && (next === "red" || next === "amber")) {
     playBeep(next);
   }
+}
+
+function publishTelemetry() {
+  document.dispatchEvent(new CustomEvent("smartshield:road", {
+    detail: {
+      ...(lastRoadPayload || {}),
+      lat: speedState.lat,
+      lon: speedState.lon,
+      current_kmh: speedState.current,
+      posted_kmh: speedState.posted,
+      safe_kmh: speedState.safe,
+      road_mode: speedState.roadMode,
+      warning: speedState.warning,
+      school_active: speedState.schoolActive,
+      exit_warning: speedState.exitWarning,
+      hazards: speedState.hazards || [],
+      alerts: speedState.alerts || [],
+      source: speedState.source,
+      sim_ms: speedState.simMs != null ? speedState.simMs : Date.now(),
+    },
+  }));
 }
 
 async function applyPreset(kind) {
@@ -414,6 +515,7 @@ function toggleDrive() {
   }
   document.getElementById("speed-demo").checked = true;
   speedState.demo = true;
+  document.dispatchEvent(new CustomEvent("smartshield:usermove"));
   let index = 0;
   const step = Math.max(1, Math.round(geom.length / 36));
   const btn = document.getElementById("speed-drive");

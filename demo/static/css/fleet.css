@@ -1,0 +1,170 @@
+/* Fleet trip summary, road-mode chip, and ahead-of-car hazard icons. */
+
+.road-mode-chip {
+  display: inline-block;
+  margin-bottom: 8px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  background: #e8f0fe;
+  color: #174ea6;
+}
+
+.road-mode-chip.exit {
+  background: #fef7e0;
+  color: #b06000;
+}
+
+.road-mode-chip.street {
+  background: #e6f4ea;
+  color: #137333;
+}
+
+.hazard-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.hazard-line {
+  margin: 0;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: #fef7e0;
+  color: #7a4e00;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.fleet-panel h2 {
+  margin-bottom: 4px;
+}
+
+.fleet-score-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin: 8px 0;
+}
+
+.fleet-score {
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+  background: #e6f4ea;
+  color: #137333;
+  font-size: 28px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.fleet-score.warn {
+  background: #fef7e0;
+  color: #b06000;
+}
+
+.fleet-score.poor {
+  background: #fce8e6;
+  color: #c5221f;
+}
+
+.fleet-mode {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #174ea6;
+}
+
+.fleet-score-note,
+.fleet-hazard,
+.fleet-status {
+  margin: 0;
+  font-size: 12px;
+  color: #3c4043;
+}
+
+.fleet-hazard {
+  font-weight: 700;
+  color: #7a4e00;
+  min-height: 1.2em;
+}
+
+.fleet-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0;
+}
+
+.fleet-actions button {
+  border: 1px solid #dadce0;
+  background: #fff;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.fleet-actions button.primary {
+  background: #1a73e8;
+  color: #fff;
+  border-color: #1a73e8;
+}
+
+.fleet-events {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.fleet-events li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid #eceff1;
+  font-size: 12px;
+}
+
+.fleet-events li span {
+  color: #5f6368;
+  white-space: nowrap;
+}
+
+.fleet-formula {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #3c4043;
+}
+
+.fleet-formula summary {
+  cursor: pointer;
+  color: #5f6368;
+}
+
+.fleet-divicon {
+  background: transparent;
+  border: 0;
+}
+
+.fleet-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #fff;
+  border: 2px solid #202124;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
+}

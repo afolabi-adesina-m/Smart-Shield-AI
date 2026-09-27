@@ -105,6 +105,8 @@ The map shows a Google Maps-style cluster: a **MAXIMUM** sign (posted limit), a 
 
 Click the map to read the limit at that point. Choosing a route snaps the reading to the route midpoint.
 
+On a motorway or trunk road the safe-speed rule above is unchanged. Exit ramps and city streets use a separate map-rules layer, described in the next section. That layer does not call the model.
+
 ## Address search
 
 The map has a search box, and the **From** and **To** fields use the same suggestions. After 3 characters, and a 300 ms pause, a dropdown lists matching places. Arrow keys move through it, Enter picks the highlighted row, and Escape closes it. On a phone, tap a row.
@@ -114,6 +116,27 @@ Picking a place moves the map there and loads the posted limit and safe speed fo
 The default provider is the public [Photon](https://photon.komoot.io/) service (Komoot), which is built for this kind of typeahead and does not need an API key. The browser talks only to this app. The server sends an identifying User-Agent, caches repeats for two minutes, and waits so Photon sees at most one request per second. Results are biased toward Ontario (Toronto) and Canadian matches are listed first; other countries can still appear. If Photon is down, one Nominatim search is used as a backup. Nominatim's public usage policy asks apps not to use it for autocomplete, so it is not the default.
 
 To switch providers, set `GEOCODE_PROVIDER` in `demo/.env` to `photon`, `nominatim`, `google`, or `mapbox`. Google needs `GOOGLE_PLACES_API_KEY`. Mapbox needs `MAPBOX_ACCESS_TOKEN`. If that key is missing, suggestions stay on Photon. Google results are limited to Canada; Mapbox uses `country=ca` plus a proximity bias. Neither key is required for the demo.
+
+## Streets, exits, and fleet safety
+
+The demo is two layers on purpose.
+
+1. **Highway risk engine.** The trained fusion model is unchanged. On `motorway` and `trunk` roads, safe speed is still `demo/speed_limit.py` `safe_speed_kmh`: the scored route’s `recommended_speed_kmh`, or the existing LOW / MEDIUM / HIGH fractions, capped at the posted limit, with the 80 km/h freeway floor. Nothing in this layer retrains the model or edits `/api/score-routes`.
+2. **Map rules for exits and streets.** `demo/street_rules.json` is the tunable config. `demo/road_rules.py` reads the OSM `highway` tag at the current point and picks a mode. `motorway_link` is EXIT. `primary`, `secondary`, `tertiary`, `residential`, and similar tags are STREET. The browser asks `POST /api/road-context`. If that call fails, the panel falls back to `GET /api/speed-limit`.
+
+**Fleet use case.** A company can replay a trip, or a simulated one, and see where a driver went over the posted limit, stayed above the safe speed, sped through a school zone, or did not slow for a bump, signal, stop, crosswalk, or exit. Harsh braking and acceleration are logged when speed changes by more than 12 km/h or 10 km/h in one second. The trip panel shows a driver safety score and an event list. **Export CSV** downloads `time_iso,lat,lon,kind,detail,speed_kmh,posted_kmh,safe_kmh,road_mode`. There are no accounts. The log stays in the browser.
+
+**Score.** Start at 100. Subtract once per event until that condition clears: over posted −8, above safe (and not over posted) −3, school zone −15, missed bump / signal / stop / crosswalk / exit −10, harsh brake −6, harsh acceleration −4. Clamp to 0–100. The same sentence is in `street_rules.json` under `score.formula` and in the panel.
+
+**Exit ramps.** The panel shows the ramp’s OSM `maxspeed` labeled posted. If the tag is missing, it uses an estimated Ontario ramp default of 50 km/h (the config’s 40–60 km/h band) and says estimated. When the route is known, **Slow down: exit ahead** appears about 300–500 m before the line joins a `motorway_link`.
+
+**Street hazards.** Traffic signals, stop signs, speed bumps / humps / tables (`traffic_calming`), school zones, and crosswalks come from Overpass. Only features ahead of the car, along the route or the direction of travel, are shown, and at most four icons. Alerts read “Traffic signal ahead in 80 m” and similar. Safe speed starts at the posted `maxspeed`, or an estimated Ontario default of 50 km/h urban and 80 km/h rural. It drops near a bump (20 km/h), before a signal (30), before a stop (15), and in a school zone (40). Wet weather or a MEDIUM / HIGH tier can lower it further. It never goes above the posted limit. Highway mode does not apply these caps.
+
+**Labels and failures.** Every limit is marked posted or estimated (the EST tab on the sign, and the words in the caption). Overpass answers are cached for 10 minutes, and the server waits at least 1.1 s between upstream calls. If Overpass is down, the API still returns 200 with `lookup_ok: false`, an estimated limit, and no hazards. The page does not crash.
+
+**Laptop demo.** **Play 403 exit demo** drives a baked route in Mississauga: eastbound Highway 403 (posted 100), the Centre View Drive ramp (posted 50), then Centre View Drive and Mavis Road, which have a traffic signal and a speed bump. The geometry and those OSM values live in `demo/fleet_demo_route.json`, so the three modes still appear when Overpass is unavailable. The playback speed is deliberately uneven (over the limit on the freeway, still fast at the exit warning, over the ramp limit, then too fast for the signal and the bump) so the trip log and the score fill in.
+
+**Limits and future work.** OSM coverage is uneven: a missing `maxspeed` becomes an estimate, not a legal posted limit, and a missing signal or bump will not alert. The exit warning needs a known route; a single GPS point only knows the road under the car. School zones in OSM are often the school building, not a signed zone. This rules layer is not a substitute for retraining. A later model trained on street and ramp driving could replace these caps; until then the highway model should stay the highway engine and streets should stay rules.
 
 ## Live demo / deployment
 

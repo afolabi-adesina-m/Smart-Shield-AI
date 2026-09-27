@@ -9,10 +9,11 @@
   <meta name="theme-color" content="#1a73e8" />
   <title>Smart-Shield · Mobile</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="/static/css/mobile.css?v=20260927c" />
-  <link rel="stylesheet" href="/static/css/weather-picker.css?v=20260927c" />
-  <link rel="stylesheet" href="/static/css/speed-panel.css?v=20260927c" />
-  <link rel="stylesheet" href="/static/css/address-search.css?v=20260927c" />
+  <link rel="stylesheet" href="/static/css/mobile.css?v=20260927d" />
+  <link rel="stylesheet" href="/static/css/weather-picker.css?v=20260927d" />
+  <link rel="stylesheet" href="/static/css/speed-panel.css?v=20260927d" />
+  <link rel="stylesheet" href="/static/css/address-search.css?v=20260927d" />
+  <link rel="stylesheet" href="/static/css/fleet.css?v=20260927d" />
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
 </head>
 <body data-speed-layout="mobile">
@@ -44,6 +45,29 @@
         <p class="prototype-disclaimer">
           Research prototype — not official MTO or 511 Ontario guidance.
         </p>
+
+        <section id="fleet-panel" class="fleet-panel">
+          <h2>Trip safety</h2>
+          <div class="fleet-score-row">
+            <div id="fleet-score" class="fleet-score">100</div>
+            <div>
+              <div id="fleet-mode" class="fleet-mode">NO TRIP YET</div>
+              <p class="fleet-score-note">Driver safety score</p>
+            </div>
+          </div>
+          <p id="fleet-hazard" class="fleet-hazard"></p>
+          <div class="fleet-actions">
+            <button id="fleet-play" type="button" class="primary">Play 403 exit demo</button>
+            <button id="fleet-csv" type="button">Export CSV</button>
+            <button id="fleet-reset" type="button">Reset trip</button>
+          </div>
+          <p id="fleet-status" class="fleet-status"></p>
+          <ol id="fleet-events" class="fleet-events"><li>No safety events yet. Play the 403 demo.</li></ol>
+          <details class="fleet-formula">
+            <summary>How the driver score is calculated</summary>
+            <p id="fleet-formula-text"></p>
+          </details>
+        </section>
 
         <div class="sheet-form">
           <label for="origin">From</label>
@@ -89,9 +113,10 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="/static/js/weather-picker.js?v=20260927c"></script>
-  <script src="/static/js/speed-panel.js?v=20260927c"></script>
-  <script src="/static/js/address-search.js?v=20260927c"></script>
-  <script src="/static/js/mobile.js?v=20260927c" defer></script>
+  <script src="/static/js/weather-picker.js?v=20260927d"></script>
+  <script src="/static/js/speed-panel.js?v=20260927d"></script>
+  <script src="/static/js/address-search.js?v=20260927d"></script>
+  <script src="/static/js/fleet.js?v=20260927d"></script>
+  <script src="/static/js/mobile.js?v=20260927d" defer></script>
 </body>
 </html>
