@@ -8,6 +8,7 @@ type Props = {
   scene: MapScene;
 };
 
+/** Expo Go draws the OpenStreetMap page inside a WebView. No map API key. */
 export function MapCanvas({ scene }: Props) {
   const webRef = useRef<WebView>(null);
   const ready = useRef(false);

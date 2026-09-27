@@ -44,8 +44,12 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
         signal: controller.signal,
       });
       if (response.status >= 500 && attempt < ATTEMPTS - 1) {
-        await sleep(2000 * (attempt + 1));
-        continue;
+        const preview = await response.clone().text();
+        const rateLimited = /too many requests/i.test(preview);
+        if (!rateLimited) {
+          await sleep(2000 * (attempt + 1));
+          continue;
+        }
       }
       return response;
     } catch (error) {
@@ -67,7 +71,11 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
 async function readJson<T>(response: Response): Promise<T> {
   const data = (await response.json().catch(() => ({}))) as { error?: string };
   if (!response.ok) {
-    throw new ApiError(data.error || `Request failed (${response.status})`, response.status);
+    const raw = data.error || `Request failed (${response.status})`;
+    const message = /429|too many requests/i.test(raw)
+      ? "Address lookup is busy. Pick a suggestion from the list, or try again in a moment."
+      : raw;
+    throw new ApiError(message, response.status);
   }
   return data as T;
 }

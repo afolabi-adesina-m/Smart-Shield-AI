@@ -42,12 +42,13 @@ const WEATHER = [
   { id: "ice_storm", label: "Ice" },
 ] as const;
 
-const emptyPlace = (label: string): Place => ({ label, lat: null, lon: null });
+const TORONTO: Place = { label: "Toronto, Ontario", lat: 43.6532, lon: -79.3832 };
+const BARRIE: Place = { label: "Barrie, Ontario", lat: 44.3894, lon: -79.6903 };
 
 export default function App() {
   const [tab, setTab] = useState<"trip" | "practice">("trip");
-  const [origin, setOrigin] = useState<Place>(emptyPlace("Toronto, Ontario"));
-  const [destination, setDestination] = useState<Place>(emptyPlace("Barrie, Ontario"));
+  const [origin, setOrigin] = useState<Place>(TORONTO);
+  const [destination, setDestination] = useState<Place>(BARRIE);
   const [activeField, setActiveField] = useState<"origin" | "destination" | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [weather, setWeather] = useState<string>("auto");
@@ -174,6 +175,11 @@ export default function App() {
 
   async function ensureCoords(place: Place): Promise<Place> {
     if (place.lat != null && place.lon != null) return place;
+    const suggestions = await suggestPlaces(place.label).catch(() => []);
+    const hinted = suggestions.find((item) => item.lat != null && item.lon != null);
+    if (hinted && hinted.lat != null && hinted.lon != null) {
+      return { ...place, label: hinted.label || place.label, lat: hinted.lat, lon: hinted.lon };
+    }
     const hit = await geocodePlace(place.label);
     return { ...place, label: hit.label || place.label, lat: hit.lat, lon: hit.lon };
   }
@@ -258,7 +264,7 @@ export default function App() {
       <StatusBar style="dark" />
       <View style={styles.mapPane}>
         <MapCanvas scene={scene} />
-        <View style={styles.topChip} pointerEvents="none">
+        <View style={styles.topChip}>
           <Text style={styles.brand}>Smart-Shield</Text>
           <Text style={styles.engine}>{waking ? "Contacting server…" : engineNote}</Text>
         </View>
@@ -465,6 +471,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 12,
     left: 12,
+    pointerEvents: "none",
     backgroundColor: "#ffffff",
     borderRadius: 14,
     paddingHorizontal: 12,
