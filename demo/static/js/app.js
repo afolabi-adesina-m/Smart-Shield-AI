@@ -29,27 +29,11 @@ function updateWeatherSummary(value) {
   }
 }
 
-let baseLayer = null;
-
-function applyBaseTiles(theme) {
-  if (!map || !window.SmartShieldTheme) return;
-  const url = window.SmartShieldTheme.tileUrl(theme);
-  if (baseLayer) map.removeLayer(baseLayer);
-  baseLayer = L.tileLayer(url, {
-    maxZoom: 20,
-    subdomains: "abcd",
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-  }).addTo(map);
-}
-
 function initMap() {
   map = L.map("map", { zoomControl: false }).setView([43.6532, -79.3832], 9);
 
   L.control.zoom({ position: "bottomright" }).addTo(map);
-  applyBaseTiles(window.SmartShieldTheme ? window.SmartShieldTheme.current() : "light");
-  document.addEventListener("smartshield:theme", (event) => {
-    applyBaseTiles((event.detail || {}).theme || "light");
-  });
+  if (window.SmartShieldTheme) window.SmartShieldTheme.attachMap(map);
 
   markerGroup = L.layerGroup().addTo(map);
   initSpeedAwareness(map);

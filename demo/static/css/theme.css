@@ -32,6 +32,11 @@ html[data-theme="light"] {
   color-scheme: light;
 }
 
+/* Night mode recolors the same keyless OSM tiles. Vectors stay unfiltered. */
+.leaflet-container.tiles-night .leaflet-tile-pane {
+  filter: invert(100%) hue-rotate(180deg) brightness(0.95) contrast(0.9) saturate(0.7);
+}
+
 html[data-theme="dark"] {
   --accent: #9ec1ff;
   --accent-ink: #0d1b33;
