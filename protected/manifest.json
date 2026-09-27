@@ -55,6 +55,30 @@
       "enc": "protected/models/vision_meta.json.enc",
       "sha256": "0c547d355c4a8e716cc003bf09fe443dd3699e99f0be02e0c83aba7d0319b50f",
       "bytes": 1056
+    },
+    {
+      "path": "models/tfidf_vectorizer.joblib",
+      "enc": "protected/models/tfidf_vectorizer.joblib.enc",
+      "sha256": "a0b21f6dd8cb0c1a76667812effb4959ada5ff652535469517567bc9337e5745",
+      "bytes": 3703
+    },
+    {
+      "path": "models/rf_tuned.joblib",
+      "enc": "protected/models/rf_tuned.joblib.enc",
+      "sha256": "754ca910e4f8a591de670cd27529c6b2d2266f22fe4ac292b6a2abda9090f571",
+      "bytes": 27333681
+    },
+    {
+      "path": "models/scaler.joblib",
+      "enc": "protected/models/scaler.joblib.enc",
+      "sha256": "152a7997ca693cb62fb46c64c98109ba16c2a8b91ffce5703a393b452e0fe72a",
+      "bytes": 807
+    },
+    {
+      "path": "models/feature_names.joblib",
+      "enc": "protected/models/feature_names.joblib.enc",
+      "sha256": "45e902608a5a52a315d26813f60696466feb8aefc27d78807726e6b3d0db4456",
+      "bytes": 125
     }
   ]
 }
