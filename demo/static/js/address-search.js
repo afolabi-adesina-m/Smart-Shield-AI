@@ -13,12 +13,15 @@ function initAddressSearch() {
 }
 
 function mountMapSearch() {
-  const host = document.getElementById("map-wrap") || document.getElementById("map-stage");
+  const host = document.getElementById("search-slot")
+    || document.getElementById("map-wrap")
+    || document.getElementById("map-stage");
   if (!host || document.getElementById("map-search")) return;
   const box = document.createElement("div");
   box.id = "map-search";
   box.className = "map-search";
   box.innerHTML = `
+    <svg class="icon search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M16 16.5 20 20.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
     <input id="map-search-input" type="search" enterkeyhint="search"
       placeholder="Search an address or place" aria-label="Search an address or place" />
     <div id="map-search-assign" class="address-assign" hidden>

@@ -89,13 +89,8 @@ function speedPanelHtml() {
       <div class="speed-signs">
         <div id="posted-sign" class="limit-sign" title="Posted speed limit">
           <span class="est-tab">EST</span>
-          <span class="sign-caption">MAXIMUM</span>
+          <span class="sign-caption">Limit</span>
           <span id="posted-num" class="sign-num">—</span>
-          <span class="sign-unit">km/h</span>
-        </div>
-        <div id="safe-sign" class="limit-sign safe" title="Safe speed">
-          <span class="sign-caption">SAFE</span>
-          <span id="safe-num" class="sign-num">—</span>
           <span class="sign-unit">km/h</span>
         </div>
         <div class="speed-now-wrap">
@@ -105,15 +100,21 @@ function speedPanelHtml() {
           </div>
           <span class="speed-now-caption">Your speed</span>
         </div>
+        <div id="safe-sign" class="limit-sign safe" title="Safe speed">
+          <span class="sign-caption">Safe</span>
+          <span id="safe-num" class="sign-num">—</span>
+          <span class="sign-unit">km/h</span>
+        </div>
       </div>
       <p id="speed-road" class="speed-road">Looking up the posted limit…</p>
       <p id="speed-safe-note" class="speed-safe-note"></p>
       <div id="speed-alert" class="speed-alert ok" role="status" aria-live="assertive">Within the safe speed</div>
-      <div class="speed-controls">
+      <details class="speed-controls">
+        <summary>Practice drive</summary>
         <div class="speed-toggle-row">
           <label><input id="speed-demo" type="checkbox" checked /> Demo speed</label>
           <label><input id="speed-beep" type="checkbox" checked /> Beep</label>
-          <button type="button" id="speed-gps" class="speed-drive" style="width:auto;margin:0;flex:0 0 auto;padding:4px 10px;">Use GPS</button>
+          <button type="button" id="speed-gps">Use GPS</button>
         </div>
         <div class="speed-slider-row">
           <input id="speed-slider" type="range" min="0" max="160" step="1" value="70" aria-label="Simulated speed" />
@@ -130,7 +131,7 @@ function speedPanelHtml() {
           <summary>How safe speed is calculated</summary>
           <p id="speed-rule-text"></p>
         </details>
-      </div>
+      </details>
     </section>
   `;
 }
@@ -209,7 +210,20 @@ async function refreshPostedAndSafe() {
     applyLimitPayload(data);
   } catch (err) {
     if (token !== lookupToken) return;
-    if (road) road.textContent = `Speed limit unavailable (${err.message}).`;
+    if (speedState.posted == null) {
+      applyLimitPayload({
+        posted_kmh: 50,
+        safe_kmh: 50,
+        estimated: true,
+        highway: "unknown",
+        road_name: null,
+        detail: "Speed limit unavailable, showing estimate.",
+        summary: "Estimated until map data is back",
+        rule: "",
+      });
+    } else if (road) {
+      road.textContent = "Speed limit unavailable, showing estimate.";
+    }
   }
 }
 

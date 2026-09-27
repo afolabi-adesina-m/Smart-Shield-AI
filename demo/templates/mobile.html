@@ -2,57 +2,79 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="theme-color" content="#1a73e8" />
-  <title>Smart-Shield · Mobile</title>
+  <meta name="theme-color" content="#f3f6fb" />
+  <title>Smart-Shield</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="/static/css/mobile.css?v=20260927c" />
-  <link rel="stylesheet" href="/static/css/weather-picker.css?v=20260927c" />
-  <link rel="stylesheet" href="/static/css/speed-panel.css?v=20260927c" />
-  <link rel="stylesheet" href="/static/css/address-search.css?v=20260927c" />
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/theme.css?v=20260927e" />
+  <link rel="stylesheet" href="/static/css/demo.css?v=20260927e" />
+  <link rel="stylesheet" href="/static/css/mobile.css?v=20260927e" />
+  <link rel="stylesheet" href="/static/css/weather-picker.css?v=20260927e" />
+  <link rel="stylesheet" href="/static/css/speed-panel.css?v=20260927e" />
+  <link rel="stylesheet" href="/static/css/address-search.css?v=20260927e" />
+  <script>
+    try {
+      var savedTheme = localStorage.getItem("smartshield-theme");
+      if (savedTheme !== "light" && savedTheme !== "dark") {
+        savedTheme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      document.documentElement.setAttribute("data-theme", savedTheme);
+    } catch (e) {}
+  </script>
 </head>
 <body data-speed-layout="mobile">
   <div id="mobile-app">
-    <header class="mobile-topbar">
-      <div class="topbar-brand">
-        <span class="shield-icon">🛡️</span>
-        <div>
-          <strong>Smart-Shield</strong>
-          <span class="topbar-sub">Mobile · Ontario highways</span>
-        </div>
+    <main id="map-stage"><div id="map"></div></main>
+
+    <header class="topbar">
+      <a class="brand" href="/mobile">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2 19 6.2v5.6c0 4.2-2.8 7.2-7 8.8-4.2-1.6-7-4.6-7-8.8V6.2L12 3.2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        <span>Smart-Shield</span>
+      </a>
+      <div id="search-slot" class="search-slot"></div>
+      <div class="top-actions">
+        <button id="theme-toggle" class="icon-btn" type="button" aria-label="Switch to night theme" aria-pressed="false">
+          <svg class="icon icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 3.2A8.5 8.5 0 1 0 20.8 14 7 7 0 0 1 16 3.2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+          <svg class="icon icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.2 5.2l1.4 1.4M17.4 17.4l1.4 1.4M18.8 5.2l-1.4 1.4M6.6 17.4l-1.4 1.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+        <a id="desktop-demo-link" class="text-link" href="/">Desktop</a>
       </div>
-      <a id="desktop-demo-link" class="desktop-link" href="/" title="Desktop demo">Desktop</a>
     </header>
 
-    <main id="map-stage">
-      <div id="map"></div>
-      <div id="map-badge" class="map-badge" hidden>
-        <strong id="badge-score">—</strong>
-        <span>Safety Score</span>
-      </div>
-      <button type="button" id="btn-locate-map" class="fab-map" aria-label="Fit route on map">⌖</button>
-    </main>
+    <article id="safety-card" class="safety-card" hidden>
+      <button type="button" id="safety-toggle" class="safety-compact" aria-expanded="false">
+        <span class="safety-mark" aria-hidden="true">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M12 3.2 19 6.2v5.6c0 4.2-2.8 7.2-7 8.8-4.2-1.6-7-4.6-7-8.8V6.2L12 3.2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        </span>
+        <span class="safety-copy">
+          <span class="safety-kicker">Safety rating</span>
+          <strong id="badge-score">—</strong>
+          <span id="safety-tier"></span>
+        </span>
+        <span id="safety-line" class="safety-line"></span>
+      </button>
+    </article>
+
+    <button type="button" id="btn-locate-map" class="fab-map" aria-label="Fit route on map">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    </button>
 
     <section id="bottom-sheet" class="bottom-sheet" data-state="peek">
-      <div id="sheet-handle" class="sheet-handle" aria-hidden="true"><span></span></div>
-
+      <div id="sheet-handle" class="sheet-handle" aria-label="Expand directions" role="button" tabindex="0"><span></span></div>
       <div class="sheet-scroll">
-        <p class="prototype-disclaimer">
-          Research prototype — not official MTO or 511 Ontario guidance.
-        </p>
-
+        <h2 class="card-title">Directions</h2>
         <div class="sheet-form">
           <label for="origin">From</label>
           <input id="origin" type="text" inputmode="text" autocomplete="street-address" placeholder="Toronto, Ontario" value="Toronto, Ontario" />
-
           <label for="destination">To</label>
           <input id="destination" type="text" inputmode="text" autocomplete="street-address" placeholder="Barrie, Ontario" value="Barrie, Ontario" />
-
-          <label class="weather-picker-label" for="weather">Road conditions</label>
+          <label for="weather">Road conditions</label>
           <select id="weather" class="weather-select" aria-label="Road conditions">
             <option value="auto" selected>Auto (live)</option>
             <option value="clear">Clear</option>
@@ -61,37 +83,39 @@
             <option value="ice_storm">Ice storm</option>
           </select>
           <p id="weather-summary" class="weather-selected-summary" aria-live="polite"></p>
-
-          <label class="weather-picker-label" for="vision-mode">Vision brain (V)</label>
-          <select id="vision-mode" class="weather-select" aria-label="Vision brain mode">
-            <option value="real" selected>Real ResNet + live CCTV</option>
-            <option value="proxy">Proxy table</option>
-            <option value="auto">Auto</option>
-          </select>
-
-          <button id="btn-route" type="button" class="btn-primary">Find safest routes</button>
-          <p id="status" class="status-msg" role="status"></p>
+          <details class="advanced">
+            <summary>Camera scoring</summary>
+            <label for="vision-mode">How road images are scored</label>
+            <select id="vision-mode" class="weather-select" aria-label="Camera scoring">
+              <option value="real" selected>Live highway cameras</option>
+              <option value="proxy">Example conditions</option>
+              <option value="auto">Automatic</option>
+            </select>
+          </details>
+          <button id="btn-route" type="button" class="btn-primary">Find safest route</button>
+          <p id="status" class="status-msg" role="status">Set a start and destination.</p>
         </div>
 
         <div id="results-block" hidden>
           <div id="high-risk-banner" class="high-risk-banner" hidden></div>
-          <h2 class="results-title">Route options <span class="badge">AI ranked</span></h2>
-          <p class="hint">Tap a route to highlight on map. Lower S = safer. Speed signs are on the map.</p>
+          <h2 class="card-title">Suggested routes</h2>
           <div id="route-cards"></div>
           <div class="legend-compact">
-            <span><i class="dot low"></i> LOW 0–30</span>
-            <span><i class="dot med"></i> MED 31–70</span>
-            <span><i class="dot high"></i> HIGH 71–100</span>
+            <span><i class="dot low"></i> Low 0–30</span>
+            <span><i class="dot med"></i> Medium 31–70</span>
+            <span><i class="dot high"></i> High 71–100</span>
           </div>
+          <p class="fine-print">Not official MTO or 511 guidance.</p>
         </div>
       </div>
     </section>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="/static/js/weather-picker.js?v=20260927c"></script>
-  <script src="/static/js/speed-panel.js?v=20260927c"></script>
-  <script src="/static/js/address-search.js?v=20260927c"></script>
-  <script src="/static/js/mobile.js?v=20260927c" defer></script>
+  <script src="/static/js/theme.js?v=20260927e"></script>
+  <script src="/static/js/weather-picker.js?v=20260927e"></script>
+  <script src="/static/js/speed-panel.js?v=20260927e"></script>
+  <script src="/static/js/address-search.js?v=20260927e"></script>
+  <script src="/static/js/mobile.js?v=20260927e" defer></script>
 </body>
 </html>
