@@ -4,33 +4,56 @@ This is a small app for Android and iPhone. It talks to the same Smart-Shield se
 
 https://smart-shield-ai.onrender.com
 
-You can try it on a real phone with the free **Expo Go** app. You do not need a Mac, a Google Play account, or an Apple Developer account for that test.
+You can try it on a real phone with **Expo Go**. This project uses **Expo SDK 54**.
+
+- **iPhone:** install Expo Go from the App Store. That store build is SDK 54, which matches this project. You do not need a Mac or an Apple Developer account for that test.
+- **Android:** the Play Store copy of Expo Go was updated on 17 Aug 2026 to version 57.0.9. That copy is SDK 57 and will not open this project. Install the SDK 54 build instead: on the phone, open https://expo.dev/go?device=true&platform=android&sdkVersion=54 and download **Expo Go 54.0.8**. Android may ask you to allow install from that source.
 
 ## Try it on your phone
 
-1. Install **Expo Go** from the Play Store (Android) or the App Store (iPhone).
-2. On the computer that has this project, open a terminal in the `mobile` folder.
+1. Install the Expo Go build described above.
+2. On the computer, open a terminal in the `mobile` folder. If the folder path contains spaces, put quotes around it when you change directory.
 3. Install the app's packages once:
 
    ```bash
    npm install
    ```
 
-4. Start the phone preview:
+4. Start the phone preview with Node, not `npx`:
 
    ```bash
-   npx expo start
+   node node_modules/expo/bin/cli start
+   ```
+
+   On Windows Command Prompt the same command is:
+
+   ```bat
+   node node_modules\expo\bin\cli start
    ```
 
 5. A QR code appears in the terminal.
-   - **Android:** open Expo Go and scan the QR code.
+   - **Android:** open the SDK 54 Expo Go and scan the QR code.
    - **iPhone:** open the Camera app and scan the QR code. It offers to open Expo Go.
 
 The phone and the computer need to be on the same Wi-Fi. If they are not, start with a tunnel instead:
 
 ```bash
-npx expo start --tunnel
+node node_modules/expo/bin/cli start --tunnel
 ```
+
+### Windows folder names that contain `&`
+
+A path such as `INFO53883 - AI & ML Capstone Project` breaks `npx expo start` and `npm run start`. Command Prompt treats `&` as "run another command", and the Expo and npm launcher scripts do not quote that path. Use the `node node_modules\expo\bin\cli start` command above. It does not put the project path on the command line.
+
+If `npm install` fails for the same reason, call npm through Node. The quotes matter:
+
+```bat
+node "%ProgramFiles%\nodejs\node_modules\npm\bin\npm-cli.js" install
+```
+
+### Windows firewall
+
+The first time Node starts, Windows may ask for network access. Allow **Node.js** on **Public** networks as well as private ones. If you only allow private networks, the phone cannot reach the computer and the QR code does nothing. You can change this later in Windows Security, Firewall, Allow an app.
 
 The first time you tap **Find safest route**, wait. The free server sleeps when it is idle, and the first answer can take about a minute. The app says so on screen and tries again by itself.
 
@@ -42,7 +65,7 @@ Copy `.env.example` to `.env` and set the address of the Flask demo. Use the com
 EXPO_PUBLIC_API_BASE=http://192.168.1.20:5050
 ```
 
-Restart `npx expo start` after you change that file.
+Restart `node node_modules/expo/bin/cli start` after you change that file.
 
 ## What you can do in the app
 
@@ -61,19 +84,21 @@ A trip records while the Fleet screen is open and the app is in the foreground. 
 ## Check the types
 
 ```bash
-npm run typecheck
+node node_modules/typescript/bin/tsc --noEmit
 ```
 
 ## An installable Android app (APK)
 
 Expo Go is the quick test. An APK is a file you can send and install without Expo Go.
 
-1. Create a free Expo account and log in: `npx eas-cli login`
+1. Create a free Expo account and log in: `node node_modules/eas-cli/bin/run login` after `npm install eas-cli`, or `npx eas-cli login` if your folder path has no `&`.
 2. From the `mobile` folder:
 
    ```bash
    npx eas-cli build -p android --profile preview
    ```
+
+   If the folder path contains `&`, install the CLI locally (`node "%ProgramFiles%\nodejs\node_modules\npm\bin\npm-cli.js" install eas-cli`) and run `node node_modules/eas-cli/bin/run build -p android --profile preview`.
 
 The `preview` profile in `eas.json` builds an APK. When the build finishes, Expo gives you a link to download it. On the phone, open the file and allow install from that source if Android asks.
 
@@ -87,7 +112,7 @@ Installing a build that is not Expo Go **does**. You need an Apple Developer Pro
 npx eas-cli build -p ios --profile testflight
 ```
 
-The `testflight` profile is a store build. After it finishes, submit it to TestFlight with `npx eas-cli submit -p ios`. Invite testers from App Store Connect. The first iOS build also asks Expo to create signing certificates. Say yes.
+If the folder path contains `&`, use `node node_modules/eas-cli/bin/run build -p ios --profile testflight` after installing `eas-cli` in this folder. The `testflight` profile is a store build. After it finishes, submit it to TestFlight with `node node_modules/eas-cli/bin/run submit -p ios`. Invite testers from App Store Connect. The first iOS build also asks Expo to create signing certificates. Say yes.
 
 ## Map
 
