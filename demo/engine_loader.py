@@ -13,6 +13,7 @@ Call ``prepare_engine()`` before importing ``inference``, ``speed_limit``,
 from __future__ import annotations
 
 import json
+import shutil
 import sys
 import tempfile
 import types
@@ -94,6 +95,10 @@ def prepare_engine(
     # the repository tree and must remain importable after the temp src is
     # placed first on sys.path.
     _keep_repo_src_importable(repo)
+    # inference.py and vision_runtime.py set models/ and Data/ from the
+    # decrypted file's own folder (/tmp/smart-shield-engine-*/). Weights and
+    # the photo cache live in the repository, not in that temp tree.
+    _share_repo_assets(repo, tree)
     return _set("unlocked", "Engine decrypted in a temporary directory for this process.")
 
 
@@ -108,6 +113,33 @@ def _keep_repo_src_importable(repo: Path) -> None:
     entry = str(src)
     if entry not in sys.path:
         sys.path.append(entry)
+
+
+def _share_repo_assets(repo: Path, tree: Path) -> None:
+    """Point ``<temp>/models`` and ``<temp>/Data`` at the repository copies.
+
+    Files the unlock step just decrypted (``models/vision_meta.json``) are
+    copied into the repository folder first, then the temp path becomes a
+    symlink. Decrypted code keeps using ``Path(__file__).parent.parent``.
+    """
+    for name in ("models", "Data"):
+        repo_dir = (repo / name).resolve()
+        repo_dir.mkdir(parents=True, exist_ok=True)
+        temp_dir = tree / name
+        if temp_dir.is_symlink():
+            continue
+        if temp_dir.is_dir():
+            for path in temp_dir.rglob("*"):
+                if not path.is_file():
+                    continue
+                dest = repo_dir / path.relative_to(temp_dir)
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                if not dest.exists():
+                    shutil.copy2(path, dest)
+            shutil.rmtree(temp_dir)
+        elif temp_dir.exists():
+            continue
+        temp_dir.symlink_to(repo_dir, target_is_directory=True)
 
 
 def _materialize(repo: Path, manifest_path: Path, key: bytes) -> Path:
