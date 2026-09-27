@@ -96,7 +96,7 @@ function setSheetState(state) {
   const sheet = document.getElementById("bottom-sheet");
   if (sheet) {
     sheet.dataset.state = state;
-    const offsets = { peek: "176px", half: "52vh", full: "86vh" };
+    const offsets = { peek: "176px", half: "52vh", full: "88vh" };
     document.documentElement.style.setProperty("--sheet-offset", offsets[state] || offsets.peek);
     setTimeout(() => map && map.invalidateSize(), 320);
   }

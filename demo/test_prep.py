@@ -96,13 +96,17 @@ def build_practice_loop(
     radius_km = 2.2 if exam == "G" else 1.4
     route = None
     last_error = "Routing failed."
-    for scale in (1.0, 0.65):
+    for scale in (1.0, 0.55):
         points = _loop_points(centre["lat"], centre["lon"], radius_km * scale)
         try:
-            route = _osrm_route(points, getter, osrm_url)
-            break
+            candidate = _osrm_route(points, getter, osrm_url)
         except TestPrepError as exc:
             last_error = str(exc)
+            continue
+        if route is None or candidate["distance_m"] < route["distance_m"]:
+            route = candidate
+        if route["distance_m"] <= 12000:
+            break
     if not route:
         raise TestPrepError(last_error, 502)
 
@@ -266,9 +270,9 @@ def _element_latlon(element: dict):
 
 
 def _merge_points(steps: List[dict], features: List[dict], level: str) -> List[dict]:
-    merged = []
+    pool = []
     seen = set()
-    for point in steps + features:
+    for point in features + steps:
         if level == "G2" and point["kind"] == "ramp":
             point = dict(point)
             point["scored"] = False
@@ -277,10 +281,10 @@ def _merge_points(steps: List[dict], features: List[dict], level: str) -> List[d
         if key in seen:
             continue
         seen.add(key)
-        merged.append(point)
-        if len(merged) >= 14:
-            break
-    return merged
+        pool.append(point)
+    turns = [point for point in pool if point["kind"] in {"left_turn", "right_turn"}]
+    other = [point for point in pool if point["kind"] not in {"left_turn", "right_turn"}]
+    return (other + turns[:6])[:14]
 
 
 def _point(kind: str, lon: float, lat: float, along_m: float, level: str, name: str) -> dict:

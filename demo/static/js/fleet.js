@@ -164,6 +164,7 @@ function finishFleetPassing(sample) {
 
 function observeFleet(sample) {
   if (!sample || sample.posted_kmh == null || sample.current_kmh == null) return;
+  if (!fleetRules || !fleetRules.caps || !fleetRules.score) return;
   if (sample.sim_ms != null && sample.sim_ms === fleetLastSim && sample.current_kmh === fleetLastSpeed) return;
 
   const speed = Number(sample.current_kmh);
