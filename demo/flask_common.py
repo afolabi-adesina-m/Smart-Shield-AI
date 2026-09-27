@@ -12,6 +12,7 @@ from flask_cors import CORS
 
 from engine_loader import engine_status
 from inference import WEATHER_PRESETS, score_routes_batch, DEFAULT_VISION_MODE
+from map_tiles import map_tile_settings
 from geocode_suggest import (
     configured_provider,
     provider_ready,
@@ -105,6 +106,7 @@ def register_api_routes(app: Flask) -> None:
             "nominatim_url": NOMINATIM_URL,
             "geocode_provider": configured_provider(),
             "geocode_key_configured": provider_ready(),
+            "map_tiles": map_tile_settings(),
         })
 
     @app.get("/api/suggest")

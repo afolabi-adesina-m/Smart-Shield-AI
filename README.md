@@ -82,7 +82,7 @@ Requires trained models in `../models/` for the tabular and ResNet brains. If th
 
 ## Map interface
 
-The demo is a full-screen driving map. Search sits in a floating bar at the top. Directions and the model safety rating are floating cards on the map, and the speed readout is a driving HUD at the bottom: a round posted-limit sign, a large current-speed number, and a safe-speed chip. Day and night themes follow the device setting and can be toggled; the choice is saved in the browser. Light maps use CARTO Positron tiles and night maps use CARTO Dark Matter, both public styles that do not need an API key.
+The demo is a full-screen driving map. Search sits in a floating bar at the top. Directions and the model safety rating are floating cards on the map, and the speed readout is a driving HUD at the bottom: a round posted-limit sign, a large current-speed number, and a safe-speed chip. Day and night themes follow the device setting and can be toggled; the choice is saved in the browser. The map uses standard OpenStreetMap tiles (`tile.openstreetmap.org`), which do not need an API key on a public host. Night mode keeps those same tiles and darkens the tile pane with a CSS filter. An optional `MAP_TILE_URL`, or a public Mapbox token (`pk.` in `MAPBOX_ACCESS_TOKEN`), is used when set. If those tiles fail to load, the map switches back to OpenStreetMap. A key is never required.
 
 ## Speed limit & safe speed
 

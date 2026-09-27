@@ -55,14 +55,100 @@
     }
   });
 
+  const OSM = {
+    url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>',
+  };
+
+  let keyedTiles = null;
+
+  function loadKeyedTiles() {
+    return fetch("/api/config")
+      .then((response) => (response.ok ? response.json() : {}))
+      .then((data) => {
+        const tiles = (data && data.map_tiles) || {};
+        keyedTiles = tiles.url ? tiles : null;
+        return keyedTiles;
+      })
+      .catch(() => {
+        keyedTiles = null;
+        return null;
+      });
+  }
+
+  function specFor(theme, forceOsm) {
+    const night = theme === "dark";
+    if (!forceOsm && keyedTiles && keyedTiles.url) {
+      const darkUrl = keyedTiles.dark_url || "";
+      return {
+        url: night && darkUrl ? darkUrl : keyedTiles.url,
+        maxZoom: keyedTiles.max_zoom || OSM.maxZoom,
+        attribution: keyedTiles.attribution || OSM.attribution,
+        subdomains: keyedTiles.subdomains || "",
+        nightFilter: night && !darkUrl,
+        provider: keyedTiles.provider || "keyed",
+      };
+    }
+    return {
+      url: OSM.url,
+      maxZoom: OSM.maxZoom,
+      attribution: OSM.attribution,
+      subdomains: "",
+      nightFilter: night,
+      provider: "osm",
+    };
+  }
+
+  function paintTiles(map, theme) {
+    if (!map || typeof L === "undefined") return;
+    const spec = specFor(theme, !!map._ssForceOsm);
+    const container = map.getContainer();
+    container.classList.toggle("tiles-night", !!spec.nightFilter);
+    if (map._ssBase) map.removeLayer(map._ssBase);
+
+    const options = {
+      maxZoom: spec.maxZoom,
+      maxNativeZoom: spec.maxZoom,
+      attribution: spec.attribution,
+    };
+    if (spec.subdomains && spec.url.indexOf("{s}") !== -1) {
+      options.subdomains = spec.subdomains;
+    }
+    const layer = L.tileLayer(spec.url, options);
+    let failures = 0;
+    let successes = 0;
+    layer.on("tileerror", () => {
+      failures += 1;
+      if (spec.provider !== "osm" && !map._ssForceOsm && failures >= 4 && successes === 0) {
+        map._ssForceOsm = true;
+        paintTiles(map, theme);
+      }
+    });
+    layer.on("tileload", () => {
+      successes += 1;
+    });
+    layer.addTo(map);
+    if (layer.bringToBack) layer.bringToBack();
+    map._ssBase = layer;
+  }
+
   window.SmartShieldTheme = {
     current() {
       return document.documentElement.getAttribute("data-theme") || "light";
     },
     tileUrl(theme) {
-      return theme === "dark"
-        ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-        : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+      return specFor(theme || this.current(), false).url;
+    },
+    attachMap(map) {
+      const paint = (theme) => paintTiles(map, theme || this.current());
+      paint(this.current());
+      document.addEventListener("smartshield:theme", (event) => {
+        paint((event.detail || {}).theme || "light");
+      });
+      loadKeyedTiles().then((tiles) => {
+        if (tiles && tiles.url && !map._ssForceOsm) paint(this.current());
+      });
     },
   };
 })();
