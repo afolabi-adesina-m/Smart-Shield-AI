@@ -59,6 +59,18 @@ export type SpeedReading = {
   estimated?: boolean;
   summary?: string;
   detail?: string;
+  road_mode?: string;
+  lookup_ok?: boolean;
+  school_active?: boolean;
+  exit_warning?: { text?: string } | null;
+  hazards?: {
+    id: string;
+    kind: string;
+    label?: string;
+    lat?: number;
+    lon?: number;
+    distance_m?: number;
+  }[];
 };
 
 export type TestCentre = {

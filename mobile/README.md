@@ -50,8 +50,13 @@ Restart `npx expo start` after you change that file.
 - Set the start to your current location.
 - Compare up to three drives. Each card shows the safety score, risk tier, recommended speed, collision risk, and the Stage A fatal flag (shown only, not mixed into the score).
 - Read the alert line and whether weather came from a live lookup or the calendar fallback.
-- See the posted limit, a demo speed, and the safe speed.
+- See the posted limit, your speed, and the safe speed. On a phone the speed is live GPS. The safe speed comes from the road you are on and, once you have scored a route, from that route's recommended speed.
+- If GPS is off, or you are indoors, or you are using a computer browser, tap **Simulate a speed** and pick 40, 60, 80, 100, or 120. Going over the posted limit turns the speed red and plays a short alert.
+- Open **Fleet** to start and stop a trip. The phone keeps the GPS trace, speeding events (where, posted limit, your speed, and how long), harsh braking and acceleration, and a driver safety score. Past trips stay on the phone. The server does not store them.
+- **Play sample trip** drives a baked Highway 403 exit in Mississauga so you can see the score without leaving the room. It uses the same street and exit rules as the website.
 - Open **Practice**, pick an Ontario DriveTest centre and G2 or G, and build a practice loop. Those loops are suggestions from public maps. They are not official test routes.
+
+A trip records while the Fleet screen is open and the app is in the foreground. Locking the phone pauses new GPS samples.
 
 ## Check the types
 

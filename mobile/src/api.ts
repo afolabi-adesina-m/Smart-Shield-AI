@@ -1,4 +1,6 @@
 import { API_BASE } from "./config";
+import type { StreetRules } from "./fleetLogic";
+import type { PlayableRoute } from "./samplePlayback";
 import type {
   Health,
   OsrmRoute,
@@ -161,4 +163,35 @@ export function buildLoop(centreId: string, level: string): Promise<PracticeLoop
     method: "POST",
     body: JSON.stringify({ centre_id: centreId, level }),
   }).then((response) => readJson<PracticeLoop>(response));
+}
+
+export function fetchStreetRules(): Promise<StreetRules> {
+  return apiFetch("/api/street-rules").then((response) => readJson<StreetRules>(response));
+}
+
+export function fetchRoadContext(body: {
+  lat: number;
+  lon: number;
+  weather?: string;
+  tier?: string;
+  recommended_kmh?: number | null;
+  bearing?: number | null;
+  geometry?: [number, number][];
+}): Promise<SpeedReading> {
+  return apiFetch("/api/road-context", {
+    method: "POST",
+    body: JSON.stringify(body),
+  }).then((response) => readJson<SpeedReading>(response));
+}
+
+export async function fetchFleetDemoRoute(): Promise<PlayableRoute | null> {
+  try {
+    const response = await fetch(`${API_BASE}/api/fleet-demo-route`, { headers: { Accept: "application/json" } });
+    if (!response.ok) return null;
+    const route = (await response.json()) as PlayableRoute;
+    if (!route.coordinates?.length) return null;
+    return route;
+  } catch {
+    return null;
+  }
 }

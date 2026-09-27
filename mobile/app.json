@@ -14,7 +14,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.smartshield.ai",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Smart-Shield uses your location as the trip start and to look up the posted speed on the road you are on."
+        "NSLocationWhenInUseUsageDescription": "Smart-Shield uses your location for the trip start, the posted speed on the road you are on, and your live speed during a fleet trip."
       }
     },
     "android": {
@@ -34,7 +34,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Smart-Shield uses your location as the trip start and to look up the posted speed on the road you are on."
+          "locationWhenInUsePermission": "Smart-Shield uses your location for the trip start, the posted speed on the road you are on, and your live speed during a fleet trip."
         }
       ],
       "expo-asset"

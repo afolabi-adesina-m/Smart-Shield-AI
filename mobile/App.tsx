@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,18 +12,23 @@ import {
 import { StatusBar } from "expo-status-bar";
 import * as Location from "expo-location";
 import { MapCanvas } from "./src/MapCanvas";
+import { FleetPanel } from "./src/FleetPanel";
 import {
   ApiError,
   buildLoop,
   fetchCentres,
   fetchDirections,
   fetchHealth,
+  fetchRoadContext,
   fetchSpeed,
   geocodePlace,
   scoreRoutes,
   suggestPlaces,
 } from "./src/api";
 import { API_BASE, COLD_START_HINT } from "./src/config";
+import { haversineM, warningFor, type WarningLevel } from "./src/fleetLogic";
+import { getFleetSnapshot, setLiveReader, subscribeFleet } from "./src/fleetStore";
+import { alertOverLimit } from "./src/overSpeedAlert";
 import type {
   MapScene,
   Place,
@@ -45,8 +51,16 @@ const WEATHER = [
 const TORONTO: Place = { label: "Toronto, Ontario", lat: 43.6532, lon: -79.3832 };
 const BARRIE: Place = { label: "Barrie, Ontario", lat: 44.3894, lon: -79.6903 };
 
+type GpsFix = {
+  lat: number;
+  lon: number;
+  accuracy: number | null;
+  speedKmh: number | null;
+  heading: number | null;
+};
+
 export default function App() {
-  const [tab, setTab] = useState<"trip" | "practice">("trip");
+  const [tab, setTab] = useState<"trip" | "practice" | "fleet">("trip");
   const [origin, setOrigin] = useState<Place>(TORONTO);
   const [destination, setDestination] = useState<Place>(BARRIE);
   const [activeField, setActiveField] = useState<"origin" | "destination" | null>(null);
@@ -61,6 +75,14 @@ export default function App() {
   const [selected, setSelected] = useState(0);
   const [speed, setSpeed] = useState<SpeedReading | null>(null);
   const [demoKmh, setDemoKmh] = useState(70);
+  const [speedMode, setSpeedMode] = useState<"gps" | "simulate">(Platform.OS === "web" ? "simulate" : "gps");
+  const [gpsNote, setGpsNote] = useState(Platform.OS === "web"
+    ? "This browser has no travel speed. Simulate is on."
+    : "Starting GPS…");
+  const [fix, setFix] = useState<GpsFix | null>(null);
+  const fleet = useSyncExternalStore(subscribeFleet, getFleetSnapshot, getFleetSnapshot);
+  const wantGps = useRef(Platform.OS !== "web");
+  const watchRef = useRef<Location.LocationSubscription | null>(null);
   const [centres, setCentres] = useState<TestCentre[]>([]);
   const [centreId, setCentreId] = useState("downsview");
   const [level, setLevel] = useState<"G2" | "G">("G2");
@@ -87,6 +109,53 @@ export default function App() {
     };
   }, []);
 
+  async function beginGps() {
+    const permission = await Location.requestForegroundPermissionsAsync();
+    if (!permission.granted) {
+      setGpsNote("Location is off. Type a start, or simulate a speed.");
+      setSpeedMode("simulate");
+      wantGps.current = false;
+      return;
+    }
+    if (watchRef.current) return;
+    watchRef.current = await Location.watchPositionAsync(
+      {
+        accuracy: Location.Accuracy.BestForNavigation,
+        timeInterval: 1000,
+        distanceInterval: 1,
+      },
+      (position) => {
+        const raw = position.coords.speed;
+        const speedKmh = raw == null || raw < 0 ? null : Math.round(raw * 3.6);
+        const accuracy = position.coords.accuracy;
+        setFix({
+          lat: position.coords.latitude,
+          lon: position.coords.longitude,
+          accuracy,
+          speedKmh,
+          heading: position.coords.heading,
+        });
+        if (!wantGps.current) return;
+        setSpeedMode("gps");
+        if (accuracy != null && accuracy > 50) setGpsNote("GPS accuracy is low. The limit may be for a nearby road.");
+        else if (speedKmh == null) setGpsNote("No GPS speed yet. Wait for a fix, or simulate.");
+        else setGpsNote("Live GPS speed");
+      },
+    );
+  }
+
+  useEffect(() => {
+    if (Platform.OS === "web") return undefined;
+    beginGps().catch(() => {
+      setGpsNote("GPS did not start. Simulate a speed instead.");
+      setSpeedMode("simulate");
+    });
+    return () => {
+      watchRef.current?.remove();
+      watchRef.current = null;
+    };
+  }, []);
+
   useEffect(() => {
     const place = activeField === "destination" ? destination : origin;
     if (!activeField || place.label.trim().length < 3 || place.lat != null) {
@@ -102,7 +171,57 @@ export default function App() {
     };
   }, [activeField, origin, destination]);
 
+  const activeRoute = routes.find((route) => route.route_index === selected) || routes[0];
+  const recommended = activeRoute?.recommended_speed_kmh ?? null;
+  const lookupRef = useRef({ key: "", at: 0 });
+
+  useEffect(() => {
+    const lat = fix?.lat ?? origin.lat ?? TORONTO.lat;
+    const lon = fix?.lon ?? origin.lon ?? TORONTO.lon;
+    if (lat == null || lon == null) return undefined;
+    const moved = haversineM(lookupRef.current.key ? Number(lookupRef.current.key.split(",")[0]) : lat, lookupRef.current.key ? Number(lookupRef.current.key.split(",")[1]) : lon, lat, lon);
+    const key = `${lat.toFixed(3)},${lon.toFixed(3)}|${weather}|${activeRoute?.tier || ""}|${recommended ?? ""}`;
+    const samePlace = moved < 80 && lookupRef.current.key.startsWith(`${lat.toFixed(3)},${lon.toFixed(3)}`);
+    const fresh = Date.now() - lookupRef.current.at < 12000;
+    if (lookupRef.current.key === key || (samePlace && fresh && lookupRef.current.key.includes(`|${weather}|`))) return undefined;
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      const geometry = geometries[selected];
+      const thin = geometry && geometry.length > 80
+        ? geometry.filter((_, index) => index % Math.ceil(geometry.length / 80) === 0)
+        : geometry;
+      fetchRoadContext({
+        lat,
+        lon,
+        weather,
+        tier: activeRoute?.tier,
+        recommended_kmh: recommended,
+        bearing: fix?.heading,
+        geometry: thin,
+      }).then((reading) => {
+        if (cancelled) return;
+        setSpeed(reading);
+        lookupRef.current = { key, at: Date.now() };
+      }).catch(() => {
+        fetchSpeed(lat, lon, activeRoute?.tier, weather).then((reading) => {
+          if (!cancelled) setSpeed(reading);
+        }).catch(() => undefined);
+      });
+    }, 350);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [fix, origin.lat, origin.lon, weather, activeRoute?.tier, recommended, geometries, selected]);
+
   const scene: MapScene = useMemo(() => {
+    if (tab === "fleet" && fleet.line.length > 1) {
+      const last = fleet.line[fleet.line.length - 1];
+      return {
+        routes: [{ coords: fleet.line, color: "#1a56db", active: true }],
+        markers: [{ lat: last[0], lon: last[1], label: "Car", color: "#b3261e" }],
+      };
+    }
     if (tab === "practice" && loop) {
       return {
         routes: [{
@@ -136,7 +255,7 @@ export default function App() {
           color: index === 0 ? "#0d7a45" : "#b3261e",
         })),
     };
-  }, [tab, loop, geometries, selected, origin, destination]);
+  }, [tab, loop, geometries, selected, origin, destination, fleet.line]);
 
   function pickSuggestion(item: Suggestion) {
     const place: Place = { id: item.id, label: item.label, detail: item.detail, lat: item.lat, lon: item.lon };
@@ -164,12 +283,23 @@ export default function App() {
     loadSpeed(place.lat as number, place.lon as number);
   }
 
-  async function loadSpeed(lat: number, lon: number, tier?: string) {
+  async function loadSpeed(lat: number, lon: number, tier?: string, recommendedKmh?: number | null) {
     try {
-      const reading = await fetchSpeed(lat, lon, tier, weather);
+      const reading = await fetchRoadContext({
+        lat,
+        lon,
+        weather,
+        tier,
+        recommended_kmh: recommendedKmh,
+      });
       setSpeed(reading);
     } catch {
-      /* The speed card can stay on the last reading. */
+      try {
+        const reading = await fetchSpeed(lat, lon, tier, weather);
+        setSpeed(reading);
+      } catch {
+        /* The speed card can stay on the last reading. */
+      }
     }
   }
 
@@ -208,7 +338,7 @@ export default function App() {
       setSelected(best);
       setStatus(ordered.length === 1 ? "1 route scored." : `${ordered.length} routes scored.`);
       const chosen = ordered.find((route) => route.route_index === best) || ordered[0];
-      await loadSpeed(from.lat, from.lon as number, chosen?.tier);
+      await loadSpeed(from.lat, from.lon as number, chosen?.tier, chosen?.recommended_speed_kmh);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Could not score the route.");
     } finally {
@@ -254,10 +384,46 @@ export default function App() {
     }
   }
 
-  const posted = speed?.posted_kmh;
-  const safe = speed?.safe_kmh;
-  const over = posted != null && demoKmh > posted;
-  const aboveSafe = safe != null && demoKmh > safe && !over;
+  const shownKmh = speedMode === "simulate" ? demoKmh : fix?.speedKmh ?? null;
+  const posted = speed?.posted_kmh ?? null;
+  const safe = speed?.safe_kmh ?? null;
+  const speedLevel: WarningLevel = warningFor(shownKmh, posted, safe);
+  const warnRef = useRef<WarningLevel>("unknown");
+  const speedCaption = speedLevel === "red"
+    ? "Over the limit"
+    : speedLevel === "amber"
+      ? "Above the safe speed"
+      : speedLevel === "ok"
+        ? "At or under the limit"
+        : speedMode === "gps"
+          ? "Waiting for a speed fix"
+          : "Waiting for the posted limit";
+
+  useEffect(() => {
+    if (speedLevel === "red" && warnRef.current !== "red") alertOverLimit();
+    warnRef.current = speedLevel;
+  }, [speedLevel]);
+
+  useEffect(() => {
+    setLiveReader(() => {
+      const lat = fix?.lat ?? origin.lat;
+      const lon = fix?.lon ?? origin.lon;
+      if (lat == null || lon == null || shownKmh == null || posted == null) return null;
+      return {
+        lat,
+        lon,
+        current_kmh: shownKmh,
+        posted_kmh: posted,
+        safe_kmh: safe,
+        road_mode: speed?.road_mode,
+        warning: speedLevel,
+        school_active: !!speed?.school_active,
+        exit_warning: speed?.exit_warning,
+        hazards: speed?.hazards,
+        source: speedMode === "gps" ? "gps" : "simulate",
+      };
+    });
+  }, [fix, origin.lat, origin.lon, shownKmh, posted, safe, speed, speedLevel, speedMode]);
 
   return (
     <View style={styles.root}>
@@ -268,20 +434,24 @@ export default function App() {
           <Text style={styles.brand}>Smart-Shield</Text>
           <Text style={styles.engine}>{waking ? "Contacting server…" : engineNote}</Text>
         </View>
-        <View style={styles.speedCard}>
+        <View style={[styles.speedCard, speedLevel === "red" && styles.speedCardRed, speedLevel === "amber" && styles.speedCardAmber]}>
           <SpeedStat label="Limit" value={posted == null ? "—" : String(posted)} />
-          <SpeedStat label="Your speed" value={String(demoKmh)} warn={aboveSafe} danger={over} />
+          <SpeedStat label={speedMode === "gps" ? "GPS" : "Simulate"} value={shownKmh == null ? "—" : String(shownKmh)} warn={speedLevel === "amber"} danger={speedLevel === "red"} />
           <SpeedStat label="Safe" value={safe == null ? "—" : String(safe)} />
+          <Text style={[styles.speedCaption, speedLevel === "red" && styles.danger, speedLevel === "amber" && styles.warn]}>{speedCaption}</Text>
         </View>
       </View>
 
       <View style={styles.sheet}>
         <View style={styles.tabs}>
           <Tab label="Trip" active={tab === "trip"} onPress={() => setTab("trip")} />
+          <Tab label="Fleet" active={tab === "fleet"} onPress={() => setTab("fleet")} />
           <Tab label="Practice" active={tab === "practice"} onPress={openPractice} />
         </View>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.sheetBody}>
-          {tab === "trip" ? (
+          {tab === "fleet" ? (
+            <FleetPanel speedMode={speedMode} />
+          ) : tab === "trip" ? (
             <>
               <Field
                 label="From"
@@ -362,16 +532,29 @@ export default function App() {
           )}
           <Text style={styles.status}>{status}</Text>
           <View style={styles.sliderRow}>
-            <Text style={styles.kicker}>Demo speed {demoKmh} km/h</Text>
-            <View style={styles.slider}>
-              {[40, 60, 80, 100, 120].map((value) => (
-                <Pressable key={value} style={[styles.chip, demoKmh === value && styles.chipOn]} onPress={() => setDemoKmh(value)}>
-                  <Text style={[styles.chipText, demoKmh === value && styles.chipTextOn]}>{value}</Text>
-                </Pressable>
-              ))}
-            </View>
-            {speed?.road_name ? <Text style={styles.note}>{speed.road_name}</Text> : null}
+            <Text style={styles.kicker}>{speedMode === "gps" ? "GPS speed" : `Simulate ${demoKmh} km/h`}</Text>
+            <Text style={styles.note}>{gpsNote}</Text>
+            {speedMode === "gps" ? (
+              <Pressable style={styles.secondary} onPress={() => { wantGps.current = false; setSpeedMode("simulate"); setGpsNote("Simulate is on. Pick a speed to test indoors."); }}>
+                <Text style={styles.secondaryText}>Simulate a speed</Text>
+              </Pressable>
+            ) : (
+              <Pressable style={styles.secondary} onPress={() => { wantGps.current = true; setGpsNote("Asking for GPS…"); beginGps().catch(() => setGpsNote("Location is off. Simulate stays on.")); }}>
+                <Text style={styles.secondaryText}>Use GPS speed</Text>
+              </Pressable>
+            )}
+            {speedMode === "simulate" ? (
+              <View style={styles.slider}>
+                {[40, 60, 80, 100, 120].map((value) => (
+                  <Pressable key={value} style={[styles.chip, demoKmh === value && styles.chipOn]} onPress={() => { wantGps.current = false; setSpeedMode("simulate"); setDemoKmh(value); }}>
+                    <Text style={[styles.chipText, demoKmh === value && styles.chipTextOn]}>{value}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
+            {speed?.road_name ? <Text style={styles.note}>{speed.road_name}{speed.road_mode ? ` · ${speed.road_mode}` : ""}{speed.estimated ? " · estimated" : ""}</Text> : null}
             {speed?.summary ? <Text style={styles.note}>{speed.summary}</Text> : null}
+            {recommended != null ? <Text style={styles.note}>Route recommendation {recommended} km/h, folded into the safe speed.</Text> : null}
           </View>
           <Text style={styles.fine}>API {API_BASE}</Text>
         </ScrollView>
@@ -485,7 +668,9 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 12,
     bottom: 12,
+    right: 12,
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 12,
     backgroundColor: "rgba(255,255,255,0.96)",
     borderRadius: 16,
@@ -494,6 +679,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(22,25,31,0.12)",
   },
+  speedCardAmber: { borderColor: "#8a5a00" },
+  speedCardRed: { borderColor: "#b3261e", backgroundColor: "#fff6f5" },
+  speedCaption: { width: "100%", fontSize: 12, fontWeight: "700", color: "#0d7a45" },
   speedStat: { minWidth: 64 },
   speedLabel: { fontSize: 11, color: "#526072", fontWeight: "600" },
   speedValue: { fontSize: 22, fontWeight: "700", color: "#16191f" },

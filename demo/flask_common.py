@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
@@ -205,7 +206,17 @@ def register_api_routes(app: Flask) -> None:
 
     @app.get("/api/fleet-demo-route")
     def fleet_demo_route():
-        return jsonify(load_demo_route())
+        # The decrypted engine looks for this JSON beside the temp copy of
+        # road_rules.py. The file itself stays in the demo folder, so read it
+        # from here when that lookup comes back empty.
+        try:
+            payload = load_demo_route()
+        except Exception:
+            payload = None
+        if isinstance(payload, dict) and payload.get("coordinates"):
+            return jsonify(payload)
+        path = Path(__file__).resolve().parent / "fleet_demo_route.json"
+        return jsonify(json.loads(path.read_text(encoding="utf-8")))
 
     @app.post("/api/road-context")
     def road_context_route():
