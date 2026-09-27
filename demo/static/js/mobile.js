@@ -47,7 +47,21 @@ function initMap() {
   }).addTo(map);
 
   markerGroup = L.layerGroup().addTo(map);
+  initSpeedAwareness(map);
   document.getElementById("status").textContent = "Enter a route and tap Find safest routes.";
+}
+
+function publishSpeedContext(snapToRoute) {
+  const route = lastScoredRoutes.find((r) => r.route_index === selectedIndex) || null;
+  const osrm = lastOsrmRoutes[selectedIndex];
+  document.dispatchEvent(new CustomEvent("smartshield:context", {
+    detail: {
+      route,
+      geometry: osrm ? osrm.geometry : null,
+      weather: (document.getElementById("weather") || {}).value || "auto",
+      snapToRoute: !!snapToRoute,
+    },
+  }));
 }
 
 function initBottomSheet() {
@@ -107,7 +121,10 @@ async function findRoutes() {
   status.textContent = "Looking up addresses…";
 
   try {
-    const [o, d] = await Promise.all([geocode(origin), geocode(destination)]);
+    const [o, d] = await Promise.all([
+      endpointPoint("origin"),
+      endpointPoint("destination"),
+    ]);
 
     status.textContent = "Fetching routes (OSRM)…";
     const osrmData = await fetchRoutes(o, d);
@@ -144,6 +161,7 @@ async function findRoutes() {
     renderHighRiskBanner(lastScoredRoutes);
     renderRouteCards(lastScoredRoutes);
     drawRoutesOnMap(lastOsrmRoutes, selectedIndex, o, d);
+    publishSpeedContext(true);
 
     const worst = lastScoredRoutes.reduce(
       (a, b) => (a.safety_score >= b.safety_score ? a : b),
@@ -158,6 +176,16 @@ async function findRoutes() {
   }
 
   btn.disabled = false;
+}
+
+async function endpointPoint(inputId) {
+  const el = document.getElementById(inputId);
+  const lat = el ? parseFloat(el.dataset.lat) : NaN;
+  const lon = el ? parseFloat(el.dataset.lon) : NaN;
+  if (!Number.isNaN(lat) && !Number.isNaN(lon)) {
+    return { lat, lon, display_name: el.value.trim() };
+  }
+  return geocode((el && el.value.trim()) || "");
 }
 
 async function geocode(query) {
@@ -274,6 +302,7 @@ function renderRouteCards(scored) {
       card.classList.add("selected");
       drawRoutesOnMap(lastOsrmRoutes, idx);
       updateMapBadge(r);
+      publishSpeedContext(true);
       setSheetState("half");
     });
 

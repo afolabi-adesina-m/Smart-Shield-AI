@@ -9,11 +9,13 @@
   <meta name="theme-color" content="#1a73e8" />
   <title>Smart-Shield · Mobile</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="/static/css/mobile.css?v=20260727b" />
-  <link rel="stylesheet" href="/static/css/weather-picker.css?v=20260727b" />
+  <link rel="stylesheet" href="/static/css/mobile.css?v=20260927c" />
+  <link rel="stylesheet" href="/static/css/weather-picker.css?v=20260927c" />
+  <link rel="stylesheet" href="/static/css/speed-panel.css?v=20260927c" />
+  <link rel="stylesheet" href="/static/css/address-search.css?v=20260927c" />
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
 </head>
-<body>
+<body data-speed-layout="mobile">
   <div id="mobile-app">
     <header class="mobile-topbar">
       <div class="topbar-brand">
@@ -23,7 +25,7 @@
           <span class="topbar-sub">Mobile · Ontario highways</span>
         </div>
       </div>
-      <a class="desktop-link" href="http://127.0.0.1:5050" title="Desktop demo">Desktop</a>
+      <a id="desktop-demo-link" class="desktop-link" href="/" title="Desktop demo">Desktop</a>
     </header>
 
     <main id="map-stage">
@@ -74,7 +76,7 @@
         <div id="results-block" hidden>
           <div id="high-risk-banner" class="high-risk-banner" hidden></div>
           <h2 class="results-title">Route options <span class="badge">AI ranked</span></h2>
-          <p class="hint">Tap a route to highlight on map. Lower S = safer.</p>
+          <p class="hint">Tap a route to highlight on map. Lower S = safer. Speed signs are on the map.</p>
           <div id="route-cards"></div>
           <div class="legend-compact">
             <span><i class="dot low"></i> LOW 0–30</span>
@@ -87,7 +89,9 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="/static/js/weather-picker.js?v=20260727b"></script>
-  <script src="/static/js/mobile.js?v=20260727b" defer></script>
+  <script src="/static/js/weather-picker.js?v=20260927c"></script>
+  <script src="/static/js/speed-panel.js?v=20260927c"></script>
+  <script src="/static/js/address-search.js?v=20260927c"></script>
+  <script src="/static/js/mobile.js?v=20260927c" defer></script>
 </body>
 </html>

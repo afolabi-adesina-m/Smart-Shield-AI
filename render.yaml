@@ -1,0 +1,15 @@
+# Render web service for the Flask map demo.
+# Dashboard: New → Blueprint → point at this repo, or use the steps in the README.
+services:
+  - type: web
+    name: smart-shield-ai
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: SMART_SHIELD_HOST
+        value: 0.0.0.0
+      - key: SMART_SHIELD_CORS_ORIGINS
+        value: "*"
+      - key: PYTHONUNBUFFERED
+        value: "1"

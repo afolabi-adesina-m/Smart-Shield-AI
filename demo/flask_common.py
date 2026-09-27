@@ -8,12 +8,53 @@ from pathlib import Path
 import requests
 from flask import Flask, jsonify, request
 
+from flask_cors import CORS
+
 from inference import WEATHER_PRESETS, score_routes_batch, DEFAULT_VISION_MODE
+from geocode_suggest import (
+    configured_provider,
+    provider_ready,
+    resolve_place,
+    suggest_places,
+)
+from speed_limit import lookup_posted_speed, overpass_urls, safe_speed_kmh
 from vision_runtime import get_vision_runtime
 
-NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
+NOMINATIM_URL = os.getenv("NOMINATIM_URL", "https://nominatim.openstreetmap.org/search")
 OSRM_URL = os.getenv("OSRM_URL", "https://router.project-osrm.org/route/v1/driving")
 USER_AGENT = "SmartShieldCapstone/1.0 (Sheridan PAIDA academic demo)"
+
+
+def apply_public_cors(app: Flask) -> None:
+    """Allow the map API to be called when the page is hosted on another origin.
+
+    Default remains open (``*``), matching the previous demo. Set
+    SMART_SHIELD_CORS_ORIGINS to a comma-separated list to restrict it.
+    """
+    raw = os.getenv("SMART_SHIELD_CORS_ORIGINS", "*").strip()
+    if not raw or raw == "*":
+        CORS(app)
+        return
+    origins = [part.strip() for part in raw.split(",") if part.strip()]
+    CORS(app, origins=origins)
+
+
+def _public_geocode_error(exc: Exception) -> str:
+    text = str(exc)
+    for secret in (
+        os.getenv("GOOGLE_PLACES_API_KEY", ""),
+        os.getenv("MAPBOX_ACCESS_TOKEN", ""),
+    ):
+        if secret:
+            text = text.replace(secret, "***")
+    return text
+
+
+def _optional_float(name: str):
+    raw = (request.args.get(name) or "").strip()
+    if raw == "":
+        return None
+    return float(raw)
 
 
 def _osm_get(url: str, params: dict) -> dict:
@@ -41,7 +82,95 @@ def register_api_routes(app: Flask) -> None:
             "models_present": models_dir.is_dir() and any(models_dir.glob("*.joblib")),
             "vision": vision,
             "default_vision_mode": DEFAULT_VISION_MODE,
+            "speed_limit": "osm-maxspeed",
         })
+
+    @app.get("/api/config")
+    def public_config():
+        """Public runtime settings for the browser. No secrets."""
+        return jsonify({
+            "desktop_url": os.getenv("SMART_SHIELD_DESKTOP_URL", "").strip(),
+            "mobile_url": os.getenv("SMART_SHIELD_MOBILE_URL", "").strip(),
+            "desktop_port": int(os.getenv("SMART_SHIELD_PORT", "5050")),
+            "mobile_port": int(os.getenv("SMART_SHIELD_MOBILE_PORT", "5051")),
+            "mobile_path": "/mobile",
+            "geolocation_requires_https": True,
+            "overpass_urls": overpass_urls(),
+            "osrm_url": OSRM_URL,
+            "nominatim_url": NOMINATIM_URL,
+            "geocode_provider": configured_provider(),
+            "geocode_key_configured": provider_ready(),
+        })
+
+    @app.get("/api/suggest")
+    def suggest():
+        """Address autocomplete. Proxied so the browser does not call Photon directly."""
+        q = (request.args.get("q") or "").strip()
+        if len(q) > 120:
+            return jsonify({"error": "Query is too long"}), 400
+        lat = lon = None
+        try:
+            if request.args.get("lat"):
+                lat = float(request.args["lat"])
+            if request.args.get("lon"):
+                lon = float(request.args["lon"])
+        except ValueError:
+            return jsonify({"error": "lat and lon must be numeric"}), 400
+        try:
+            return jsonify(suggest_places(q, lat=lat, lon=lon))
+        except Exception as exc:
+            return jsonify({"error": _public_geocode_error(exc)}), 502
+
+    @app.get("/api/place")
+    def place():
+        """Resolve a Google place id to coordinates. Photon hits already include lat/lon."""
+        place_id = (request.args.get("id") or "").strip()
+        if not place_id:
+            return jsonify({"error": "Missing place id"}), 400
+        try:
+            return jsonify(resolve_place(place_id))
+        except Exception as exc:
+            return jsonify({"error": _public_geocode_error(exc)}), 502
+
+    @app.get("/api/speed-limit")
+    def speed_limit():
+        """Posted limit for a point, plus Safe Speed from the current risk signal."""
+        try:
+            lat = float(request.args["lat"])
+            lon = float(request.args["lon"])
+        except (KeyError, ValueError):
+            return jsonify({"error": "Need numeric lat and lon"}), 400
+        if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+            return jsonify({"error": "lat/lon out of range"}), 400
+        try:
+            recommended = _optional_float("recommended_kmh")
+        except ValueError:
+            return jsonify({"error": "recommended_kmh must be numeric"}), 400
+        posted = lookup_posted_speed(lat, lon)
+        safe = safe_speed_kmh(
+            posted["posted_kmh"],
+            highway=posted.get("highway"),
+            tier=request.args.get("tier"),
+            recommended_kmh=recommended,
+            weather=request.args.get("weather"),
+        )
+        return jsonify({**posted, **safe})
+
+    @app.get("/api/safe-speed")
+    def safe_speed():
+        """Recompute Safe Speed when risk changes, without another Overpass call."""
+        try:
+            posted = float(request.args["posted"])
+            recommended = _optional_float("recommended_kmh")
+        except (KeyError, ValueError):
+            return jsonify({"error": "Need numeric posted (and numeric recommended_kmh if set)"}), 400
+        return jsonify(safe_speed_kmh(
+            posted,
+            highway=request.args.get("highway"),
+            tier=request.args.get("tier"),
+            recommended_kmh=recommended,
+            weather=request.args.get("weather"),
+        ))
 
     @app.get("/api/geocode")
     def geocode():
