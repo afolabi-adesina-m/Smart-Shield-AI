@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="/static/css/weather-picker.css?v=20260927f" />
   <link rel="stylesheet" href="/static/css/speed-panel.css?v=20260927f" />
   <link rel="stylesheet" href="/static/css/address-search.css?v=20260927f" />
+  <link rel="stylesheet" href="/static/css/fleet.css?v=20260927f" />
   <script>
     try {
       var savedTheme = localStorage.getItem("smartshield-theme");
@@ -93,6 +94,29 @@
           <p class="fine-print">Lower score is safer. 0–30 low, 31–70 medium, 71–100 high.</p>
         </section>
       </article>
+
+      <section id="fleet-panel" class="fleet-panel float-card">
+        <h2 class="card-title">Trip safety</h2>
+        <div class="fleet-score-row">
+          <div id="fleet-score" class="fleet-score">100</div>
+          <div>
+            <div id="fleet-mode" class="fleet-mode">NO TRIP YET</div>
+            <p id="fleet-score-note" class="fleet-score-note">Driver safety score</p>
+          </div>
+        </div>
+        <p id="fleet-hazard" class="fleet-hazard"></p>
+        <div class="fleet-actions">
+          <button id="fleet-play" type="button" class="btn-primary">Play 403 exit demo</button>
+          <button id="fleet-csv" type="button">Export CSV</button>
+          <button id="fleet-reset" type="button">Reset trip</button>
+        </div>
+        <p id="fleet-status" class="fleet-status"></p>
+        <ol id="fleet-events" class="fleet-events"><li>No safety events yet. Play the 403 demo.</li></ol>
+        <details class="fleet-formula">
+          <summary>How the driver score is calculated</summary>
+          <p id="fleet-formula-text"></p>
+        </details>
+      </section>
     </div>
   </div>
 
@@ -101,6 +125,7 @@
   <script src="/static/js/weather-picker.js?v=20260927f"></script>
   <script src="/static/js/speed-panel.js?v=20260927f"></script>
   <script src="/static/js/address-search.js?v=20260927f"></script>
+  <script src="/static/js/fleet.js?v=20260927f"></script>
   <script src="/static/js/app.js?v=20260927f" defer></script>
 </body>
 </html>

@@ -17,6 +17,7 @@ from geocode_suggest import (
     resolve_place,
     suggest_places,
 )
+from road_rules import load_demo_route, load_rules, prefetch_corridor, road_context
 from speed_limit import lookup_posted_speed, overpass_urls, safe_speed_kmh
 from vision_runtime import get_vision_runtime
 
@@ -83,6 +84,7 @@ def register_api_routes(app: Flask) -> None:
             "vision": vision,
             "default_vision_mode": DEFAULT_VISION_MODE,
             "speed_limit": "osm-maxspeed",
+            "road_rules": "street-exit",
         })
 
     @app.get("/api/config")
@@ -171,6 +173,93 @@ def register_api_routes(app: Flask) -> None:
             recommended_kmh=recommended,
             weather=request.args.get("weather"),
         ))
+
+    @app.get("/api/street-rules")
+    def street_rules():
+        return jsonify(load_rules())
+
+    @app.get("/api/fleet-demo-route")
+    def fleet_demo_route():
+        return jsonify(load_demo_route())
+
+    @app.post("/api/road-context")
+    def road_context_route():
+        """Posted limit, safe speed, and ahead-of-car hazards for one position."""
+        body = request.get_json(force=True, silent=True) or {}
+        try:
+            lat = float(body["lat"])
+            lon = float(body["lon"])
+        except (KeyError, TypeError, ValueError):
+            return jsonify({"error": "Need numeric lat and lon"}), 400
+        if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+            return jsonify({"error": "lat/lon out of range"}), 400
+        recommended = body.get("recommended_kmh")
+        try:
+            if recommended is not None and recommended != "":
+                recommended = float(recommended)
+            else:
+                recommended = None
+        except (TypeError, ValueError):
+            return jsonify({"error": "recommended_kmh must be numeric"}), 400
+        try:
+            payload = road_context(
+                lat,
+                lon,
+                geometry=body.get("geometry"),
+                weather=body.get("weather"),
+                tier=body.get("tier"),
+                recommended_kmh=recommended,
+                bearing=body.get("bearing"),
+                demo=bool(body.get("demo")),
+            )
+        except Exception as exc:
+            payload = {
+                "lat": lat,
+                "lon": lon,
+                "road_mode": "STREET",
+                "posted_kmh": 50,
+                "posted_label": "estimated",
+                "posted_source": "estimated",
+                "estimated": True,
+                "safe_kmh": 50,
+                "summary": "Estimated urban default",
+                "detail": f"Map lookup failed ({exc}). Estimated Ontario urban default of 50 km/h.",
+                "rule": "Fallback estimated limit because road context failed.",
+                "lookup_ok": False,
+                "lookup_error": str(exc),
+                "alerts": [],
+                "hazards": [],
+                "active_caps": [],
+                "school_active": False,
+                "exit_warning": None,
+                "highway": "unknown",
+                "road_name": None,
+            }
+        return jsonify(payload)
+
+    @app.post("/api/road-corridor")
+    def road_corridor():
+        """Prefetch OSM roads and hazards for a route. Overpass failures stay HTTP 200."""
+        body = request.get_json(force=True, silent=True) or {}
+        if body.get("demo"):
+            route = load_demo_route()
+            return jsonify({
+                "ok": True,
+                "lookup_ok": True,
+                "source": "demo",
+                "cached": True,
+                "hazards": len(route.get("hazards") or []),
+            })
+        try:
+            return jsonify(prefetch_corridor(body.get("geometry")))
+        except Exception as exc:
+            return jsonify({
+                "ok": False,
+                "lookup_ok": False,
+                "cached": False,
+                "error": str(exc),
+                "hazards": 0,
+            })
 
     @app.get("/api/geocode")
     def geocode():

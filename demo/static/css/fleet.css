@@ -1,0 +1,159 @@
+/* Trip card, road-mode chip, and ahead-of-car hazard lines. */
+
+.road-mode-chip {
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: 8px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  background: var(--chip);
+  color: var(--accent);
+}
+
+.road-mode-chip.exit { background: var(--warn-bg); color: var(--warn); }
+.road-mode-chip.street { background: var(--ok-bg); color: var(--ok); }
+.road-mode-chip.highway { background: var(--chip); color: var(--accent); }
+
+.hazard-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.hazard-line {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: var(--warn-bg);
+  color: var(--warn);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.fleet-panel {
+  padding: 14px 14px 12px;
+  max-height: 280px;
+  overflow: auto;
+}
+
+.fleet-score-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin: 4px 0 8px;
+}
+
+.fleet-score {
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  background: var(--ok-bg);
+  color: var(--ok);
+  font-size: 28px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.fleet-score.warn { background: var(--warn-bg); color: var(--warn); }
+.fleet-score.poor { background: var(--danger-bg); color: var(--danger); }
+
+.fleet-mode {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+}
+
+.fleet-score-note,
+.fleet-status {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.fleet-hazard {
+  margin: 0 0 8px;
+  min-height: 1.2em;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--warn);
+}
+
+.fleet-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.fleet-actions button {
+  border: 1px solid var(--line);
+  background: var(--chip);
+  color: var(--text);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.fleet-actions .btn-primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: transparent;
+}
+
+.fleet-events {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 160px;
+  overflow: auto;
+}
+
+.fleet-events li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+}
+
+.fleet-events li span {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.fleet-formula {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.fleet-formula summary { cursor: pointer; font-weight: 600; }
+
+.fleet-divicon { background: transparent; border: 0; }
+
+.fleet-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--card-solid);
+  color: var(--text);
+  border: 2px solid var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow);
+}
+
+.fleet-icon .icon { width: 16px; height: 16px; }
