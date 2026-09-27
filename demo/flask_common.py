@@ -13,6 +13,7 @@ from flask_cors import CORS
 from engine_loader import engine_status
 from inference import WEATHER_PRESETS, score_routes_batch, DEFAULT_VISION_MODE
 from map_tiles import map_tile_settings
+from test_prep import DISCLAIMER, TestPrepError, build_practice_loop, list_centres
 from geocode_suggest import (
     configured_provider,
     provider_ready,
@@ -178,6 +179,25 @@ def register_api_routes(app: Flask) -> None:
             recommended_kmh=recommended,
             weather=request.args.get("weather"),
         ))
+
+    @app.get("/api/test-centres")
+    def test_centres():
+        return jsonify({"centres": list_centres(), "disclaimer": DISCLAIMER})
+
+    @app.post("/api/test-loop")
+    def test_loop():
+        body = request.get_json(force=True, silent=True) or {}
+        try:
+            payload = build_practice_loop(
+                body.get("centre_id"),
+                body.get("level") or "G2",
+                osrm_url=OSRM_URL,
+            )
+        except TestPrepError as exc:
+            return jsonify({"error": str(exc)}), exc.status
+        except Exception as exc:
+            return jsonify({"error": str(exc)}), 502
+        return jsonify(payload)
 
     @app.get("/api/street-rules")
     def street_rules():

@@ -10,12 +10,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/css/theme.css?v=20260927h" />
-  <link rel="stylesheet" href="/static/css/demo.css?v=20260927h" />
-  <link rel="stylesheet" href="/static/css/weather-picker.css?v=20260927h" />
-  <link rel="stylesheet" href="/static/css/speed-panel.css?v=20260927h" />
-  <link rel="stylesheet" href="/static/css/address-search.css?v=20260927h" />
-  <link rel="stylesheet" href="/static/css/fleet.css?v=20260927h" />
+  <link rel="stylesheet" href="/static/css/theme.css?v=20260927p" />
+  <link rel="stylesheet" href="/static/css/demo.css?v=20260927p" />
+  <link rel="stylesheet" href="/static/css/side-panel.css?v=20260927p" />
+  <link rel="stylesheet" href="/static/css/weather-picker.css?v=20260927p" />
+  <link rel="stylesheet" href="/static/css/speed-panel.css?v=20260927p" />
+  <link rel="stylesheet" href="/static/css/address-search.css?v=20260927p" />
+  <link rel="stylesheet" href="/static/css/fleet.css?v=20260927p" />
   <script>
     try {
       var savedTheme = localStorage.getItem("smartshield-theme");
@@ -30,102 +31,129 @@
   <div id="app">
     <main id="map-wrap"><div id="map"></div></main>
 
-    <header class="topbar">
-      <a class="brand" href="/">
-        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2 19 6.2v5.6c0 4.2-2.8 7.2-7 8.8-4.2-1.6-7-4.6-7-8.8V6.2L12 3.2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
-        <span>Smart-Shield AI Enterprise</span>
-      </a>
-      <div id="search-slot" class="search-slot"></div>
-      <div class="top-actions">
-        <button id="theme-toggle" class="icon-btn" type="button" aria-label="Switch to night theme" aria-pressed="false">
-          <svg class="icon icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 3.2A8.5 8.5 0 1 0 20.8 14 7 7 0 0 1 16 3.2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
-          <svg class="icon icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.2 5.2l1.4 1.4M17.4 17.4l1.4 1.4M18.8 5.2l-1.4 1.4M6.6 17.4l-1.4 1.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-        </button>
-        <a id="mobile-demo-link" class="text-link" href="/mobile">Mobile</a>
+    <aside id="side-panel" class="side-panel">
+      <div class="panel-chrome">
+        <div class="panel-head">
+          <a class="brand" href="/">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2 19 6.2v5.6c0 4.2-2.8 7.2-7 8.8-4.2-1.6-7-4.6-7-8.8V6.2L12 3.2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+            <span>Smart-Shield AI Enterprise</span>
+          </a>
+          <button id="panel-collapse" class="icon-btn panel-collapse" type="button" aria-expanded="true" aria-controls="panel-body" aria-label="Collapse panel">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 10h12M6 14h12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div id="search-slot" class="search-slot"></div>
       </div>
-    </header>
+      <div id="panel-body">
+        <div id="panel-scroll" class="panel-scroll">
+          <details class="panel-section" data-panel-action="directions" open>
+            <summary>Directions</summary>
+            <div class="section-body">
+              <label for="origin">From</label>
+              <input id="origin" type="text" placeholder="Toronto, Ontario" value="Toronto, Ontario" />
+              <label for="destination">To</label>
+              <input id="destination" type="text" placeholder="Barrie, Ontario" value="Barrie, Ontario" />
+              <label for="weather">Road conditions</label>
+              <select id="weather" class="weather-select" aria-label="Road conditions">
+                <option value="auto" selected>Auto (live)</option>
+                <option value="clear">Clear</option>
+                <option value="wet">Wet / rain</option>
+                <option value="blizzard">Blizzard</option>
+                <option value="ice_storm">Ice storm</option>
+              </select>
+              <p id="weather-summary" class="weather-selected-summary" aria-live="polite"></p>
+              <details class="advanced">
+                <summary>Camera scoring</summary>
+                <label for="vision-mode">How road images are scored</label>
+                <select id="vision-mode" class="weather-select" aria-label="Camera scoring">
+                  <option value="real" selected>Live highway cameras</option>
+                  <option value="proxy">Example conditions</option>
+                  <option value="auto">Automatic</option>
+                </select>
+              </details>
+              <p class="fine-print">Not official MTO or 511 guidance.</p>
+            </div>
+          </details>
 
-    <div class="left-stack">
-      <aside id="smart-shield-panel" class="float-card">
-        <h2 class="card-title">Directions</h2>
-        <label for="origin">From</label>
-        <input id="origin" type="text" placeholder="Toronto, Ontario" value="Toronto, Ontario" />
-        <label for="destination">To</label>
-        <input id="destination" type="text" placeholder="Barrie, Ontario" value="Barrie, Ontario" />
-        <label for="weather">Road conditions</label>
-        <select id="weather" class="weather-select" aria-label="Road conditions">
-          <option value="auto" selected>Auto (live)</option>
-          <option value="clear">Clear</option>
-          <option value="wet">Wet / rain</option>
-          <option value="blizzard">Blizzard</option>
-          <option value="ice_storm">Ice storm</option>
-        </select>
-        <p id="weather-summary" class="weather-selected-summary" aria-live="polite"></p>
-        <details class="advanced">
-          <summary>Camera scoring</summary>
-          <label for="vision-mode">How road images are scored</label>
-          <select id="vision-mode" class="weather-select" aria-label="Camera scoring">
-            <option value="real" selected>Live highway cameras</option>
-            <option value="proxy">Example conditions</option>
-            <option value="auto">Automatic</option>
-          </select>
-        </details>
-        <button id="btn-route" class="btn-primary" type="button">Find safest route</button>
-        <p id="status" class="status-msg" role="status">Set a start and destination.</p>
-        <p class="fine-print">Not official MTO or 511 guidance.</p>
-      </aside>
+          <details class="panel-section" id="safety-section" data-panel-action="directions" open>
+            <summary>Safety rating</summary>
+            <article id="safety-card" class="safety-card" hidden>
+              <button type="button" id="safety-toggle" class="safety-compact" aria-expanded="false" aria-controls="routes-section">
+                <span class="safety-mark" aria-hidden="true">
+                  <svg class="icon" viewBox="0 0 24 24"><path d="M12 3.2 19 6.2v5.6c0 4.2-2.8 7.2-7 8.8-4.2-1.6-7-4.6-7-8.8V6.2L12 3.2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+                </span>
+                <span class="safety-copy">
+                  <span class="safety-kicker">Safety rating</span>
+                  <strong id="badge-score">—</strong>
+                  <span id="safety-tier"></span>
+                </span>
+                <span id="safety-line" class="safety-line"></span>
+              </button>
+              <section id="routes-section" hidden>
+                <div id="high-risk-banner" class="high-risk-banner" hidden></div>
+                <h2>Suggested routes</h2>
+                <div id="route-cards"></div>
+                <p class="fine-print">Lower score is safer. 0–30 low, 31–70 medium, 71–100 high.</p>
+              </section>
+            </article>
+            <p id="safety-empty" class="fine-print section-body">Find a route to see the safety rating.</p>
+          </details>
 
-      <article id="safety-card" class="safety-card" hidden>
-        <button type="button" id="safety-toggle" class="safety-compact" aria-expanded="false" aria-controls="routes-section">
-          <span class="safety-mark" aria-hidden="true">
-            <svg class="icon" viewBox="0 0 24 24"><path d="M12 3.2 19 6.2v5.6c0 4.2-2.8 7.2-7 8.8-4.2-1.6-7-4.6-7-8.8V6.2L12 3.2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
-          </span>
-          <span class="safety-copy">
-            <span class="safety-kicker">Safety rating</span>
-            <strong id="badge-score">—</strong>
-            <span id="safety-tier"></span>
-          </span>
-          <span id="safety-line" class="safety-line"></span>
-        </button>
-        <section id="routes-section" hidden>
-          <div id="high-risk-banner" class="high-risk-banner" hidden></div>
-          <h2>Suggested routes</h2>
-          <div id="route-cards"></div>
-          <p class="fine-print">Lower score is safer. 0–30 low, 31–70 medium, 71–100 high.</p>
-        </section>
-      </article>
+          <details class="panel-section" data-panel-action="trip" open>
+            <summary>Trip safety</summary>
+            <section id="fleet-panel" class="fleet-panel">
+              <div class="fleet-score-row">
+                <div id="fleet-score" class="fleet-score">100</div>
+                <div>
+                  <div id="fleet-mode" class="fleet-mode">NO TRIP YET</div>
+                  <p id="fleet-score-note" class="fleet-score-note">Driver safety score</p>
+                </div>
+              </div>
+              <p id="fleet-hazard" class="fleet-hazard"></p>
+              <div class="fleet-actions">
+                <button id="fleet-csv" type="button">Export CSV</button>
+                <button id="fleet-reset" type="button">Reset trip</button>
+              </div>
+              <p id="fleet-status" class="fleet-status"></p>
+              <ol id="fleet-events" class="fleet-events"><li>No safety events yet. Play the 403 demo.</li></ol>
+              <details class="fleet-formula">
+                <summary>How the driver score is calculated</summary>
+                <p id="fleet-formula-text"></p>
+              </details>
+            </section>
+          </details>
 
-      <section id="fleet-panel" class="fleet-panel float-card">
-        <h2 class="card-title">Trip safety</h2>
-        <div class="fleet-score-row">
-          <div id="fleet-score" class="fleet-score">100</div>
-          <div>
-            <div id="fleet-mode" class="fleet-mode">NO TRIP YET</div>
-            <p id="fleet-score-note" class="fleet-score-note">Driver safety score</p>
-          </div>
+          <details class="panel-section" id="test-prep-section" data-panel-action="prep">
+            <summary>Driving test prep</summary>
+            <div id="test-prep" class="section-body"></div>
+          </details>
         </div>
-        <p id="fleet-hazard" class="fleet-hazard"></p>
-        <div class="fleet-actions">
-          <button id="fleet-play" type="button" class="btn-primary">Play 403 exit demo</button>
-          <button id="fleet-csv" type="button">Export CSV</button>
-          <button id="fleet-reset" type="button">Reset trip</button>
-        </div>
-        <p id="fleet-status" class="fleet-status"></p>
-        <ol id="fleet-events" class="fleet-events"><li>No safety events yet. Play the 403 demo.</li></ol>
-        <details class="fleet-formula">
-          <summary>How the driver score is calculated</summary>
-          <p id="fleet-formula-text"></p>
-        </details>
-      </section>
+        <footer class="panel-foot">
+          <button id="btn-route" class="btn-primary" type="button" data-panel-action="directions">Find safest route</button>
+          <button id="fleet-play" class="btn-primary" type="button" data-panel-action="trip" hidden>Play 403 exit demo</button>
+          <button id="test-build" class="btn-primary" type="button" data-panel-action="prep" hidden>Build practice loop</button>
+          <p id="status" class="status-msg" role="status">Set a start and destination.</p>
+        </footer>
+      </div>
+    </aside>
+
+    <div class="top-actions">
+      <button id="theme-toggle" class="icon-btn" type="button" aria-label="Switch to night theme" aria-pressed="false">
+        <svg class="icon icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 3.2A8.5 8.5 0 1 0 20.8 14 7 7 0 0 1 16 3.2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        <svg class="icon icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.2 5.2l1.4 1.4M17.4 17.4l1.4 1.4M18.8 5.2l-1.4 1.4M6.6 17.4l-1.4 1.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+      <a id="mobile-demo-link" class="text-link" href="/mobile">Mobile</a>
     </div>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="/static/js/theme.js?v=20260927h"></script>
-  <script src="/static/js/weather-picker.js?v=20260927h"></script>
-  <script src="/static/js/speed-panel.js?v=20260927h"></script>
-  <script src="/static/js/address-search.js?v=20260927h"></script>
-  <script src="/static/js/fleet.js?v=20260927h"></script>
-  <script src="/static/js/app.js?v=20260927h" defer></script>
+  <script src="/static/js/theme.js?v=20260927p"></script>
+  <script src="/static/js/weather-picker.js?v=20260927p"></script>
+  <script src="/static/js/speed-panel.js?v=20260927p"></script>
+  <script src="/static/js/address-search.js?v=20260927p"></script>
+  <script src="/static/js/fleet.js?v=20260927p"></script>
+  <script src="/static/js/test-prep.js?v=20260927p"></script>
+  <script src="/static/js/panel.js?v=20260927p"></script>
+  <script src="/static/js/app.js?v=20260927p" defer></script>
 </body>
 </html>

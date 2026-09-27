@@ -1,0 +1,118 @@
+{
+  "source": "DriveTest centre list published by drivetest.ca (alphabetical list, retrieved 27 September 2026). Brampton uses the Shoppers World address from the DriveTest relocation notice effective 8 June 2026.",
+  "disclaimer": "Practice suggestions only. These are not official DriveTest routes.",
+  "centres": [
+    {
+      "id": "downsview",
+      "name": "Toronto Downsview",
+      "address": "Downsview Park, 37 Carl Hall Rd, Toronto, M3K 2E2",
+      "lat": 43.7468464,
+      "lon": -79.4787021,
+      "coords_approximate": false
+    },
+    {
+      "id": "etobicoke",
+      "name": "Toronto Etobicoke",
+      "address": "Centennial Park Plaza, 5555 Eglinton Ave W, Unit E120-124, Toronto, M9C 5M1",
+      "lat": 43.6506202,
+      "lon": -79.6028782,
+      "coords_approximate": true
+    },
+    {
+      "id": "port-union",
+      "name": "Toronto Port Union",
+      "address": "91 Rylander Blvd, Unit 109A, Toronto, M1B 5M5",
+      "lat": 43.7972518,
+      "lon": -79.1510574,
+      "coords_approximate": true
+    },
+    {
+      "id": "metro-east",
+      "name": "Toronto Metro East",
+      "address": "1448 Lawrence Ave E, Unit 15, Toronto, M4A 2V6",
+      "lat": 43.7419014,
+      "lon": -79.3147393,
+      "coords_approximate": true
+    },
+    {
+      "id": "brampton",
+      "name": "Brampton",
+      "address": "Shoppers World Mall, 499 Main St. S., Unit 064, Brampton, L6Y 1N7",
+      "lat": 43.66734,
+      "lon": -79.7353612,
+      "coords_approximate": true
+    },
+    {
+      "id": "mississauga",
+      "name": "Mississauga",
+      "address": "255 Longside Drive, Mississauga, L5W 1L8",
+      "lat": 43.6418247,
+      "lon": -79.7043099,
+      "coords_approximate": true
+    },
+    {
+      "id": "oakville",
+      "name": "Oakville",
+      "address": "2370 Wyecroft Rd, Oakville, L6L 5L7",
+      "lat": 43.411605,
+      "lon": -79.7317947,
+      "coords_approximate": false
+    },
+    {
+      "id": "oshawa",
+      "name": "Oshawa",
+      "address": "Midtown Mall, 200 John St W, Oshawa, L1J 2B4",
+      "lat": 43.8947922,
+      "lon": -78.8686862,
+      "coords_approximate": true
+    },
+    {
+      "id": "newmarket",
+      "name": "Newmarket",
+      "address": "320 Harry Walker Parkway S, Newmarket, L3Y 7B4",
+      "lat": 44.0566064,
+      "lon": -79.4210473,
+      "coords_approximate": false
+    },
+    {
+      "id": "barrie",
+      "name": "Barrie",
+      "address": "520 Bryne Dr, Unit 7, Barrie, L4N 9P6",
+      "lat": 44.3298901,
+      "lon": -79.6899474,
+      "coords_approximate": true
+    },
+    {
+      "id": "hamilton",
+      "name": "Hamilton",
+      "address": "370 Kenora Ave, Hamilton, L8E 2W2",
+      "lat": 43.240978,
+      "lon": -79.7637654,
+      "coords_approximate": false
+    },
+    {
+      "id": "ottawa-walkley",
+      "name": "Ottawa Walkley",
+      "address": "1570 Walkley Rd, Ottawa, K1V 6P5",
+      "lat": 45.376141,
+      "lon": -75.6476294,
+      "coords_approximate": false
+    },
+    {
+      "id": "london",
+      "name": "London",
+      "address": "4380 Wellington Rd S, London, N6E 2Z6",
+      "lat": 42.9182946,
+      "lon": -81.205583,
+      "coords_approximate": true
+    },
+    {
+      "id": "kitchener",
+      "name": "Kitchener",
+      "address": "1405 Ottawa St N, Unit 112, Kitchener, N2A 3Z1",
+      "lat": 43.4553833,
+      "lon": -80.4313207,
+      "coords_approximate": true
+    }
+  ]
+}

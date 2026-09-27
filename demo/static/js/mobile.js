@@ -36,7 +36,12 @@ function updateWeatherSummary(value) {
 }
 
 function initMap() {
-  map = L.map("map", { zoomControl: false, attributionControl: true }).setView([43.6532, -79.3832], 9);
+  map = L.map("map", { zoomControl: false, attributionControl: true, zoomSnap: 1, zoomDelta: 1 }).setView([43.6532, -79.3832], 9);
+  document.addEventListener("smartshield:clear-nav", () => {
+    routeLayers.forEach((layer) => map.removeLayer(layer));
+    routeLayers = [];
+    if (markerGroup) markerGroup.clearLayers();
+  });
   L.control.zoom({ position: "bottomright" }).addTo(map);
   if (window.SmartShieldTheme) window.SmartShieldTheme.attachMap(map);
 
@@ -68,8 +73,7 @@ function initBottomSheet() {
 
   handle.addEventListener("click", () => {
     const i = states.indexOf(sheet.dataset.state);
-    sheet.dataset.state = states[Math.min(i + 1, states.length - 1)];
-    setTimeout(() => map && map.invalidateSize(), 320);
+    setSheetState(states[Math.min(i + 1, states.length - 1)]);
   });
 
   handle.addEventListener("touchstart", (e) => {
@@ -81,19 +85,35 @@ function initBottomSheet() {
     const dy = e.changedTouches[0].clientY - startY;
     const idx = states.indexOf(startState);
     if (dy < -40 && idx < states.length - 1) {
-      sheet.dataset.state = states[idx + 1];
+      setSheetState(states[idx + 1]);
     } else if (dy > 40 && idx > 0) {
-      sheet.dataset.state = states[idx - 1];
+      setSheetState(states[idx - 1]);
     }
-    setTimeout(() => map && map.invalidateSize(), 320);
   }, { passive: true });
+
+  publishSheetOffset();
+  window.addEventListener("resize", () => {
+    publishSheetOffset();
+    setTimeout(() => map && map.invalidateSize(), 200);
+  });
+}
+
+function publishSheetOffset() {
+  const sheet = document.getElementById("bottom-sheet");
+  if (!sheet) return;
+  const height = Math.round(sheet.getBoundingClientRect().height);
+  document.documentElement.style.setProperty("--sheet-offset", height + "px");
 }
 
 function setSheetState(state) {
   const sheet = document.getElementById("bottom-sheet");
   if (sheet) {
     sheet.dataset.state = state;
-    setTimeout(() => map && map.invalidateSize(), 320);
+    requestAnimationFrame(publishSheetOffset);
+    setTimeout(() => {
+      publishSheetOffset();
+      if (map) map.invalidateSize();
+    }, 320);
   }
 }
 
@@ -315,9 +335,9 @@ function drawRoutesOnMap(routes, activeIndex, origin = null, dest = null) {
   markerGroup.clearLayers();
 
   const bounds = L.latLngBounds([]);
-  const landscape = window.matchMedia("(orientation: landscape)").matches;
-  const padTopLeft = landscape ? [24, 88] : [24, 150];
-  const padBottomRight = landscape ? [72, 120] : [28, 280];
+  const pad = window.SmartShieldMapPadding
+    ? window.SmartShieldMapPadding()
+    : { paddingTopLeft: [24, 88], paddingBottomRight: [80, 220] };
 
   routes.forEach((route, i) => {
     const latlngs = route.geometry.map(([lon, lat]) => [lat, lon]);
@@ -341,7 +361,8 @@ function drawRoutesOnMap(routes, activeIndex, origin = null, dest = null) {
 
   if (bounds.isValid()) {
     lastBounds = bounds;
-    map.fitBounds(bounds, { paddingTopLeft: padTopLeft, paddingBottomRight: padBottomRight });
+    document.dispatchEvent(new CustomEvent("smartshield:clear-prep"));
+    map.fitBounds(bounds, pad);
   }
 
   const scored = lastScoredRoutes.find((r) => r.route_index === activeIndex);
@@ -350,11 +371,10 @@ function drawRoutesOnMap(routes, activeIndex, origin = null, dest = null) {
 
 function fitMapToRoute() {
   if (lastBounds && lastBounds.isValid()) {
-    const landscape = window.matchMedia("(orientation: landscape)").matches;
-    map.fitBounds(lastBounds, {
-      paddingTopLeft: landscape ? [24, 88] : [24, 150],
-      paddingBottomRight: landscape ? [72, 120] : [28, 280],
-    });
+    const pad = window.SmartShieldMapPadding
+      ? window.SmartShieldMapPadding()
+      : { paddingTopLeft: [24, 88], paddingBottomRight: [80, 220] };
+    map.fitBounds(lastBounds, pad);
   }
 }
 
@@ -365,6 +385,8 @@ function updateMapBadge(route) {
 
   badge.hidden = false;
   badge.removeAttribute("hidden");
+  const section = document.getElementById("safety-section");
+  if (section) section.open = true;
   badge.dataset.tier = (route.tier || "").toLowerCase();
   scoreEl.textContent = route.safety_score;
   scoreEl.style.color = "";

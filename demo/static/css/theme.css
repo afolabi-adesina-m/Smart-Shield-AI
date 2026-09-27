@@ -32,6 +32,16 @@ html[data-theme="light"] {
   color-scheme: light;
 }
 
+/* Overlap each tile by 1px so fractional zoom and the night filter do not show seams. */
+.leaflet-container { background: #e5e3de; }
+.leaflet-container img.leaflet-tile {
+  width: 257px !important;
+  height: 257px !important;
+  max-width: none !important;
+  mix-blend-mode: normal;
+}
+.leaflet-fade-anim .leaflet-tile { will-change: auto; }
+
 /* Night mode recolors the same keyless OSM tiles. Vectors stay unfiltered. */
 .leaflet-container.tiles-night .leaflet-tile-pane {
   filter: invert(100%) hue-rotate(180deg) brightness(0.95) contrast(0.9) saturate(0.7);
@@ -69,6 +79,7 @@ html[data-theme="dark"] {
 html, body {
   margin: 0;
   height: 100%;
+  overflow: hidden;
   font-family: var(--font);
   color: var(--text);
   background: var(--bg);
