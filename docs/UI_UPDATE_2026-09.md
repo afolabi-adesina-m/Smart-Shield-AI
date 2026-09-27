@@ -110,22 +110,22 @@ On Render, set `SMART_SHIELD_KEY` on the web service (Environment), then redeplo
 
 ## Pictures
 
-Day, 1280×800. One panel, Toronto to Barrie, speed widget in the corner, Find safest route in the footer.
+Day, 1280×800. Toronto and Barrie are both on the map, and the line stays clear of the panel and the speed widget. The footer is Find safest route.
 
 ![Day desktop at 1280 by 800](ui-update-2026-09/desktop-day-1280.png)
 
-Day, 1024×640. The same screen at a shorter window. The form and the footer button stay visible.
+Day, 1024×640. The same drive in a shorter window. The Barrie pin stays below the top edge, and Find safest route stays in the footer.
 
 ![Day desktop at 1024 by 640](ui-update-2026-09/desktop-day-1024.png)
 
-Night, 1280×800. The same OpenStreetMap tiles with the night filter. Panel text stays readable.
+Night, 1280×800. The same tiles with the night filter. Road conditions shows Auto (live) on the dark field, not a white box.
 
 ![Night desktop at 1280 by 800](ui-update-2026-09/desktop-night-1280.png)
 
-Driving test prep at Downsview. The legend, an 8.3 km G2 loop, and Build practice loop as the only footer button. The line starts and ends at the centre.
+Driving test prep at Downsview, scrolled to the legend. The header and search stay solid, so the trip score does not show through above the search field. The loop is the 8.3 km G2 circuit, and Build practice loop is the footer button.
 
 ![Downsview practice loop](ui-update-2026-09/desktop-test-prep.png)
 
-Phone, 390×844, sheet expanded. Directions and the other sections, with Find safest route as the only footer button.
+Phone, 390×844. The top row is the shield icon. Search is the full row under it. The speed widget sits on the left, just above the bottom sheet, clear of the top bar.
 
 ![Mobile sheet](ui-update-2026-09/mobile-day.png)
