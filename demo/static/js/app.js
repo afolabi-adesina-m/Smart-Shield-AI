@@ -30,7 +30,12 @@ function updateWeatherSummary(value) {
 }
 
 function initMap() {
-  map = L.map("map", { zoomControl: false }).setView([43.6532, -79.3832], 9);
+  map = L.map("map", { zoomControl: false, zoomSnap: 1, zoomDelta: 1 }).setView([43.6532, -79.3832], 9);
+  document.addEventListener("smartshield:clear-nav", () => {
+    routeLayers.forEach((layer) => map.removeLayer(layer));
+    routeLayers = [];
+    if (markerGroup) markerGroup.clearLayers();
+  });
 
   L.control.zoom({ position: "bottomright" }).addTo(map);
   if (window.SmartShieldTheme) window.SmartShieldTheme.attachMap(map);
@@ -317,7 +322,11 @@ function drawRoutesOnMap(routes, activeIndex, origin = null, dest = null) {
   }
 
   if (bounds.isValid()) {
-    map.fitBounds(bounds, { paddingTopLeft: [420, 100], paddingBottomRight: [80, 170] });
+    const pad = window.SmartShieldMapPadding
+      ? window.SmartShieldMapPadding()
+      : { paddingTopLeft: [420, 24], paddingBottomRight: [250, 140] };
+    document.dispatchEvent(new CustomEvent("smartshield:clear-prep"));
+    map.fitBounds(bounds, pad);
   }
 
   const scored = lastScoredRoutes.find((r) => r.route_index === activeIndex);
@@ -331,6 +340,8 @@ function updateMapBadge(route) {
 
   badge.hidden = false;
   badge.removeAttribute("hidden");
+  const section = document.getElementById("safety-section");
+  if (section) section.open = true;
   badge.dataset.tier = (route.tier || "").toLowerCase();
   scoreEl.textContent = route.safety_score;
   scoreEl.style.color = "";

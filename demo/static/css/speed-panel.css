@@ -16,17 +16,47 @@
 }
 
 body[data-speed-layout="desktop"] .speed-panel {
-  left: 50%;
-  bottom: 20px;
-  transform: translateX(-50%);
+  left: auto;
+  right: 16px;
+  bottom: 108px;
+  width: 228px;
+  transform: none;
+  border-radius: 18px;
+  padding: 8px 10px 6px;
+}
+
+body[data-speed-layout="desktop"] .speed-panel .limit-sign {
+  width: 48px;
+  height: 48px;
+  border-width: 4px;
+}
+
+body[data-speed-layout="desktop"] .speed-panel .limit-sign .sign-num { font-size: 16px; }
+body[data-speed-layout="desktop"] .speed-panel .limit-sign.safe {
+  min-width: 0;
+  padding: 4px 8px;
+}
+body[data-speed-layout="desktop"] .speed-panel .limit-sign.safe .sign-num { font-size: 16px; }
+body[data-speed-layout="desktop"] .speed-panel .now-num { font-size: 28px; }
+body[data-speed-layout="desktop"] .speed-panel .speed-alert {
+  margin-top: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+body[data-speed-layout="desktop"] .leaflet-bottom.leaflet-right {
+  margin-bottom: 0;
+  bottom: 16px;
+  right: 8px;
 }
 
 body[data-speed-layout="mobile"] .speed-panel {
   left: 10px;
-  right: 64px;
-  width: auto;
-  bottom: calc(var(--sheet-peek) + 8px);
+  right: auto;
+  width: min(210px, calc(100% - 80px));
+  bottom: calc(var(--sheet-offset, var(--sheet-peek)) + 28px);
   transform: none;
+  border-radius: 16px;
+  padding: 8px;
 }
 
 .speed-signs {
@@ -212,8 +242,9 @@ body[data-speed-layout="mobile"] .speed-panel {
 .road-mode-chip, .hazard-line { margin-top: 8px; }
 
 @media (max-width: 720px) {
-  .now-num { font-size: 44px; }
-  .limit-sign { width: 64px; height: 64px; }
-  .limit-sign .sign-num { font-size: 24px; }
-  .limit-sign.safe .sign-num { font-size: 22px; }
+  body[data-speed-layout="mobile"] .now-num { font-size: 26px; }
+  body[data-speed-layout="mobile"] .limit-sign { width: 44px; height: 44px; border-width: 4px; }
+  body[data-speed-layout="mobile"] .limit-sign .sign-num,
+  body[data-speed-layout="mobile"] .limit-sign.safe .sign-num { font-size: 16px; }
+  body[data-speed-layout="mobile"] .speed-alert { font-size: 12px; padding: 4px 8px; }
 }

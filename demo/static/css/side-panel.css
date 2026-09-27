@@ -1,0 +1,179 @@
+/* One Google Maps-style column. The page itself does not scroll. */
+
+html, body { overflow: hidden; }
+
+.side-panel {
+  position: absolute;
+  z-index: 800;
+  top: 12px;
+  left: 12px;
+  bottom: 12px;
+  width: min(380px, calc(100vw - 88px));
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  overflow: hidden;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 10px 0;
+}
+
+.side-panel .brand {
+  flex: 1;
+  min-width: 0;
+  box-shadow: none;
+  background: transparent;
+  border: none;
+  height: 40px;
+  padding: 0 4px;
+}
+
+.side-panel .brand span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panel-collapse { flex: 0 0 auto; width: 40px; height: 40px; border-radius: 12px; }
+
+.side-panel .search-slot { padding: 8px 12px 0; }
+
+#panel-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+
+.side-panel.is-collapsed #panel-body { display: none; }
+.side-panel.is-collapsed {
+  bottom: auto;
+  height: auto;
+}
+
+.panel-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px 12px 8px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(22, 25, 31, 0.28) transparent;
+}
+
+.panel-scroll::-webkit-scrollbar { width: 8px; }
+.panel-scroll::-webkit-scrollbar-thumb {
+  background: rgba(22, 25, 31, 0.28);
+  border-radius: 8px;
+}
+
+.panel-section {
+  border-top: 1px solid var(--line);
+  padding: 4px 0 8px;
+}
+
+.panel-section summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 10px 0;
+  list-style: none;
+}
+
+.panel-section summary::-webkit-details-marker { display: none; }
+
+.section-body { padding-bottom: 4px; }
+
+.panel-foot {
+  flex: 0 0 auto;
+  padding: 8px 12px 12px;
+  border-top: 1px solid var(--line);
+  background: var(--card-solid);
+}
+
+.panel-foot .btn-primary { margin-top: 0; }
+
+.section-action {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  padding: 8px 0;
+  background: linear-gradient(to top, var(--card-solid), rgba(255, 255, 255, 0));
+}
+
+html[data-theme="dark"] .section-action {
+  background: linear-gradient(to top, var(--card-solid), rgba(42, 49, 64, 0));
+}
+
+.section-action .btn-primary { margin-top: 0; }
+
+.side-panel .safety-card,
+.side-panel .fleet-panel,
+.sheet-scroll .fleet-panel,
+.sheet-scroll .safety-card {
+  max-height: none;
+  overflow: visible;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+  padding: 0;
+}
+
+.side-panel #routes-section { padding: 0 0 8px; }
+
+#safety-card:not([hidden]) + #safety-empty { display: none; }
+
+.test-row { display: flex; gap: 8px; }
+.test-row > * { flex: 1; min-width: 0; }
+
+.test-score {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 8px 0;
+  font-weight: 750;
+}
+
+.test-score strong { font-size: 28px; letter-spacing: -0.03em; }
+
+.test-points, .test-checks {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.test-points li, .test-checks li {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.test-checks label { display: flex; gap: 8px; align-items: flex-start; margin: 0; font-weight: 500; color: var(--text); }
+.test-checks input { width: auto; min-height: 0; margin-top: 2px; }
+
+.test-disclaimer {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.approx-note { font-size: 12px; color: var(--warn); margin: 6px 0 0; }

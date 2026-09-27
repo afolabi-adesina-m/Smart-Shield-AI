@@ -12,13 +12,14 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/css/theme.css?v=20260927h" />
-  <link rel="stylesheet" href="/static/css/demo.css?v=20260927h" />
-  <link rel="stylesheet" href="/static/css/mobile.css?v=20260927h" />
-  <link rel="stylesheet" href="/static/css/weather-picker.css?v=20260927h" />
-  <link rel="stylesheet" href="/static/css/speed-panel.css?v=20260927h" />
-  <link rel="stylesheet" href="/static/css/address-search.css?v=20260927h" />
-  <link rel="stylesheet" href="/static/css/fleet.css?v=20260927h" />
+  <link rel="stylesheet" href="/static/css/theme.css?v=20260927i" />
+  <link rel="stylesheet" href="/static/css/demo.css?v=20260927i" />
+  <link rel="stylesheet" href="/static/css/side-panel.css?v=20260927i" />
+  <link rel="stylesheet" href="/static/css/mobile.css?v=20260927i" />
+  <link rel="stylesheet" href="/static/css/weather-picker.css?v=20260927i" />
+  <link rel="stylesheet" href="/static/css/speed-panel.css?v=20260927i" />
+  <link rel="stylesheet" href="/static/css/address-search.css?v=20260927i" />
+  <link rel="stylesheet" href="/static/css/fleet.css?v=20260927i" />
   <script>
     try {
       var savedTheme = localStorage.getItem("smartshield-theme");
@@ -48,20 +49,6 @@
       </div>
     </header>
 
-    <article id="safety-card" class="safety-card" hidden>
-      <button type="button" id="safety-toggle" class="safety-compact" aria-expanded="false">
-        <span class="safety-mark" aria-hidden="true">
-          <svg class="icon" viewBox="0 0 24 24"><path d="M12 3.2 19 6.2v5.6c0 4.2-2.8 7.2-7 8.8-4.2-1.6-7-4.6-7-8.8V6.2L12 3.2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
-        </span>
-        <span class="safety-copy">
-          <span class="safety-kicker">Safety rating</span>
-          <strong id="badge-score">—</strong>
-          <span id="safety-tier"></span>
-        </span>
-        <span id="safety-line" class="safety-line"></span>
-      </button>
-    </article>
-
     <button type="button" id="btn-locate-map" class="fab-map" aria-label="Fit route on map">
       <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
     </button>
@@ -69,78 +56,110 @@
     <section id="bottom-sheet" class="bottom-sheet" data-state="peek">
       <div id="sheet-handle" class="sheet-handle" aria-label="Expand directions" role="button" tabindex="0"><span></span></div>
       <div class="sheet-scroll">
-        <h2 class="card-title">Directions</h2>
-        <div class="sheet-form">
-          <label for="origin">From</label>
-          <input id="origin" type="text" inputmode="text" autocomplete="street-address" placeholder="Toronto, Ontario" value="Toronto, Ontario" />
-          <label for="destination">To</label>
-          <input id="destination" type="text" inputmode="text" autocomplete="street-address" placeholder="Barrie, Ontario" value="Barrie, Ontario" />
-          <label for="weather">Road conditions</label>
-          <select id="weather" class="weather-select" aria-label="Road conditions">
-            <option value="auto" selected>Auto (live)</option>
-            <option value="clear">Clear</option>
-            <option value="wet">Wet / rain</option>
-            <option value="blizzard">Blizzard</option>
-            <option value="ice_storm">Ice storm</option>
-          </select>
-          <p id="weather-summary" class="weather-selected-summary" aria-live="polite"></p>
-          <details class="advanced">
-            <summary>Camera scoring</summary>
-            <label for="vision-mode">How road images are scored</label>
-            <select id="vision-mode" class="weather-select" aria-label="Camera scoring">
-              <option value="real" selected>Live highway cameras</option>
-              <option value="proxy">Example conditions</option>
-              <option value="auto">Automatic</option>
+        <details class="panel-section" open>
+          <summary>Directions</summary>
+          <div class="sheet-form section-body">
+            <label for="origin">From</label>
+            <input id="origin" type="text" inputmode="text" autocomplete="street-address" placeholder="Toronto, Ontario" value="Toronto, Ontario" />
+            <label for="destination">To</label>
+            <input id="destination" type="text" inputmode="text" autocomplete="street-address" placeholder="Barrie, Ontario" value="Barrie, Ontario" />
+            <label for="weather">Road conditions</label>
+            <select id="weather" class="weather-select" aria-label="Road conditions">
+              <option value="auto" selected>Auto (live)</option>
+              <option value="clear">Clear</option>
+              <option value="wet">Wet / rain</option>
+              <option value="blizzard">Blizzard</option>
+              <option value="ice_storm">Ice storm</option>
             </select>
-          </details>
-          <button id="btn-route" type="button" class="btn-primary">Find safest route</button>
-          <p id="status" class="status-msg" role="status">Set a start and destination.</p>
-        </div>
+            <p id="weather-summary" class="weather-selected-summary" aria-live="polite"></p>
+            <details class="advanced">
+              <summary>Camera scoring</summary>
+              <label for="vision-mode">How road images are scored</label>
+              <select id="vision-mode" class="weather-select" aria-label="Camera scoring">
+                <option value="real" selected>Live highway cameras</option>
+                <option value="proxy">Example conditions</option>
+                <option value="auto">Automatic</option>
+              </select>
+            </details>
+          </div>
+        </details>
 
-        <section id="fleet-panel" class="fleet-panel">
-          <h2 class="card-title">Trip safety</h2>
-          <div class="fleet-score-row">
-            <div id="fleet-score" class="fleet-score">100</div>
-            <div>
-              <div id="fleet-mode" class="fleet-mode">NO TRIP YET</div>
-              <p id="fleet-score-note" class="fleet-score-note">Driver safety score</p>
+        <details class="panel-section" id="safety-section">
+          <summary>Safety rating</summary>
+          <article id="safety-card" class="safety-card" hidden>
+            <button type="button" id="safety-toggle" class="safety-compact" aria-expanded="false">
+              <span class="safety-mark" aria-hidden="true">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M12 3.2 19 6.2v5.6c0 4.2-2.8 7.2-7 8.8-4.2-1.6-7-4.6-7-8.8V6.2L12 3.2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+              </span>
+              <span class="safety-copy">
+                <span class="safety-kicker">Safety rating</span>
+                <strong id="badge-score">—</strong>
+                <span id="safety-tier"></span>
+              </span>
+              <span id="safety-line" class="safety-line"></span>
+            </button>
+          </article>
+          <p id="safety-empty" class="fine-print section-body">Find a route to see the safety rating.</p>
+          <div id="results-block" hidden>
+            <div id="high-risk-banner" class="high-risk-banner" hidden></div>
+            <h2 class="card-title">Suggested routes</h2>
+            <div id="route-cards"></div>
+            <div class="legend-compact">
+              <span><i class="dot low"></i> Low 0–30</span>
+              <span><i class="dot med"></i> Medium 31–70</span>
+              <span><i class="dot high"></i> High 71–100</span>
             </div>
+            <p class="fine-print">Not official MTO or 511 guidance.</p>
           </div>
-          <p id="fleet-hazard" class="fleet-hazard"></p>
-          <div class="fleet-actions">
-            <button id="fleet-play" type="button" class="btn-primary">Play 403 exit demo</button>
-            <button id="fleet-csv" type="button">Export CSV</button>
-            <button id="fleet-reset" type="button">Reset trip</button>
-          </div>
-          <p id="fleet-status" class="fleet-status"></p>
-          <ol id="fleet-events" class="fleet-events"><li>No safety events yet. Play the 403 demo.</li></ol>
-          <details class="fleet-formula">
-            <summary>How the driver score is calculated</summary>
-            <p id="fleet-formula-text"></p>
-          </details>
-        </section>
+        </details>
 
-        <div id="results-block" hidden>
-          <div id="high-risk-banner" class="high-risk-banner" hidden></div>
-          <h2 class="card-title">Suggested routes</h2>
-          <div id="route-cards"></div>
-          <div class="legend-compact">
-            <span><i class="dot low"></i> Low 0–30</span>
-            <span><i class="dot med"></i> Medium 31–70</span>
-            <span><i class="dot high"></i> High 71–100</span>
-          </div>
-          <p class="fine-print">Not official MTO or 511 guidance.</p>
-        </div>
+        <details class="panel-section">
+          <summary>Trip safety</summary>
+          <section id="fleet-panel" class="fleet-panel">
+            <div class="fleet-score-row">
+              <div id="fleet-score" class="fleet-score">100</div>
+              <div>
+                <div id="fleet-mode" class="fleet-mode">NO TRIP YET</div>
+                <p id="fleet-score-note" class="fleet-score-note">Driver safety score</p>
+              </div>
+            </div>
+            <p id="fleet-hazard" class="fleet-hazard"></p>
+            <div class="section-action">
+              <button id="fleet-play" type="button" class="btn-primary">Play 403 exit demo</button>
+            </div>
+            <div class="fleet-actions">
+              <button id="fleet-csv" type="button">Export CSV</button>
+              <button id="fleet-reset" type="button">Reset trip</button>
+            </div>
+            <p id="fleet-status" class="fleet-status"></p>
+            <ol id="fleet-events" class="fleet-events"><li>No safety events yet. Play the 403 demo.</li></ol>
+            <details class="fleet-formula">
+              <summary>How the driver score is calculated</summary>
+              <p id="fleet-formula-text"></p>
+            </details>
+          </section>
+        </details>
+
+        <details class="panel-section" id="test-prep-section">
+          <summary>Driving test prep</summary>
+          <div id="test-prep" class="section-body"></div>
+        </details>
       </div>
+      <footer class="panel-foot">
+        <button id="btn-route" type="button" class="btn-primary">Find safest route</button>
+        <p id="status" class="status-msg" role="status">Set a start and destination.</p>
+      </footer>
     </section>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="/static/js/theme.js?v=20260927h"></script>
-  <script src="/static/js/weather-picker.js?v=20260927h"></script>
-  <script src="/static/js/speed-panel.js?v=20260927h"></script>
-  <script src="/static/js/address-search.js?v=20260927h"></script>
-  <script src="/static/js/fleet.js?v=20260927h"></script>
-  <script src="/static/js/mobile.js?v=20260927h" defer></script>
+  <script src="/static/js/theme.js?v=20260927i"></script>
+  <script src="/static/js/weather-picker.js?v=20260927i"></script>
+  <script src="/static/js/speed-panel.js?v=20260927i"></script>
+  <script src="/static/js/address-search.js?v=20260927i"></script>
+  <script src="/static/js/fleet.js?v=20260927i"></script>
+  <script src="/static/js/test-prep.js?v=20260927i"></script>
+  <script src="/static/js/panel.js?v=20260927i"></script>
+  <script src="/static/js/mobile.js?v=20260927i" defer></script>
 </body>
 </html>

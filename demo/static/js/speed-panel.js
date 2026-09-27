@@ -118,12 +118,12 @@ function speedPanelHtml() {
           <span class="sign-unit">km/h</span>
         </div>
       </div>
-      <p id="speed-road" class="speed-road">Looking up the posted limit…</p>
-      <p id="speed-safe-note" class="speed-safe-note"></p>
       <div id="speed-alert" class="speed-alert ok" role="status" aria-live="assertive">Within the safe speed</div>
-      <div id="hazard-lines" class="hazard-lines" hidden></div>
-      <details class="speed-controls">
-        <summary>Practice drive</summary>
+      <details id="speed-details" class="speed-controls">
+        <summary>Speed details</summary>
+        <p id="speed-road" class="speed-road">Looking up the posted limit…</p>
+        <p id="speed-safe-note" class="speed-safe-note"></p>
+        <div id="hazard-lines" class="hazard-lines" hidden></div>
         <div class="speed-toggle-row">
           <label><input id="speed-demo" type="checkbox" checked /> Demo speed</label>
           <label><input id="speed-beep" type="checkbox" checked /> Beep</label>

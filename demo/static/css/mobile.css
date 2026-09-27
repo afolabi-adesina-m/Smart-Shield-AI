@@ -37,7 +37,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  height: var(--sheet-peek);
+  height: var(--sheet-offset, 176px);
   background: var(--card);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
@@ -52,6 +52,9 @@
 
 .bottom-sheet[data-state="half"] { height: var(--sheet-half); }
 .bottom-sheet[data-state="full"] { height: var(--sheet-full); }
+.bottom-sheet { display: flex; flex-direction: column; }
+.sheet-scroll { flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.bottom-sheet .panel-foot { border-radius: 0; }
 
 .sheet-handle {
   flex: 0 0 28px;
@@ -68,22 +71,20 @@
 
 .sheet-scroll { overflow: auto; padding: 0 16px 18px; }
 
-.safety-card {
-  position: absolute;
-  z-index: 750;
-  top: calc(70px + env(safe-area-inset-top, 0px));
-  left: 10px;
-  right: 10px;
+.sheet-scroll .safety-card {
+  position: static;
+  z-index: auto;
+  top: auto;
+  left: auto;
+  right: auto;
   max-height: none;
 }
-
-.safety-card #routes-section { display: none; }
 
 .fab-map {
   position: absolute;
   z-index: 740;
   right: 10px;
-  bottom: calc(var(--sheet-peek) + 16px);
+  bottom: calc(var(--sheet-offset, 176px) + 12px);
   width: 44px;
   height: 44px;
   border-radius: 14px;
@@ -95,13 +96,13 @@
 }
 
 .leaflet-bottom.leaflet-right {
-  bottom: calc(var(--sheet-peek) + 210px);
+  bottom: calc(var(--sheet-offset, 176px) + 64px);
   margin-right: 8px;
 }
 
 .leaflet-control-attribution {
-  max-width: 42vw;
-  margin-bottom: calc(var(--sheet-peek) + 210px) !important;
+  max-width: 46vw;
+  margin-bottom: calc(var(--sheet-offset, 176px) + 6px) !important;
   margin-left: 8px !important;
 }
 
