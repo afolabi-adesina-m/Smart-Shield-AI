@@ -44,6 +44,6 @@ export function MapCanvas({ scene }: Props) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, backgroundColor: "#d5dde6" },
+  wrap: { flex: 1, backgroundColor: "#0e1620" },
   web: { flex: 1, backgroundColor: "transparent" },
 });

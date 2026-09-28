@@ -69,12 +69,18 @@ Restart `node node_modules/expo/bin/cli start` after you change that file.
 
 ## What you can do in the app
 
+The screen opens on a dark navigation map. Search, route scores, fleet, and practice sit in **Trip tools** (the search button, **Where to?**, or **Route options**).
+
 - Search a start and a destination. Suggestions appear after a few letters.
 - Set the start to your current location.
 - Compare up to three drives. Each card shows the safety score, risk tier, recommended speed, collision risk, and the Stage A fatal flag (shown only, not mixed into the score).
 - Read the alert line and whether weather came from a live lookup or the calendar fallback.
-- See the posted limit, your speed, and the safe speed. On a phone the speed is live GPS. The safe speed comes from the road you are on and, once you have scored a route, from that route's recommended speed.
-- If GPS is off, or you are indoors, or you are using a computer browser, tap **Simulate a speed** and pick 40, 60, 80, 100, or 120. Going over the posted limit turns the speed red and plays a short alert.
+- Follow the turn banner, the arrival card, and the bright route line. **Exit** leaves navigation.
+- See the posted limit on a white speed-limit sign beside your speed. On a phone the speed is live GPS. The tile turns amber above the safe speed and red, with a vibration, over the posted limit. The safe speed comes from the road you are on and, once you have scored a route, from that route's recommended speed.
+- The compass button recentres the map and switches between heading-up and north-up. It uses the phone compass when the GPS course is not available.
+- Turn instructions and the over-limit warning are spoken. The speaker button mutes that voice.
+- **Report** saves a hazard, police, crash, closure, or speed-camera note on the phone. The server does not store those notes.
+- If GPS is off, or you are indoors, or you are using a computer browser, open Trip tools and tap **Simulate a speed**. Pick 30, 40, 50, 60, 80, 100, or 120.
 - Open **Fleet** to start and stop a trip. The phone keeps the GPS trace, speeding events (where, posted limit, your speed, and how long), harsh braking and acceleration, and a driver safety score. Past trips stay on the phone. The server does not store them.
 - **Play sample trip** drives a baked Highway 403 exit in Mississauga so you can see the score without leaving the room. It uses the same street and exit rules as the website.
 - Open **Practice**, pick an Ontario DriveTest centre and G2 or G, and build a practice loop. Those loops are suggestions from public maps. They are not official test routes.
@@ -116,4 +122,4 @@ If the folder path contains `&`, use `node node_modules/eas-cli/bin/run build -p
 
 ## Map
 
-The map uses OpenStreetMap tiles. It does not need a Google or Mapbox key.
+The map uses OpenStreetMap tiles, drawn dark, with no Google or Mapbox key. Expo Go does include `react-native-maps`, but that view needs a Google map key for this kind of dark navigation screen and it does not render in the browser preview. The phone and the browser therefore share this OpenStreetMap map. Traffic lights and stop signs come from OpenStreetMap when that lookup answers; if it does not, the map simply leaves them off.
