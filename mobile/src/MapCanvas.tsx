@@ -1,7 +1,9 @@
 import { useEffect, useRef } from "react";
-import { Platform, StyleSheet, Text, View } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 import MapView, { Marker, Polyline, PROVIDER_DEFAULT, PROVIDER_GOOGLE } from "react-native-maps";
 import { DARK_MAP_STYLE } from "./darkMapStyle";
+import { StopSign } from "./StopSign";
+import { stopLayout } from "./stopSign";
 import type { MapScene, MapSign } from "./types";
 
 type Props = {
@@ -90,16 +92,19 @@ export function MapCanvas({ scene }: Props) {
             title={marker.label}
           />
         ))}
-        {scene.signs.map((sign, index) => (
-          <Marker
-            key={`sign-${sign.kind}-${index}`}
-            coordinate={{ latitude: sign.lat, longitude: sign.lon }}
-            anchor={{ x: 0.5, y: sign.kind === "stop-all" ? 0.35 : 0.5 }}
-            tracksViewChanges={false}
-          >
-            <SignView sign={sign} />
-          </Marker>
-        ))}
+        {scene.signs.map((sign, index) => {
+          const stop = sign.kind === "stop" || sign.kind === "stop-all" ? stopLayout(sign.kind === "stop-all") : null;
+          return (
+            <Marker
+              key={`sign-${sign.kind}-${index}`}
+              coordinate={{ latitude: sign.lat, longitude: sign.lon }}
+              anchor={{ x: stop ? stop.anchorX : 0.5, y: stop ? stop.anchorY : 0.5 }}
+              tracksViewChanges={stop != null}
+            >
+              <SignView sign={sign} />
+            </Marker>
+          );
+        })}
         {user ? (
           <Marker
             coordinate={{ latitude: user.lat, longitude: user.lon }}
@@ -136,12 +141,7 @@ function SignView({ sign }: { sign: MapSign }) {
     );
   }
   if (sign.kind === "report") return <View style={styles.report} />;
-  return (
-    <View style={styles.stopWrap}>
-      <View style={styles.stop} />
-      {sign.kind === "stop-all" ? <Text style={styles.allWay}>ALL WAY</Text> : null}
-    </View>
-  );
+  return <StopSign allWay={sign.kind === "stop-all"} />;
 }
 
 const styles = StyleSheet.create({
@@ -180,25 +180,6 @@ const styles = StyleSheet.create({
   },
   lamp: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#3a3a3a" },
   lampOn: { backgroundColor: "#3ddc6a" },
-  stopWrap: { alignItems: "center" },
-  stop: {
-    width: 18,
-    height: 18,
-    backgroundColor: "#e23b2f",
-    transform: [{ rotate: "22.5deg" }],
-    borderWidth: 1,
-    borderColor: "#fff",
-  },
-  allWay: {
-    marginTop: 2,
-    backgroundColor: "#fff",
-    color: "#111",
-    fontSize: 7,
-    fontWeight: "800",
-    paddingHorizontal: 2,
-    borderWidth: 1,
-    borderColor: "#111",
-  },
   report: {
     width: 0,
     height: 0,

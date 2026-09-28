@@ -1,3 +1,8 @@
+import { stopLayout, stopSignSvg } from "./stopSign";
+
+const regularStop = stopLayout(false);
+const allWayStop = stopLayout(true);
+
 /** Browser preview map. Phones use the native map in MapCanvas.tsx. Tiles are OpenStreetMap. No map API key. */
 export const MAP_HTML = `<!DOCTYPE html>
 <html>
@@ -33,16 +38,6 @@ export const MAP_HTML = `<!DOCTYPE html>
     }
     .signal i { width: 6px; height: 6px; border-radius: 50%; background: #3a3a3a; display: block; }
     .signal i.on { background: #3ddc6a; }
-    .stop-wrap { display: flex; flex-direction: column; align-items: center; }
-    .stop {
-      width: 18px; height: 18px; background: #e23b2f;
-      clip-path: polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%);
-      box-shadow: 0 0 0 1px #fff;
-    }
-    .allway {
-      margin-top: 2px; background: #fff; color: #111; font: 700 7px sans-serif;
-      letter-spacing: 0.2px; padding: 1px 2px; border: 1px solid #111; white-space: nowrap;
-    }
     .report-pin {
       width: 0; height: 0;
       border-left: 7px solid transparent;
@@ -75,13 +70,15 @@ export const MAP_HTML = `<!DOCTYPE html>
       attribution: "&copy; OpenStreetMap"
     }).addTo(map);
     var drawn = L.layerGroup().addTo(map);
+    var STOP_SVG = ${JSON.stringify(stopSignSvg(false))};
+    var STOP_ALL_SVG = ${JSON.stringify(stopSignSvg(true))};
 
-    function icon(html, w, h) {
+    function icon(html, w, h, ax, ay) {
       return L.divIcon({
         className: "plain",
         html: html,
         iconSize: [w, h],
-        iconAnchor: [w / 2, h / 2]
+        iconAnchor: [ax == null ? w / 2 : ax, ay == null ? h / 2 : ay]
       });
     }
 
@@ -116,11 +113,17 @@ export const MAP_HTML = `<!DOCTYPE html>
       (scene.signs || []).forEach(function (sign) {
         if (sign.lat == null || sign.lon == null) return;
         var html = '<div class="signal"><i></i><i class="on"></i><i></i></div>';
-        var w = 12, h = 26;
-        if (sign.kind === "stop") { html = '<div class="stop"></div>'; w = 18; h = 18; }
-        if (sign.kind === "stop-all") { html = '<div class="stop-wrap"><div class="stop"></div><div class="allway">ALL WAY</div></div>'; w = 40; h = 34; }
-        if (sign.kind === "report") { html = '<div class="report-pin"></div>'; w = 16; h = 14; }
-        L.marker([sign.lat, sign.lon], { icon: icon(html, w, h), interactive: false }).addTo(drawn);
+        var w = 12, h = 26, ax = null, ay = null;
+        if (sign.kind === "stop") {
+          html = STOP_SVG; w = ${regularStop.width}; h = ${regularStop.height};
+          ax = ${regularStop.cx}; ay = ${regularStop.cy};
+        }
+        if (sign.kind === "stop-all") {
+          html = STOP_ALL_SVG; w = ${allWayStop.width}; h = ${allWayStop.height};
+          ax = ${allWayStop.cx}; ay = ${allWayStop.cy};
+        }
+        if (sign.kind === "report") { html = '<div class="report-pin"></div>'; w = 16; h = 14; ax = null; ay = null; }
+        L.marker([sign.lat, sign.lon], { icon: icon(html, w, h, ax, ay), interactive: false }).addTo(drawn);
       });
       if (scene.user && scene.user.lat != null) {
         var heading = scene.user.heading || 0;
