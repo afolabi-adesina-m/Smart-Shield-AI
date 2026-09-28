@@ -9,22 +9,30 @@ import type { MapScene, MapSign } from "./types";
 type Props = {
   scene: MapScene;
   onRoutePoint?: (lat: number, lon: number) => void;
+  onPan?: () => void;
 };
 
 /**
  * Phone map inside Expo Go. iPhone uses Apple Maps. Android uses Google Maps
  * with Expo Go's built-in development key. The browser uses MapCanvas.web.tsx.
  */
-export function MapCanvas({ scene, onRoutePoint }: Props) {
+export function MapCanvas({ scene, onRoutePoint, onPan }: Props) {
   const mapRef = useRef<MapView>(null);
   const latest = useRef(scene);
   latest.current = scene;
+  const held = useRef(false);
+  const token = useRef(scene.followToken || 0);
   const user = scene.user;
 
   useEffect(() => {
     const next = latest.current;
     const map = mapRef.current;
+    if ((next.followToken || 0) !== token.current) {
+      token.current = next.followToken || 0;
+      held.current = false;
+    }
     if (!map || !next.user) return;
+    if (next.camera === "follow" && held.current) return;
     if (next.camera === "fit") {
       const points = next.routes.flatMap((route) => route.coords.map(([lat, lon]) => ({
         latitude: lat,
@@ -61,6 +69,10 @@ export function MapCanvas({ scene, onRoutePoint }: Props) {
         toolbarEnabled={false}
         rotateEnabled
         pitchEnabled={false}
+        onPanDrag={() => {
+          held.current = true;
+          onPan?.();
+        }}
         mapPadding={{ top: 108, right: 64, bottom: 120, left: 12 }}
         initialRegion={{
           latitude: user?.lat ?? 43.6532,
@@ -180,6 +192,7 @@ function Puck() {
 }
 
 function SignView({ sign }: { sign: MapSign }) {
+  if (sign.subtle) return <View style={styles.subtleDot} />;
   if (sign.kind === "red_light") {
     return (
       <View style={styles.cam}>
@@ -236,6 +249,14 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: "#fff",
     marginTop: -4,
+  },
+  subtleDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#f5c542",
+    borderWidth: 1,
+    borderColor: "#ffffff",
   },
   cam: {
     width: 22,

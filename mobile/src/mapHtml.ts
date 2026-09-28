@@ -117,6 +117,13 @@ export const MAP_HTML = `<!DOCTYPE html>
       if (typeof map.setBearing === "function") map.setBearing(deg || 0);
     }
 
+    var hold = false;
+    var seenToken = 0;
+    map.on("dragstart", function () {
+      hold = true;
+      if (window.parent) window.parent.postMessage({ type: "smartshield-map-pan" }, "*");
+    });
+
     function applyScene(scene) {
       drawn.clearLayers();
       var bounds = [];
@@ -203,6 +210,18 @@ export const MAP_HTML = `<!DOCTYPE html>
       });
       (scene.signs || []).forEach(function (sign) {
         if (sign.lat == null || sign.lon == null) return;
+        if (sign.subtle) {
+          var fill = (sign.kind === "stop" || sign.kind === "stop-all") ? "#d93025" : "#f5c542";
+          L.circleMarker([sign.lat, sign.lon], {
+            radius: 4,
+            color: "#ffffff",
+            weight: 1,
+            fillColor: fill,
+            fillOpacity: 0.85,
+            interactive: false
+          }).addTo(drawn);
+          return;
+        }
         var html = '<div class="signal"><i></i><i class="on"></i><i></i></div>';
         var w = 12, h = 26, ax = null, ay = null;
         if (sign.kind === "red_light") {
@@ -240,12 +259,14 @@ export const MAP_HTML = `<!DOCTYPE html>
       var tiles = document.querySelector(".leaflet-tile-pane");
       if (tiles) tiles.classList.toggle("night", !!scene.night);
       document.body.style.background = scene.night ? "#0e1620" : "#d5dde6";
-      if (scene.camera === "follow" && scene.user) {
+      var token = scene.followToken || 0;
+      if (token !== seenToken) { seenToken = token; hold = false; }
+      if (scene.camera === "follow" && scene.user && !hold) {
         var zoom = map.getZoom();
         if (!zoom || zoom < 15) zoom = 16;
         map.setView([scene.user.lat, scene.user.lon], zoom, { animate: false });
         setBearing(scene.headingUp ? (scene.user.heading || 0) : 0);
-      } else if (bounds.length) {
+      } else if (scene.camera !== "follow" && bounds.length) {
         setBearing(0);
         map.fitBounds(bounds, { padding: [48, 48], maxZoom: 15 });
       }

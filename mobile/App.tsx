@@ -22,12 +22,24 @@ import { API_BASE, COLD_START_HINT } from "./src/config";
 import { isNight } from "./src/dayNight";
 import { haversineM, warningFor, type WarningLevel } from "./src/fleetLogic";
 import { getFleetSnapshot, setLiveReader, stopTrip, subscribeFleet } from "./src/fleetStore";
-import { etaCard, instructionSpeech, nextManeuver, progressAlong, shieldFrom, type LatLon } from "./src/navCue";
+import {
+  etaCard,
+  featuresAhead,
+  featuresAlongRoute,
+  instructionSpeech,
+  nextManeuver,
+  pointAlong,
+  progressAlong,
+  shieldFrom,
+  upcomingManeuvers,
+  type LatLon,
+  type Maneuver,
+} from "./src/navCue";
 import { nearestStep, previewFromStep } from "./src/roadPreview";
 import { alertOverLimit } from "./src/overSpeedAlert";
 import { loadMuted, loadReports, saveMuted, saveReport, type ReportKind, type RoadReport } from "./src/reports";
 import { alertsAhead, CAMERA_DISCLAIMER, loadCameraAlerts, loadEnforcement, saveCameraAlerts, type CameraFeature } from "./src/cameras";
-import { loadSignsNear, lookupStreet, signsAlong, type RoadSign } from "./src/roadSigns";
+import { loadSignsNear, lookupStreet, type RoadSign } from "./src/roadSigns";
 import { speakNav, stopSpeech } from "./src/voice";
 import type { HeatSpot } from "./src/deliveryLogic";
 import { ESTIMATE_LABEL } from "./src/deliveryLogic";
@@ -95,6 +107,10 @@ export default function App() {
   const [disclaimer, setDisclaimer] = useState("");
   const suggestTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [focus, setFocus] = useState<Focus>("idle");
+  const [driving, setDriving] = useState(false);
+  const [simCursor, setSimCursor] = useState<GpsFix | null>(null);
+  const [mapHeld, setMapHeld] = useState(false);
+  const [followToken, setFollowToken] = useState(0);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportNote, setReportNote] = useState("");
@@ -209,8 +225,9 @@ export default function App() {
   const activeRoute = routes.find((route) => route.route_index === selected) || routes[0];
   const recommended = activeRoute?.recommended_speed_kmh ?? null;
   const lookupRef = useRef({ key: "", at: 0 });
-  const userLat = fix?.lat ?? origin.lat ?? TORONTO.lat ?? 43.6532;
-  const userLon = fix?.lon ?? origin.lon ?? TORONTO.lon ?? -79.3832;
+  const travelFix = driving && speedMode === "simulate" && simCursor ? simCursor : fix;
+  const userLat = travelFix?.lat ?? origin.lat ?? TORONTO.lat ?? 43.6532;
+  const userLon = travelFix?.lon ?? origin.lon ?? TORONTO.lon ?? -79.3832;
 
   useEffect(() => {
     const lat = userLat;
@@ -298,25 +315,56 @@ export default function App() {
     [activeLine, userLat, userLon],
   );
 
+  useEffect(() => {
+    if (!driving || speedMode !== "simulate" || activeLine.length < 2) return undefined;
+    const line = activeLine;
+    let along = 0;
+    const start = pointAlong(line, 0);
+    setSimCursor({
+      lat: start.lat,
+      lon: start.lon,
+      accuracy: null,
+      speedKmh: demoKmh,
+      heading: start.bearing,
+    });
+    const timer = setInterval(() => {
+      along += (demoKmh * 1000) / 3600;
+      const point = pointAlong(line, along);
+      setSimCursor({
+        lat: point.lat,
+        lon: point.lon,
+        accuracy: null,
+        speedKmh: demoKmh,
+        heading: point.bearing,
+      });
+      if (point.done) clearInterval(timer);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [driving, speedMode, activeLine, demoKmh]);
+
   const streetHint = turnStreet || speed?.road_name || "";
-  const maneuver = useMemo(() => {
-    if (focus !== "nav" || activeLine.length < 2) return null;
+  const stepGuide = useMemo(() => {
+    if (focus !== "nav" || activeLine.length < 2) return { current: null as Maneuver | null, then: null as Maneuver | null };
+    const steps = routeSteps[selected] || [];
+    if (steps.length) return upcomingManeuvers(steps, activeLine, userLat, userLon);
     const next = nextManeuver(progress.ahead, streetHint, destination.label);
-    return { ...next, shield: next.shield || shieldFrom(streetHint) };
-  }, [focus, activeLine.length, progress.ahead, streetHint, destination.label]);
+    return { current: { ...next, shield: next.shield || shieldFrom(streetHint) }, then: null as Maneuver | null };
+  }, [focus, activeLine, routeSteps, selected, userLat, userLon, progress.ahead, streetHint, destination.label]);
+  const maneuver = stepGuide.current;
 
   const turnKey = maneuver ? `${maneuver.atLat.toFixed(3)},${maneuver.atLon.toFixed(3)}` : "";
   useEffect(() => {
-    if (!maneuver || maneuver.kind === "straight") return undefined;
+    const steps = routeSteps[selected] || [];
+    if (steps.length || !maneuver || maneuver.kind === "straight") return undefined;
     let cancelled = false;
     lookupStreet(maneuver.atLat, maneuver.atLon).then((name) => {
       if (!cancelled && name) setTurnStreet(name);
     }).catch(() => undefined);
     return () => { cancelled = true; };
-  }, [turnKey, maneuver]);
+  }, [turnKey, maneuver, routeSteps, selected]);
 
   useEffect(() => {
-    if (!maneuver || focus !== "nav") return;
+    if (!driving || !maneuver || focus !== "nav") return;
     const bucket = maneuver.distanceM < 80 ? "now" : maneuver.distanceM < 300 ? "near" : maneuver.distanceM < 800 ? "mid" : "far";
     if (bucket === "far") return;
     const phrase = instructionSpeech(maneuver);
@@ -324,7 +372,7 @@ export default function App() {
     if (spoken.current === key) return;
     spoken.current = key;
     speakNav(phrase, muted);
-  }, [maneuver, muted, focus]);
+  }, [maneuver, muted, focus, driving]);
 
   const shownKmh = speedMode === "simulate" ? demoKmh : fix?.speedKmh ?? null;
   const posted = speed?.posted_kmh ?? null;
@@ -381,7 +429,7 @@ export default function App() {
   const spokenCameras = useRef<Record<string, boolean>>({});
   const lastCameraSpeech = useRef(0);
   useEffect(() => {
-    if (!cameraAlerts || muted || !cameras.length) return;
+    if (!driving || !cameraAlerts || muted || !cameras.length) return;
     const route = focus === "nav" && progress.ahead.length >= 2 ? progress.ahead : [];
     const moving = fix != null && fix.speedKmh != null && fix.speedKmh > 3 && fix.heading != null && fix.heading >= 0;
     const alertHeading = route.length >= 2
@@ -400,12 +448,15 @@ export default function App() {
     spokenCameras.current[next[0].id] = true;
     lastCameraSpeech.current = Date.now();
     speakNav(next[0].phrase, muted);
-  }, [cameraAlerts, muted, cameras, userLat, userLon, focus, progress, speed?.road_mode, posted, fix]);
+  }, [driving, cameraAlerts, muted, cameras, userLat, userLon, focus, progress, speed?.road_mode, posted, fix]);
+
+  const routeAlertCount = useMemo(() => {
+    if (focus !== "nav" || driving || activeLine.length < 2) return 0;
+    const pins = [...signs, ...(cameraAlerts ? cameras : [])];
+    return featuresAlongRoute(pins, activeLine).length;
+  }, [focus, driving, activeLine, signs, cameras, cameraAlerts]);
 
   const scene: MapScene = useMemo(() => {
-    const lineSigns = focus === "nav"
-      ? signsAlong(signs, progress.ahead, 50)
-      : signs.filter((sign) => haversineM(sign.lat, sign.lon, userLat, userLon) < 500);
     const practiceSigns: MapSign[] = focus === "practice" && loop
       ? loop.points.filter((point) => point.kind === "signal" || point.kind === "stop").map((point) => ({
         lat: point.lat,
@@ -414,15 +465,20 @@ export default function App() {
       }))
       : [];
     const reportPins: MapSign[] = reports.map((report) => ({ lat: report.lat, lon: report.lon, kind: "report" }));
-    const cameraPins: MapSign[] = cameras
-      .filter((item) => haversineM(item.lat, item.lon, userLat, userLon) < 1600)
-      .map((item) => ({
-        lat: item.lat,
-        lon: item.lon,
-        kind: item.kind,
-        label: item.limit_kmh ? String(item.limit_kmh) : item.kind === "variable" ? "VAR" : "",
-      }));
-    const drawnSigns: MapSign[] = [...practiceSigns, ...lineSigns, ...cameraPins, ...reportPins];
+    const cameraPins: MapSign[] = (cameraAlerts ? cameras : []).map((item) => ({
+      lat: item.lat,
+      lon: item.lon,
+      kind: item.kind,
+      label: item.limit_kmh ? String(item.limit_kmh) : item.kind === "variable" ? "VAR" : "",
+    }));
+    const roadPins: MapSign[] = signs.map((sign) => ({ lat: sign.lat, lon: sign.lon, kind: sign.kind }));
+    let drawnSigns: MapSign[] = [...practiceSigns, ...reportPins];
+    if (focus === "nav" && activeLine.length > 1) {
+      const pool = [...roadPins, ...cameraPins];
+      drawnSigns = driving
+        ? [...drawnSigns, ...featuresAhead(pool, activeLine, userLat, userLon)]
+        : [...drawnSigns, ...featuresAlongRoute(pool, activeLine).map((item) => ({ ...item, subtle: true }))];
+    }
     const routesOut: MapScene["routes"] = [];
     if (focus === "nav") {
       geometries.forEach((line, index) => {
@@ -442,7 +498,7 @@ export default function App() {
       });
     }
     const end = activeLine.length ? activeLine[activeLine.length - 1] : null;
-    const camera = (sheetOpen && activeLine.length > 1) || focus === "practice" || focus === "fleet" ? "fit" : "follow";
+    const camera = driving && !sheetOpen ? "follow" : activeLine.length > 1 ? "fit" : "follow";
     const activeSteps = focus === "nav" ? (routeSteps[selected] || []) : [];
     return {
       routes: routesOut,
@@ -453,6 +509,7 @@ export default function App() {
       user: { lat: userLat, lon: userLon, heading },
       heat,
       camera,
+      followToken,
       headingUp: camera === "follow" && headingUp,
       night,
       steps: activeSteps.map((step) => {
@@ -461,7 +518,7 @@ export default function App() {
       }),
       preview: focus === "nav" ? preview : null,
     };
-  }, [focus, signs, cameras, progress, reports, geometries, selected, activeLine, sheetOpen, userLat, userLon, heading, headingUp, loop, night, heat, routeSteps, preview]);
+  }, [focus, driving, signs, cameras, cameraAlerts, progress, reports, geometries, selected, activeLine, sheetOpen, userLat, userLon, heading, headingUp, loop, night, heat, routeSteps, preview, followToken]);
 
   function pickSuggestion(item: Suggestion) {
     const place: Place = { id: item.id, label: item.label, detail: item.detail, lat: item.lat, lon: item.lon };
@@ -540,8 +597,10 @@ export default function App() {
       setSelected(best);
       setTurnStreet(null);
       spoken.current = "";
+      setDriving(false);
+      setSimCursor(null);
       setFocus("nav");
-      setSheetOpen(false);
+      setSheetOpen(true);
       setStatus(ordered.length === 1 ? "1 route scored." : `${ordered.length} routes scored.`);
       const chosen = ordered.find((route) => route.route_index === best) || ordered[0];
       await loadSpeed(from.lat, from.lon as number, chosen?.tier, chosen?.recommended_speed_kmh);
@@ -591,10 +650,23 @@ export default function App() {
     }
   }
 
+  function startGuidance() {
+    setDriving(true);
+    setFocus("nav");
+    setSheetOpen(false);
+    setHeadingUp(true);
+    setMapHeld(false);
+    setFollowToken((value) => value + 1);
+    spoken.current = "";
+  }
+
   function exitDrive() {
     if (fleet.running) stopTrip().catch(() => undefined);
     stopSpeech();
     spoken.current = "";
+    setDriving(false);
+    setSimCursor(null);
+    setMapHeld(false);
     setFocus("idle");
     setRoutes([]);
     setGeometries([]);
@@ -646,13 +718,18 @@ export default function App() {
       <StatusBar style={night ? "light" : "dark"} />
       <MapCanvas
         scene={scene}
+        onPan={() => { if (driving) setMapHeld(true); }}
         onRoutePoint={(lat, lon) => {
           const step = nearestStep(routeSteps[selected] || [], lat, lon);
           if (step) setPreview(previewFromStep(step));
         }}
       />
       <NavChrome
-        maneuver={focus === "nav" ? maneuver : null}
+        maneuver={driving ? maneuver : null}
+        thenManeuver={driving ? stepGuide.then : null}
+        risk={driving && activeRoute?.safety_score != null ? String(activeRoute.safety_score) : ""}
+        showRecenter={driving && mapHeld}
+        onRecenter={() => { setMapHeld(false); setFollowToken((value) => value + 1); }}
         posted={posted}
         current={shownKmh}
         safe={safe}
@@ -676,7 +753,6 @@ export default function App() {
         onExit={exitDrive}
         onWhereTo={() => { setTab("trip"); setSheetOpen(true); }}
         night={night}
-        cameraNote={CAMERA_DISCLAIMER}
       />
       {sheetOpen ? (
         <FeatureSheet
@@ -729,6 +805,8 @@ export default function App() {
             saveCameraAlerts(enabled).catch(() => undefined);
           }}
           cameraNote={CAMERA_DISCLAIMER}
+          routeAlertCount={routeAlertCount}
+          onStart={startGuidance}
           delivery={tab === "delivery" ? (
             <DeliveryPanel
               lat={userLat}

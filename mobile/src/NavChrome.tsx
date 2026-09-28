@@ -6,6 +6,7 @@ import type { WarningLevel } from "./fleetLogic";
 
 type Props = {
   maneuver: Maneuver | null;
+  thenManeuver?: Maneuver | null;
   posted: number | null;
   current: number | null;
   safe: number | null;
@@ -30,6 +31,9 @@ type Props = {
   onWhereTo: () => void;
   night: boolean;
   cameraNote?: string;
+  risk?: string;
+  showRecenter?: boolean;
+  onRecenter?: () => void;
 };
 
 export function NavChrome(props: Props) {
@@ -39,7 +43,7 @@ export function NavChrome(props: Props) {
   const numDark = props.level === "amber" || (!props.night && props.level !== "red");
   return (
     <View style={styles.overlay} pointerEvents="box-none">
-      {props.maneuver ? <Banner maneuver={props.maneuver} night={props.night} /> : null}
+      {props.maneuver ? <Banner maneuver={props.maneuver} thenManeuver={props.thenManeuver} night={props.night} /> : null}
       {props.cameraNote ? (
         <View style={styles.cameraNote} pointerEvents="none">
           <Text style={styles.cameraNoteText}>{props.cameraNote}</Text>
@@ -57,6 +61,11 @@ export function NavChrome(props: Props) {
               <NorthNeedle south={ink} />
             </View>
           </RoundButton>
+          {props.showRecenter ? (
+            <RoundButton label="Recenter" night={props.night} onPress={props.onRecenter || props.onCompass}>
+              <Text style={[styles.recenterMark, { color: ink }]}>◎</Text>
+            </RoundButton>
+          ) : null}
           <RoundButton label="Search" night={props.night} onPress={props.onSearch}>
             <SearchIcon color={ink} />
           </RoundButton>
@@ -91,6 +100,7 @@ export function NavChrome(props: Props) {
           <View style={styles.cardText}>
             <Text style={[styles.cardTitle, !props.night && styles.ink]}>{props.etaTitle}</Text>
             <Text style={[styles.cardSub, !props.night && styles.subDay]}>{props.etaSubtitle}</Text>
+            {props.risk ? <Text style={[styles.riskChip, !props.night && styles.riskChipDay]}>Risk {props.risk}</Text> : null}
           </View>
           <Pressable style={styles.exit} testID="exit-nav" onPress={props.onExit}>
             <Text style={styles.exitText}>Exit</Text>
@@ -132,13 +142,13 @@ function BagIcon({ color }: { color: string }) {
   );
 }
 
-function Banner({ maneuver, night }: { maneuver: Maneuver; night: boolean }) {
-  const ink = night ? "#ffffff" : "#142033";
+function Banner({ maneuver, thenManeuver, night }: { maneuver: Maneuver; thenManeuver?: Maneuver | null; night: boolean }) {
+  const ink = "#ffffff";
   return (
-    <View style={[styles.banner, !night && styles.bannerDay]} testID="nav-banner">
+    <View style={[styles.banner, styles.bannerNav]} testID="nav-banner">
       <TurnGlyph kind={maneuver.kind} color={ink} />
       <View style={styles.bannerText}>
-        <Text style={[styles.bannerDistance, !night && styles.bannerDistanceDay]}>{maneuver.kind === "arrive" ? "Arrive" : maneuver.distanceM < 30 ? "Now" : distancePhrase(maneuver)}</Text>
+        <Text style={styles.bannerDistance}>{maneuver.kind === "arrive" ? "Arrive" : maneuver.distanceM < 30 ? "Now" : distancePhrase(maneuver)}</Text>
         <View style={styles.bannerStreetRow}>
           {maneuver.shield ? (
             <View style={styles.shield}>
@@ -147,9 +157,26 @@ function Banner({ maneuver, night }: { maneuver: Maneuver; night: boolean }) {
           ) : null}
           <Text style={[styles.bannerStreet, { color: ink }]} numberOfLines={1}>{maneuver.street}</Text>
         </View>
+        {thenManeuver ? (
+          <View style={styles.thenRow}>
+            <Text style={styles.thenLabel}>Then</Text>
+            <Text style={styles.thenArrow}>{thenArrow(thenManeuver.kind)}</Text>
+            <Text style={styles.thenText} numberOfLines={1}>{thenManeuver.street}</Text>
+          </View>
+        ) : null}
       </View>
     </View>
   );
+}
+
+function thenArrow(kind: ManeuverKind): string {
+  if (kind === "left" || kind === "slight-left") return "←";
+  if (kind === "right" || kind === "slight-right" || kind === "exit") return "→";
+  if (kind === "uturn") return "↩";
+  if (kind === "roundabout") return "↻";
+  if (kind === "merge") return "↗";
+  if (kind === "arrive") return "●";
+  return "↑";
 }
 
 function distancePhrase(maneuver: Maneuver): string {
@@ -168,6 +195,9 @@ function TurnGlyph({ kind, color }: { kind: ManeuverKind; color: string }) {
     "slight-right": "40deg",
     uturn: "180deg",
     arrive: "0deg",
+    merge: "-20deg",
+    roundabout: "40deg",
+    exit: "28deg",
   }[kind];
   if (kind === "arrive") {
     return <View style={[styles.arriveDot, { backgroundColor: color }]} />;
@@ -271,10 +301,29 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
   },
+  bannerNav: { backgroundColor: "#137a5a" },
   bannerDay: { backgroundColor: "#ffffff" },
   bannerDistanceDay: { color: "#3d6b62" },
   bannerText: { flex: 1, gap: 2 },
-  bannerDistance: { color: "#d7efe9", fontSize: 14, fontWeight: "600" },
+  bannerDistance: { color: "#ffffff", fontSize: 26, fontWeight: "700" },
+  thenRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
+  thenLabel: { color: "#ffffff", fontSize: 14, fontWeight: "600", opacity: 0.9 },
+  thenArrow: { color: "#ffffff", fontSize: 14, fontWeight: "700" },
+  thenText: { color: "#ffffff", fontSize: 14, fontWeight: "600", flex: 1 },
+  recenterMark: { fontSize: 18, fontWeight: "700" },
+  riskChip: {
+    alignSelf: "flex-start",
+    marginTop: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+    overflow: "hidden",
+    backgroundColor: "rgba(255,255,255,0.16)",
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  riskChipDay: { backgroundColor: "#e7f0ea", color: "#14685c" },
   bannerStreetRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   bannerStreet: { color: "#ffffff", fontSize: 22, fontWeight: "700", flex: 1 },
   shield: {
@@ -452,8 +501,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sign: {
-    width: 62,
-    height: 62,
+    width: 72,
+    height: 72,
     borderRadius: 8,
     backgroundColor: "#fff",
     borderWidth: 4,
@@ -461,10 +510,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  signNum: { color: "#111", fontSize: 26, fontWeight: "800" },
+  signNum: { color: "#111", fontSize: 28, fontWeight: "800" },
   tile: {
-    minWidth: 74,
-    height: 62,
+    minWidth: 86,
+    height: 72,
     borderRadius: 14,
     paddingHorizontal: 10,
     alignItems: "center",
@@ -474,7 +523,7 @@ const styles = StyleSheet.create({
   tileDay: { backgroundColor: "#ffffff", borderWidth: 1, borderColor: "rgba(22,25,31,0.12)" },
   tileAmber: { backgroundColor: "#f0a202" },
   tileRed: { backgroundColor: "#d93025" },
-  tileNum: { color: "#fff", fontSize: 26, fontWeight: "800", lineHeight: 28 },
+  tileNum: { color: "#fff", fontSize: 32, fontWeight: "800", lineHeight: 34 },
   tileNumDark: { color: "#1a1200" },
   tileUnit: { color: "#d5dbe3", fontSize: 11, fontWeight: "700" },
   card: {

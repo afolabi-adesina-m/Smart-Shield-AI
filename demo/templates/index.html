@@ -23,7 +23,8 @@
   <link rel="stylesheet" href="/static/css/speed-panel.css?v=20260928s" />
   <link rel="stylesheet" href="/static/css/address-search.css?v=20260927p" />
   <link rel="stylesheet" href="/static/css/fleet.css?v=20260927p" />
-  <link rel="stylesheet" href="/static/css/nav-chrome.css?v=20260928c" />
+  <link rel="stylesheet" href="/static/css/nav-chrome.css?v=20260928u" />
+  <link rel="stylesheet" href="/static/css/maps-ui.css?v=20260928w" />
   <link rel="stylesheet" href="/static/css/delivery.css?v=20260928r" />
   <script src="/static/js/theme.js?v=20260928s"></script>
 </head>
@@ -39,10 +40,6 @@
             <span>Smart-Shield AI Enterprise</span>
           </a>
           <div class="top-actions">
-            <button id="theme-toggle" class="icon-btn" type="button" aria-label="Switch to night theme" aria-pressed="false">
-              <svg class="icon icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 3.2A8.5 8.5 0 1 0 20.8 14 7 7 0 0 1 16 3.2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
-              <svg class="icon icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.2 5.2l1.4 1.4M17.4 17.4l1.4 1.4M18.8 5.2l-1.4 1.4M6.6 17.4l-1.4 1.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-            </button>
             <a id="mobile-demo-link" class="text-link" href="/mobile">Mobile</a>
           </div>
           <button id="panel-collapse" class="icon-btn panel-collapse" type="button" aria-expanded="true" aria-controls="panel-body" aria-label="Collapse panel">
@@ -60,30 +57,8 @@
               <input id="origin" type="text" placeholder="Toronto, Ontario" value="Toronto, Ontario" />
               <label for="destination">To</label>
               <input id="destination" type="text" placeholder="Barrie, Ontario" value="Barrie, Ontario" />
-              <label for="weather">Road conditions</label>
-              <select id="weather" class="weather-select" aria-label="Road conditions">
-                <option value="auto" selected>Auto (live)</option>
-                <option value="clear">Clear</option>
-                <option value="wet">Wet / rain</option>
-                <option value="blizzard">Blizzard</option>
-                <option value="ice_storm">Ice storm</option>
-              </select>
-              <p id="weather-summary" class="weather-selected-summary" aria-live="polite"></p>
-              <details class="advanced">
-                <summary>Camera scoring</summary>
-                <label for="vision-mode">How road images are scored</label>
-                <select id="vision-mode" class="weather-select" aria-label="Camera scoring">
-                  <option value="real" selected>Live highway cameras</option>
-                  <option value="proxy">Example conditions</option>
-                  <option value="auto">Automatic</option>
-                </select>
-              </details>
-              <label class="camera-toggle" for="camera-alerts">
-                <input id="camera-alerts" type="checkbox" checked />
-                Camera alerts
-              </label>
-              <p class="fine-print">Camera locations from OpenStreetMap and City of Toronto open data; may be incomplete.</p>
-              <p class="fine-print">Not official MTO or 511 guidance.</p>
+              <p id="feature-count" class="feature-count" hidden></p>
+              <div id="route-preview" class="route-preview" hidden></div>
               <p id="direction-steps-label" class="direction-label" hidden>Turn-by-turn</p>
               <ol id="direction-steps" class="direction-steps" hidden></ol>
             </div>
@@ -113,7 +88,7 @@
             <p id="safety-empty" class="fine-print section-body">Find a route to see the safety rating.</p>
           </details>
 
-          <details class="panel-section" data-panel-action="trip" open>
+          <details class="panel-section" data-panel-action="trip">
             <summary>Trip safety</summary>
             <section id="fleet-panel" class="fleet-panel">
               <div class="fleet-score-row">
@@ -153,15 +128,52 @@
 
   </div>
 
+  <div id="nav-settings" class="nav-settings" hidden>
+    <button type="button" id="nav-settings-back" class="nav-settings-back" aria-label="Close settings"></button>
+    <div class="nav-settings-card" role="dialog" aria-label="Settings">
+      <h2>Settings</h2>
+      <label for="weather">Road conditions</label>
+      <select id="weather" class="weather-select" aria-label="Road conditions">
+        <option value="auto" selected>Auto (live)</option>
+        <option value="clear">Clear</option>
+        <option value="wet">Wet / rain</option>
+        <option value="blizzard">Blizzard</option>
+        <option value="ice_storm">Ice storm</option>
+      </select>
+      <p id="weather-summary" class="weather-selected-summary" aria-live="polite"></p>
+      <label class="camera-toggle" for="camera-alerts">
+        <input id="camera-alerts" type="checkbox" checked />
+        Camera alerts
+      </label>
+      <label class="camera-toggle" for="nav-voice">
+        <input id="nav-voice" type="checkbox" checked />
+        Voice guidance
+      </label>
+      <button id="theme-toggle" class="icon-btn settings-theme" type="button" aria-label="Switch to night theme" aria-pressed="false">Day / night</button>
+      <details class="advanced">
+        <summary>Camera scoring</summary>
+        <label for="vision-mode">How road images are scored</label>
+        <select id="vision-mode" class="weather-select" aria-label="Camera scoring">
+          <option value="real" selected>Live highway cameras</option>
+          <option value="proxy">Example conditions</option>
+          <option value="auto">Automatic</option>
+        </select>
+      </details>
+      <p class="fine-print">Camera locations from OpenStreetMap and City of Toronto open data; may be incomplete. Not official MTO or 511 guidance.</p>
+      <button type="button" id="nav-settings-close" class="route-start">Done</button>
+    </div>
+  </div>
+
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate.js"></script>
   <script src="/static/js/leaflet-heat.js?v=20260928r"></script>
   <script src="/static/js/stop-sign.js?v=20260928o"></script>
   <script src="/static/js/cameras.js?v=20260928c"></script>
-  <script src="/static/js/nav-chrome.js?v=20260928c"></script>
+  <script src="/static/js/nav-progress.js?v=20260928u"></script>
+  <script src="/static/js/nav-chrome.js?v=20260928w"></script>
   <script src="/static/js/weather-picker.js?v=20260927p"></script>
   <script src="/static/js/speed-panel.js?v=20260928s"></script>
-  <script src="/static/js/address-search.js?v=20260927p"></script>
+  <script src="/static/js/address-search.js?v=20260928w"></script>
   <script src="/static/js/fleet.js?v=20260927p"></script>
   <script src="/static/js/delivery.js?v=20260928r"></script>
   <script src="/static/js/test-prep.js?v=20260927p"></script>

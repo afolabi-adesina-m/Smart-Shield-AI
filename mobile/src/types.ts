@@ -137,6 +137,7 @@ export type MapSign = {
   lon: number;
   kind: "signal" | "stop" | "stop-all" | "report" | "red_light" | "speed_camera" | "variable";
   label?: string;
+  subtle?: boolean;
 };
 
 export type MapHeat = {
@@ -167,6 +168,7 @@ export type MapScene = {
   heat: MapHeat[];
   user: { lat: number; lon: number; heading: number } | null;
   camera: "follow" | "fit";
+  followToken?: number;
   headingUp: boolean;
   night: boolean;
   steps: MapStep[];

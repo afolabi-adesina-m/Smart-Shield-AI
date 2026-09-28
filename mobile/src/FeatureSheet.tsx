@@ -60,6 +60,8 @@ type Props = {
   cameraAlerts: boolean;
   onCameraAlerts: (enabled: boolean) => void;
   cameraNote: string;
+  routeAlertCount?: number;
+  onStart?: () => void;
 };
 
 export function FeatureSheet(props: Props) {
@@ -120,12 +122,18 @@ export function FeatureSheet(props: Props) {
               <Pressable style={[styles.primary, props.busy && styles.disabled]} disabled={props.busy} onPress={props.onFind}>
                 {props.busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryText}>Find safest route</Text>}
               </Pressable>
+              {props.routeAlertCount ? (
+                <Text style={styles.note}>
+                  {props.routeAlertCount === 1 ? "1 alert on this route" : `${props.routeAlertCount} alerts on this route`}
+                </Text>
+              ) : null}
               {props.routes.map((route) => (
                 <RouteCard
                   key={route.route_index}
                   route={route}
                   selected={route.route_index === props.selected}
                   onPress={() => props.onSelect(route.route_index)}
+                  onStart={route.route_index === props.selected ? props.onStart : undefined}
                 />
               ))}
               {props.steps.length ? (
@@ -249,7 +257,7 @@ function Tab(props: { label: string; active: boolean; onPress: () => void }) {
   );
 }
 
-function RouteCard(props: { route: ScoredRoute; selected: boolean; onPress: () => void }) {
+function RouteCard(props: { route: ScoredRoute; selected: boolean; onPress: () => void; onStart?: () => void }) {
   const route = props.route;
   const stage = route.stage_a_fatal;
   const stageText = stage == null
@@ -275,6 +283,11 @@ function RouteCard(props: { route: ScoredRoute; selected: boolean; onPress: () =
         Alerts: {route.alert_source || "—"} · Weather: {route.e_index_source || "—"} · Vision: {route.vision_source || "—"}
       </Text>
       {route.operational_message ? <Text style={styles.note}>{route.operational_message}</Text> : null}
+      {props.onStart ? (
+        <Pressable style={styles.start} testID="route-start" onPress={props.onStart}>
+          <Text style={styles.startText}>Start</Text>
+        </Pressable>
+      ) : null}
     </Pressable>
   );
 }
@@ -355,4 +368,13 @@ const styles = StyleSheet.create({
   step: { paddingVertical: 6, paddingHorizontal: 4, borderRadius: 10 },
   status: { color: "#16191f", fontSize: 13, lineHeight: 18, marginTop: 6 },
   fine: { color: "#8b97a6", fontSize: 11 },
+  start: {
+    marginTop: 8,
+    minHeight: 48,
+    borderRadius: 999,
+    backgroundColor: "#1a73e8",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  startText: { color: "#ffffff", fontWeight: "700", fontSize: 16 },
 });

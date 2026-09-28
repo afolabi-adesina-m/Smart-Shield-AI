@@ -60,8 +60,11 @@ function initSpeedAwareness(map) {
 
   map.on("click", (e) => {
     stopDrive();
-    document.dispatchEvent(new CustomEvent("smartshield:usermove"));
+    document.dispatchEvent(new CustomEvent("smartshield:usermove", { detail: { reason: "pan" } }));
     setSpeedLocation(e.latlng.lat, e.latlng.lng, "map");
+  });
+  map.on("dragstart", () => {
+    document.dispatchEvent(new CustomEvent("smartshield:usermove", { detail: { reason: "pan" } }));
   });
   window.SmartShieldMap = () => speedMap;
   window.SmartShieldFleetDemo = (on) => { fleetDemo = !!on; };
@@ -138,7 +141,7 @@ function speedPanelHtml() {
           <button type="button" data-preset="amber">Above safe</button>
           <button type="button" data-preset="red">Over limit</button>
         </div>
-        <button type="button" id="speed-drive" class="speed-drive">Drive selected route</button>
+        <button type="button" id="speed-drive" class="speed-drive">Simulate</button>
         <p id="speed-gps-note" class="speed-gps-note"></p>
         <details class="speed-rule">
           <summary>How safe speed is calculated</summary>
@@ -543,7 +546,7 @@ function toggleDrive() {
   let index = 0;
   const step = Math.max(1, Math.round(geom.length / 36));
   const btn = document.getElementById("speed-drive");
-  btn.textContent = "Stop route";
+  btn.textContent = "Stop";
   driveTimer = setInterval(() => {
     const pair = geom[Math.min(index, geom.length - 1)];
     setSpeedLocation(pair[1], pair[0], "sim-route");
@@ -558,7 +561,7 @@ function stopDrive() {
     driveTimer = null;
   }
   const btn = document.getElementById("speed-drive");
-  if (btn) btn.textContent = "Drive selected route";
+  if (btn) btn.textContent = "Simulate";
 }
 
 function noteGps(text) {

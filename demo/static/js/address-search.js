@@ -24,6 +24,7 @@ function mountMapSearch() {
     <svg class="icon search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M16 16.5 20 20.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
     <input id="map-search-input" type="search" enterkeyhint="search"
       placeholder="Search an address or place" aria-label="Search an address or place" />
+    <button type="button" id="map-directions" class="map-directions">Directions</button>
     <div id="map-search-assign" class="address-assign" hidden>
       <button type="button" data-assign="origin">Set as From</button>
       <button type="button" data-assign="destination">Set as To</button>
@@ -41,6 +42,22 @@ function mountMapSearch() {
       assign.dataset.lon = place.lon;
     },
   });
+  const directions = box.querySelector("#map-directions");
+  if (directions) {
+    directions.addEventListener("click", () => {
+      const section = document.querySelector('.panel-section[data-panel-action="directions"]');
+      if (section) section.open = true;
+      const panel = document.getElementById("side-panel");
+      if (panel) {
+        panel.classList.remove("is-collapsed");
+        panel.classList.add("is-open");
+      }
+      const sheet = document.getElementById("bottom-sheet");
+      if (sheet && typeof setSheetState === "function") setSheetState("half");
+      const dest = document.getElementById("destination");
+      if (dest) dest.focus();
+    });
+  }
   assign.addEventListener("click", (e) => {
     const btn = e.target.closest("button[data-assign]");
     if (!btn) return;
