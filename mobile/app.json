@@ -6,10 +6,6 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
-    "splash": {
-      "backgroundColor": "#e8edf3"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.smartshield.ai",
@@ -37,7 +33,14 @@
           "locationWhenInUsePermission": "Smart-Shield uses your location for the trip start, the posted speed on the road you are on, and your live speed during a fleet trip."
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      "expo-status-bar",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#e8edf3"
+        }
+      ]
     ]
   }
 }
