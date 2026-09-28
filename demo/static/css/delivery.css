@@ -1,0 +1,146 @@
+.nav-bag {
+  width: 14px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-radius: 2px 2px 3px 3px;
+  position: relative;
+  display: block;
+}
+.nav-bag::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: -6px;
+  width: 6px;
+  height: 5px;
+  border: 2px solid currentColor;
+  border-bottom: 0;
+  border-radius: 6px 6px 0 0;
+}
+#nav-delivery[aria-pressed="true"] { outline: 2px solid #1a9b86; }
+
+.delivery-chip {
+  position: fixed;
+  z-index: 770;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  left: calc(var(--dock-left, 0px) + 12px + env(safe-area-inset-left, 0px));
+  right: calc(76px + env(safe-area-inset-right, 0px));
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: #1b1d22;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  pointer-events: none;
+}
+html[data-theme="light"] .delivery-chip { background: #fff; color: #16191f; }
+body:has(#nav-banner:not([hidden])) .delivery-chip {
+  top: calc(96px + env(safe-area-inset-top, 0px));
+}
+.delivery-chip[hidden] { display: none; }
+
+.delivery-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+.delivery-layer[hidden] { display: none; }
+.delivery-back {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+}
+.delivery-sheet {
+  position: relative;
+  width: min(520px, 100%);
+  max-height: min(78vh, 720px);
+  overflow: auto;
+  margin: 0;
+  padding: 16px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+  border-radius: 22px 22px 0 0;
+  background: #1b1d22;
+  color: #fff;
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.35);
+}
+html[data-theme="light"] .delivery-sheet { background: #fff; color: #16191f; }
+.delivery-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.delivery-head h2 { margin: 0; font-size: 20px; }
+.delivery-close {
+  border: 0;
+  background: transparent;
+  color: #8fd9c8;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 15px;
+}
+html[data-theme="light"] .delivery-close { color: #14685c; }
+.delivery-estimate {
+  margin: 10px 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(20, 104, 92, 0.28);
+  color: #d7fff4;
+  font-weight: 750;
+  line-height: 1.35;
+}
+html[data-theme="light"] .delivery-estimate { background: #e5f6f2; color: #0d3d36; }
+.delivery-caption { margin: 0 0 10px; color: #c5ced8; font-size: 13px; }
+html[data-theme="light"] .delivery-caption { color: #526072; }
+.delivery-toggles { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-bottom: 8px; }
+.delivery-toggles label { display: flex; align-items: center; gap: 6px; font-weight: 650; font-size: 14px; }
+.delivery-note { min-height: 1.2em; margin: 0 0 8px; color: #c5ced8; font-size: 13px; }
+.delivery-sheet h3 { margin: 14px 0 8px; font-size: 15px; }
+.delivery-form { display: grid; gap: 8px; }
+.delivery-form label { display: grid; gap: 4px; font-size: 13px; font-weight: 650; }
+.delivery-form input, .delivery-form select {
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #111317;
+  color: #fff;
+  padding: 10px 12px;
+  font-size: 16px;
+}
+html[data-theme="light"] .delivery-form input,
+html[data-theme="light"] .delivery-form select {
+  background: #fff;
+  color: #16191f;
+  border-color: rgba(22, 25, 31, 0.14);
+}
+.delivery-check { display: flex !important; grid-template-columns: auto 1fr; align-items: center; gap: 8px; }
+.delivery-check input { width: auto; }
+.delivery-log {
+  border: 0;
+  border-radius: 14px;
+  min-height: 46px;
+  background: #14685c;
+  color: #fff;
+  font-weight: 750;
+  font-size: 16px;
+  cursor: pointer;
+}
+.delivery-meta { margin: 0; color: #c5ced8; font-size: 13px; }
+html[data-theme="light"] .delivery-meta { color: #526072; }
+.delivery-summary p { margin: 4px 0; font-size: 14px; }
+.delivery-summary h4 { margin: 10px 0 4px; font-size: 13px; letter-spacing: 0.02em; }
+.delivery-export {
+  margin-top: 8px;
+  border: 0;
+  border-radius: 12px;
+  min-height: 42px;
+  padding: 0 14px;
+  background: #1a56db;
+  color: #fff;
+  font-weight: 750;
+  cursor: pointer;
+}
+.delivery-saved { color: #9ee0c8; font-weight: 700; }

@@ -127,10 +127,18 @@ export type MapSign = {
   kind: "signal" | "stop" | "stop-all" | "report";
 };
 
+export type MapHeat = {
+  lat: number;
+  lon: number;
+  weight: number;
+  kind: "estimate" | "order";
+};
+
 export type MapScene = {
   routes: MapRoute[];
   markers: MapMarker[];
   signs: MapSign[];
+  heat: MapHeat[];
   user: { lat: number; lon: number; heading: number } | null;
   camera: "follow" | "fit";
   headingUp: boolean;

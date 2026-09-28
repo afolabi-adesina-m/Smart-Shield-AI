@@ -89,6 +89,19 @@ export const MAP_HTML = `<!DOCTYPE html>
     function applyScene(scene) {
       drawn.clearLayers();
       var bounds = [];
+      (scene.heat || []).forEach(function (spot) {
+        if (spot.lat == null || spot.lon == null) return;
+        var order = spot.kind === "order";
+        var alpha = order ? 0.55 + spot.weight * 0.35 : 0.42 + spot.weight * 0.4;
+        L.circle([spot.lat, spot.lon], {
+          radius: order ? 180 : 280,
+          color: order ? "#1a56db" : "#e23b2f",
+          weight: order ? 2 : 0,
+          fillColor: order ? "#1a56db" : "#e23b2f",
+          fillOpacity: alpha,
+          interactive: false
+        }).addTo(drawn);
+      });
       (scene.routes || []).forEach(function (route) {
         if (!route.coords || route.coords.length < 2) return;
         if (route.active) {

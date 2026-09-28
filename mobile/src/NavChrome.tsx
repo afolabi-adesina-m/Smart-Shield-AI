@@ -21,6 +21,8 @@ type Props = {
   onSearch: () => void;
   onMute: () => void;
   onRoutes: () => void;
+  onDelivery: () => void;
+  estimateNote: string;
   onReport: () => void;
   onCloseReport: () => void;
   onSaveReport: (kind: ReportKind) => void;
@@ -37,6 +39,11 @@ export function NavChrome(props: Props) {
   return (
     <View style={styles.overlay} pointerEvents="box-none">
       {props.maneuver ? <Banner maneuver={props.maneuver} night={props.night} /> : null}
+      {props.estimateNote ? (
+        <View style={[styles.estimate, props.maneuver ? styles.estimateBelow : null, !props.night && styles.estimateDay]} testID="delivery-map-label">
+          <Text style={[styles.estimateText, !props.night && styles.ink]}>{props.estimateNote}</Text>
+        </View>
+      ) : null}
       <View style={styles.side} pointerEvents="box-none">
         <View style={styles.sideStack}>
           <RoundButton label="Compass" night={props.night} onPress={props.onCompass}>
@@ -52,6 +59,9 @@ export function NavChrome(props: Props) {
           </RoundButton>
           <RoundButton label="Route options" night={props.night} onPress={props.onRoutes}>
             <ForkIcon color={ink} />
+          </RoundButton>
+          <RoundButton label="Delivery" night={props.night} onPress={props.onDelivery}>
+            <BagIcon color={ink} />
           </RoundButton>
         </View>
         <Pressable style={[styles.report, !props.night && styles.reportDay]} accessibilityLabel="Report" onPress={props.onReport}>
@@ -103,6 +113,15 @@ export function NavChrome(props: Props) {
           </View>
         </View>
       ) : null}
+    </View>
+  );
+}
+
+function BagIcon({ color }: { color: string }) {
+  return (
+    <View style={styles.bag}>
+      <View style={[styles.bagHandle, { borderColor: color }]} />
+      <View style={[styles.bagBody, { borderColor: color }]} />
     </View>
   );
 }
@@ -206,6 +225,22 @@ function WarningIcon() {
 
 const styles = StyleSheet.create({
   overlay: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
+  estimate: {
+    position: "absolute",
+    top: 12,
+    left: 12,
+    right: 76,
+    backgroundColor: "#1b1d22",
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  estimateBelow: { top: 96 },
+  estimateDay: { backgroundColor: "#ffffff" },
+  estimateText: { color: "#ffffff", fontWeight: "700", fontSize: 13, lineHeight: 18 },
+  bag: { width: 18, height: 18, alignItems: "center" },
+  bagHandle: { width: 8, height: 5, borderWidth: 2, borderBottomWidth: 0, borderRadius: 4, marginBottom: 1 },
+  bagBody: { width: 14, height: 11, borderWidth: 2, borderRadius: 2 },
   banner: {
     position: "absolute",
     top: 10,
