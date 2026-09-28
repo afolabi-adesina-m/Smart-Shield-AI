@@ -70,6 +70,8 @@ class SuggestPlacesTests(unittest.TestCase):
         def fake_get(url, params=None, headers=None, timeout=None):
             self.assertIn("photon", url)
             self.assertGreaterEqual(len(params["q"]), 3)
+            self.assertIn("Smart-Shield-AI/1.0", (headers or {}).get("User-Agent", ""))
+            self.assertIn("Referer", headers or {})
             return _Json(200, {"features": [{
                 "geometry": {"coordinates": [-79.69, 44.389]},
                 "properties": {
