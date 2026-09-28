@@ -375,7 +375,9 @@ html[data-theme="light"] .nav-report-row { background: #eef2f7; color: #16191f; 
   box-shadow: none !important;
   backdrop-filter: none !important;
 }
-.speed-panel .speed-signs { gap: 8px; align-items: center; }
+.speed-panel { max-width: 240px !important; }
+.speed-panel .speed-signs { gap: 8px; align-items: center; width: max-content; }
+.speed-panel .speed-now-wrap { flex: 0 0 auto; width: auto; }
 .speed-panel .limit-sign.safe,
 .speed-panel .speed-now-caption,
 .speed-panel #posted-sign .sign-caption,
@@ -408,8 +410,22 @@ html[data-theme="light"] .speed-panel #speed-now {
   color: #16191f;
   border: 1px solid rgba(22, 25, 31, 0.12);
 }
-.speed-panel #speed-now.amber { background: #f0a202; color: #1a1200; border-color: transparent; }
-.speed-panel #speed-now.red { background: #d93025; color: #fff; border-color: transparent; }
+html[data-theme="light"] .speed-panel #speed-now.amber,
+html[data-theme="dark"] .speed-panel #speed-now.amber {
+  background: #f0a202;
+  color: #1a1200;
+  border-color: transparent;
+}
+html[data-theme="light"] .speed-panel #speed-now.red,
+html[data-theme="dark"] .speed-panel #speed-now.red {
+  background: #d93025;
+  color: #fff;
+  border-color: transparent;
+}
+.speed-panel #speed-now.amber .now-num,
+.speed-panel #speed-now.amber .now-unit { color: #1a1200; }
+.speed-panel #speed-now.red .now-num,
+.speed-panel #speed-now.red .now-unit { color: #fff; }
 .speed-panel .now-num { font-size: 26px; font-weight: 800; line-height: 1; }
 .speed-panel .now-unit { font-size: 11px; font-weight: 750; color: inherit; }
 .speed-panel .speed-alert {

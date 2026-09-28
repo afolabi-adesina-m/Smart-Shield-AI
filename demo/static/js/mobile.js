@@ -226,6 +226,11 @@ async function fetchRoutes(origin, dest) {
   return data;
 }
 
+function scoreLabel(value) {
+  if (value == null || value === "") return "—";
+  return String(value);
+}
+
 function primaryGuidance(route) {
   if (route.operational_message) return route.operational_message;
   if (route.tier === "HIGH") return "Consider postponing this trip — conditions are hazardous.";
@@ -307,7 +312,7 @@ function renderRouteCards(scored) {
           ${isBest ? '<div class="rank-tag">★ Safest pick</div>' : `<div class="rank-tag">Option ${r.safety_rank}</div>`}
           <div class="route-title">${escapeHtml(r.summary)}</div>
         </div>
-        <div class="safety-pill" style="background:${r.tier_color}">S ${r.safety_score}</div>
+        <div class="safety-pill" style="background:${r.tier_color}">S ${scoreLabel(r.safety_score)}</div>
       </div>
       ${highAlert}
       <div class="route-meta">
@@ -414,7 +419,7 @@ function updateMapBadge(route) {
   const section = document.getElementById("safety-section");
   if (section) section.open = true;
   badge.dataset.tier = (route.tier || "").toLowerCase();
-  scoreEl.textContent = route.safety_score;
+  scoreEl.textContent = scoreLabel(route.safety_score);
   scoreEl.style.color = "";
   const tier = document.getElementById("safety-tier");
   if (tier) tier.textContent = route.tier || "";
