@@ -1,4 +1,4 @@
-/** Dark OpenStreetMap page. Tiles stay on the public OSM server. No map API key. */
+/** Browser preview map. Phones use the native map in MapCanvas.tsx. Tiles are OpenStreetMap. No map API key. */
 export const MAP_HTML = `<!DOCTYPE html>
 <html>
 <head>
@@ -6,8 +6,8 @@ export const MAP_HTML = `<!DOCTYPE html>
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
-    html, body, #map { margin: 0; height: 100%; background: #0e1620; }
-    .leaflet-tile-pane { filter: invert(100%) hue-rotate(180deg) brightness(0.82) contrast(0.95) saturate(0.35); }
+    html, body, #map { margin: 0; height: 100%; background: #d5dde6; }
+    .leaflet-tile-pane.night { filter: invert(100%) hue-rotate(180deg) brightness(0.82) contrast(0.95) saturate(0.35); }
     .leaflet-control-attribution { font-size: 9px; background: rgba(0,0,0,0.45); color: #c5d0dc; }
     .leaflet-control-attribution a { color: #9ecbff; }
     .leaflet-div-icon.plain { background: transparent; border: none; }
@@ -33,10 +33,15 @@ export const MAP_HTML = `<!DOCTYPE html>
     }
     .signal i { width: 6px; height: 6px; border-radius: 50%; background: #3a3a3a; display: block; }
     .signal i.on { background: #3ddc6a; }
+    .stop-wrap { display: flex; flex-direction: column; align-items: center; }
     .stop {
       width: 18px; height: 18px; background: #e23b2f;
       clip-path: polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%);
       box-shadow: 0 0 0 1px #fff;
+    }
+    .allway {
+      margin-top: 2px; background: #fff; color: #111; font: 700 7px sans-serif;
+      letter-spacing: 0.2px; padding: 1px 2px; border: 1px solid #111; white-space: nowrap;
     }
     .report-pin {
       width: 0; height: 0;
@@ -113,6 +118,7 @@ export const MAP_HTML = `<!DOCTYPE html>
         var html = '<div class="signal"><i></i><i class="on"></i><i></i></div>';
         var w = 12, h = 26;
         if (sign.kind === "stop") { html = '<div class="stop"></div>'; w = 18; h = 18; }
+        if (sign.kind === "stop-all") { html = '<div class="stop-wrap"><div class="stop"></div><div class="allway">ALL WAY</div></div>'; w = 40; h = 34; }
         if (sign.kind === "report") { html = '<div class="report-pin"></div>'; w = 16; h = 14; }
         L.marker([sign.lat, sign.lon], { icon: icon(html, w, h), interactive: false }).addTo(drawn);
       });
@@ -127,6 +133,9 @@ export const MAP_HTML = `<!DOCTYPE html>
         }).addTo(drawn);
         bounds.push([scene.user.lat, scene.user.lon]);
       }
+      var tiles = document.querySelector(".leaflet-tile-pane");
+      if (tiles) tiles.classList.toggle("night", !!scene.night);
+      document.body.style.background = scene.night ? "#0e1620" : "#d5dde6";
       if (scene.camera === "follow" && scene.user) {
         var zoom = map.getZoom();
         if (!zoom || zoom < 15) zoom = 16;

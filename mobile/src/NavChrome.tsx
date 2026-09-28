@@ -26,34 +26,37 @@ type Props = {
   onSaveReport: (kind: ReportKind) => void;
   onExit: () => void;
   onWhereTo: () => void;
+  night: boolean;
 };
 
 export function NavChrome(props: Props) {
-  const tileTone = props.level === "red" ? styles.tileRed : props.level === "amber" ? styles.tileAmber : styles.tileOk;
+  const ink = props.night ? "#ffffff" : "#16191f";
+  const tileTone = props.level === "red" ? styles.tileRed : props.level === "amber" ? styles.tileAmber : props.night ? styles.tileOk : styles.tileDay;
   const speedLabel = `speed ${props.current ?? "none"} posted ${props.posted ?? "none"} safe ${props.safe ?? "none"} ${props.level}`;
+  const numDark = props.level === "amber" || (!props.night && props.level !== "red");
   return (
     <View style={styles.overlay} pointerEvents="box-none">
-      {props.maneuver ? <Banner maneuver={props.maneuver} /> : null}
+      {props.maneuver ? <Banner maneuver={props.maneuver} night={props.night} /> : null}
       <View style={styles.side} pointerEvents="box-none">
         <View style={styles.sideStack}>
-          <RoundButton label="Compass" onPress={props.onCompass}>
+          <RoundButton label="Compass" night={props.night} onPress={props.onCompass}>
             <View style={{ transform: [{ rotate: `${-props.heading}deg` }] }}>
-              <NorthNeedle />
+              <NorthNeedle south={ink} />
             </View>
           </RoundButton>
-          <RoundButton label="Search" onPress={props.onSearch}>
-            <SearchIcon />
+          <RoundButton label="Search" night={props.night} onPress={props.onSearch}>
+            <SearchIcon color={ink} />
           </RoundButton>
-          <RoundButton label={props.muted ? "Unmute voice" : "Mute voice"} onPress={props.onMute}>
-            <SpeakerIcon muted={props.muted} />
+          <RoundButton label={props.muted ? "Unmute voice" : "Mute voice"} night={props.night} onPress={props.onMute}>
+            <SpeakerIcon muted={props.muted} color={ink} />
           </RoundButton>
-          <RoundButton label="Route options" onPress={props.onRoutes}>
-            <ForkIcon />
+          <RoundButton label="Route options" night={props.night} onPress={props.onRoutes}>
+            <ForkIcon color={ink} />
           </RoundButton>
         </View>
-        <Pressable style={styles.report} accessibilityLabel="Report" onPress={props.onReport}>
+        <Pressable style={[styles.report, !props.night && styles.reportDay]} accessibilityLabel="Report" onPress={props.onReport}>
           <WarningIcon />
-          <Text style={styles.reportText}>Report</Text>
+          <Text style={[styles.reportText, !props.night && styles.reportTextDay]}>Report</Text>
         </Pressable>
       </View>
       <View style={styles.speedRow} pointerEvents="none">
@@ -61,36 +64,36 @@ export function NavChrome(props: Props) {
           <Text style={styles.signNum}>{props.posted == null ? "—" : String(props.posted)}</Text>
         </View>
         <View style={[styles.tile, tileTone]} testID="speed-tile" accessibilityLabel={speedLabel}>
-          <Text style={[styles.tileNum, props.level === "amber" && styles.tileNumDark]}>
+          <Text style={[styles.tileNum, numDark && styles.tileNumDark]}>
             {props.current == null ? "—" : String(props.current)}
           </Text>
-          <Text style={[styles.tileUnit, props.level === "amber" && styles.tileNumDark]}>km/h</Text>
+          <Text style={[styles.tileUnit, numDark && styles.tileNumDark]}>km/h</Text>
         </View>
       </View>
       {props.showExit ? (
-        <View style={styles.card} testID="eta-card">
+        <View style={[styles.card, !props.night && styles.cardDay]} testID="eta-card">
           <View style={styles.cardText}>
-            <Text style={styles.cardTitle}>{props.etaTitle}</Text>
-            <Text style={styles.cardSub}>{props.etaSubtitle}</Text>
+            <Text style={[styles.cardTitle, !props.night && styles.ink]}>{props.etaTitle}</Text>
+            <Text style={[styles.cardSub, !props.night && styles.subDay]}>{props.etaSubtitle}</Text>
           </View>
           <Pressable style={styles.exit} testID="exit-nav" onPress={props.onExit}>
             <Text style={styles.exitText}>Exit</Text>
           </Pressable>
         </View>
       ) : (
-        <Pressable style={styles.card} testID="where-to" onPress={props.onWhereTo}>
+        <Pressable style={[styles.card, !props.night && styles.cardDay]} testID="where-to" onPress={props.onWhereTo}>
           <View style={styles.cardText}>
-            <Text style={styles.cardTitle}>Where to?</Text>
-            <Text style={styles.cardSub}>Search a destination</Text>
+            <Text style={[styles.cardTitle, !props.night && styles.ink]}>Where to?</Text>
+            <Text style={[styles.cardSub, !props.night && styles.subDay]}>Search a destination</Text>
           </View>
         </Pressable>
       )}
       {props.reportOpen ? (
         <View style={styles.reportLayer} pointerEvents="box-none">
           <Pressable style={styles.backdrop} onPress={props.onCloseReport} />
-          <View style={styles.reportSheet} testID="report-sheet">
-            <Text style={styles.reportTitle}>Report</Text>
-            <Text style={styles.reportHint}>Saved on this phone. The server does not take reports.</Text>
+          <View style={[styles.reportSheet, !props.night && styles.cardDay]} testID="report-sheet">
+            <Text style={[styles.reportTitle, !props.night && styles.ink]}>Report</Text>
+            <Text style={[styles.reportHint, !props.night && styles.subDay]}>Saved on this phone. The server does not take reports.</Text>
             {REPORT_LABELS.map((item) => (
               <Pressable key={item.kind} style={styles.reportRow} testID={`report-${item.kind}`} onPress={() => props.onSaveReport(item.kind)}>
                 <Text style={styles.reportRowText}>{item.label}</Text>
@@ -104,19 +107,20 @@ export function NavChrome(props: Props) {
   );
 }
 
-function Banner({ maneuver }: { maneuver: Maneuver }) {
+function Banner({ maneuver, night }: { maneuver: Maneuver; night: boolean }) {
+  const ink = night ? "#ffffff" : "#142033";
   return (
-    <View style={styles.banner} testID="nav-banner">
-      <TurnGlyph kind={maneuver.kind} />
+    <View style={[styles.banner, !night && styles.bannerDay]} testID="nav-banner">
+      <TurnGlyph kind={maneuver.kind} color={ink} />
       <View style={styles.bannerText}>
-        <Text style={styles.bannerDistance}>{maneuver.kind === "arrive" ? "Arrive" : maneuver.distanceM < 30 ? "Now" : distancePhrase(maneuver)}</Text>
+        <Text style={[styles.bannerDistance, !night && styles.bannerDistanceDay]}>{maneuver.kind === "arrive" ? "Arrive" : maneuver.distanceM < 30 ? "Now" : distancePhrase(maneuver)}</Text>
         <View style={styles.bannerStreetRow}>
           {maneuver.shield ? (
             <View style={styles.shield}>
               <Text style={styles.shieldText}>{maneuver.shield}</Text>
             </View>
           ) : null}
-          <Text style={styles.bannerStreet} numberOfLines={1}>{maneuver.street}</Text>
+          <Text style={[styles.bannerStreet, { color: ink }]} numberOfLines={1}>{maneuver.street}</Text>
         </View>
       </View>
     </View>
@@ -130,7 +134,7 @@ function distancePhrase(maneuver: Maneuver): string {
   return `${Math.round(meters / 1000)} km`;
 }
 
-function TurnGlyph({ kind }: { kind: ManeuverKind }) {
+function TurnGlyph({ kind, color }: { kind: ManeuverKind; color: string }) {
   const rotate = {
     straight: "0deg",
     left: "-90deg",
@@ -141,57 +145,57 @@ function TurnGlyph({ kind }: { kind: ManeuverKind }) {
     arrive: "0deg",
   }[kind];
   if (kind === "arrive") {
-    return <View style={styles.arriveDot} />;
+    return <View style={[styles.arriveDot, { backgroundColor: color }]} />;
   }
   return (
     <View style={[styles.turnWrap, { transform: [{ rotate }] }]}>
-      <View style={styles.turnStem} />
-      <View style={styles.turnHead} />
+      <View style={[styles.turnStem, { backgroundColor: color }]} />
+      <View style={[styles.turnHead, { borderBottomColor: color }]} />
     </View>
   );
 }
 
-function RoundButton(props: { label: string; onPress: () => void; children: ReactNode }) {
+function RoundButton(props: { label: string; night: boolean; onPress: () => void; children: ReactNode }) {
   return (
-    <Pressable style={styles.round} accessibilityLabel={props.label} onPress={props.onPress}>
+    <Pressable style={[styles.round, !props.night && styles.roundDay]} accessibilityLabel={props.label} onPress={props.onPress}>
       {props.children}
     </Pressable>
   );
 }
 
-function NorthNeedle() {
+function NorthNeedle({ south }: { south: string }) {
   return (
     <View style={styles.needle}>
       <View style={styles.needleNorth} />
-      <View style={styles.needleSouth} />
+      <View style={[styles.needleSouth, { borderTopColor: south }]} />
     </View>
   );
 }
 
-function SearchIcon() {
+function SearchIcon({ color }: { color: string }) {
   return (
     <View style={styles.search}>
-      <View style={styles.searchRing} />
-      <View style={styles.searchHandle} />
+      <View style={[styles.searchRing, { borderColor: color }]} />
+      <View style={[styles.searchHandle, { backgroundColor: color }]} />
     </View>
   );
 }
 
-function SpeakerIcon({ muted }: { muted: boolean }) {
+function SpeakerIcon({ muted, color }: { muted: boolean; color: string }) {
   return (
     <View style={styles.speaker}>
-      <View style={styles.speakerBody} />
-      <View style={styles.speakerCone} />
-      {muted ? <View style={styles.speakerSlash} /> : <View style={styles.speakerWave} />}
+      <View style={[styles.speakerBody, { backgroundColor: color }]} />
+      <View style={[styles.speakerCone, { borderLeftColor: color }]} />
+      {muted ? <View style={[styles.speakerSlash, { backgroundColor: color }]} /> : <View style={[styles.speakerWave, { borderColor: color }]} />}
     </View>
   );
 }
 
-function ForkIcon() {
+function ForkIcon({ color }: { color: string }) {
   return (
     <View style={styles.fork}>
-      <View style={styles.forkLeft} />
-      <View style={styles.forkRight} />
+      <View style={[styles.forkLeft, { backgroundColor: color }]} />
+      <View style={[styles.forkRight, { backgroundColor: color }]} />
     </View>
   );
 }
@@ -215,6 +219,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
   },
+  bannerDay: { backgroundColor: "#ffffff" },
+  bannerDistanceDay: { color: "#3d6b62" },
   bannerText: { flex: 1, gap: 2 },
   bannerDistance: { color: "#d7efe9", fontSize: 14, fontWeight: "600" },
   bannerStreetRow: { flexDirection: "row", alignItems: "center", gap: 8 },
@@ -268,6 +274,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
   },
+  roundDay: { backgroundColor: "#ffffff", borderColor: "rgba(22,25,31,0.12)" },
   needle: { width: 16, height: 22, alignItems: "center" },
   needleNorth: {
     width: 0,
@@ -382,6 +389,8 @@ const styles = StyleSheet.create({
     borderBottomColor: "#f5c542",
   },
   reportText: { color: "#fff", fontWeight: "700", fontSize: 14 },
+  reportDay: { backgroundColor: "#ffffff", borderColor: "rgba(22,25,31,0.12)" },
+  reportTextDay: { color: "#16191f" },
   speedRow: {
     position: "absolute",
     left: 12,
@@ -410,6 +419,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   tileOk: { backgroundColor: "#1c1f24" },
+  tileDay: { backgroundColor: "#ffffff", borderWidth: 1, borderColor: "rgba(22,25,31,0.12)" },
   tileAmber: { backgroundColor: "#f0a202" },
   tileRed: { backgroundColor: "#d93025" },
   tileNum: { color: "#fff", fontSize: 26, fontWeight: "800", lineHeight: 28 },
@@ -433,6 +443,9 @@ const styles = StyleSheet.create({
   cardText: { flex: 1 },
   cardTitle: { color: "#fff", fontSize: 28, fontWeight: "700" },
   cardSub: { color: "#c5ced8", fontSize: 14, marginTop: 2 },
+  cardDay: { backgroundColor: "#ffffff" },
+  ink: { color: "#16191f" },
+  subDay: { color: "#526072" },
   exit: {
     backgroundColor: "#e23b2f",
     borderRadius: 28,

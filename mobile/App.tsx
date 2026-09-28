@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { Platform, StyleSheet, View } from "react-native";
+import { Appearance, Platform, StyleSheet, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import * as Location from "expo-location";
 import { MapCanvas } from "./src/MapCanvas";
@@ -18,6 +18,7 @@ import {
   suggestPlaces,
 } from "./src/api";
 import { API_BASE, COLD_START_HINT } from "./src/config";
+import { isNight } from "./src/dayNight";
 import { haversineM, warningFor, type WarningLevel } from "./src/fleetLogic";
 import { getFleetSnapshot, setLiveReader, stopTrip, subscribeFleet } from "./src/fleetStore";
 import { etaCard, instructionSpeech, nextManeuver, progressAlong, shieldFrom, type LatLon } from "./src/navCue";
@@ -335,6 +336,18 @@ export default function App() {
     });
   }, [fix, origin.lat, origin.lon, shownKmh, posted, safe, speed, speedLevel, speedMode]);
 
+  const [night, setNight] = useState(() => nightAt(userLat, userLon));
+  useEffect(() => {
+    const update = () => setNight(nightAt(userLat, userLon));
+    update();
+    const timer = setInterval(update, 60000);
+    const subscription = Appearance.addChangeListener(update);
+    return () => {
+      clearInterval(timer);
+      subscription.remove();
+    };
+  }, [userLat, userLon]);
+
   const heading = fix != null && fix.speedKmh != null && fix.speedKmh > 3 && fix.heading != null && fix.heading >= 0
     ? fix.heading
     : deviceHeading != null && deviceHeading >= 0
@@ -383,8 +396,9 @@ export default function App() {
       user: { lat: userLat, lon: userLon, heading },
       camera,
       headingUp: camera === "follow" && headingUp,
+      night,
     };
-  }, [focus, signs, progress, reports, geometries, selected, activeLine, sheetOpen, userLat, userLon, heading, headingUp, loop]);
+  }, [focus, signs, progress, reports, geometries, selected, activeLine, sheetOpen, userLat, userLon, heading, headingUp, loop, night]);
 
   function pickSuggestion(item: Suggestion) {
     const place: Place = { id: item.id, label: item.label, detail: item.detail, lat: item.lat, lon: item.lon };
@@ -562,7 +576,7 @@ export default function App() {
 
   return (
     <View style={styles.root}>
-      <StatusBar style="light" />
+      <StatusBar style={night ? "light" : "dark"} />
       <MapCanvas scene={scene} />
       <NavChrome
         maneuver={focus === "nav" ? maneuver : null}
@@ -586,6 +600,7 @@ export default function App() {
         onSaveReport={(kind) => { storeReport(kind).catch(() => setReportNote("Could not save the report.")); }}
         onExit={exitDrive}
         onWhereTo={() => { setTab("trip"); setSheetOpen(true); }}
+        night={night}
       />
       {sheetOpen ? (
         <FeatureSheet
@@ -630,6 +645,14 @@ export default function App() {
       ) : null}
     </View>
   );
+}
+
+function nightAt(lat: number, lon: number): boolean {
+  const bySun = isNight(lat, lon);
+  if (bySun != null) return bySun;
+  if (Appearance.getColorScheme() === "dark") return true;
+  const hour = new Date().getHours();
+  return hour < 7 || hour >= 19;
 }
 
 const styles = StyleSheet.create({
