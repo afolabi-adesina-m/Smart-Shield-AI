@@ -331,7 +331,7 @@
 
   function renderManeuver(maneuver) {
     const banner = document.getElementById("nav-banner");
-    if (!banner || !maneuver) {
+    if (!banner || !maneuver || !maneuver.kind) {
       if (banner) banner.hidden = true;
       return;
     }

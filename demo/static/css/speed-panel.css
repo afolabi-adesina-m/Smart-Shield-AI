@@ -45,8 +45,8 @@ body[data-speed-layout="desktop"] .speed-panel .speed-alert {
 }
 body[data-speed-layout="desktop"] .leaflet-bottom.leaflet-right {
   margin-bottom: 0;
-  bottom: 16px;
-  right: 8px;
+  bottom: 132px;
+  right: 128px !important;
 }
 
 body[data-speed-layout="mobile"] .speed-panel {

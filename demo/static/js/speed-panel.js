@@ -42,7 +42,7 @@ function initSpeedAwareness(map) {
   applyPublicLinks();
 
   const center = map.getCenter();
-  setSpeedLocation(center.lat, center.lng, "map");
+  setSpeedLocation(center.lat, center.lng, "view");
   window.SmartShieldMapCenter = () => {
     if (!speedMap) return null;
     const c = speedMap.getCenter();
@@ -192,19 +192,26 @@ function setSpeedLocation(lat, lon, source, extra) {
   if (extra && extra.simMs != null) speedState.simMs = extra.simMs;
   else if (source !== "fleet-demo") speedState.simMs = null;
   if (source === "fleet-demo" || source === "gps") speedState.source = source;
-  showPositionMarker(lat, lon);
+  showPositionMarker(lat, lon, source);
   return refreshPostedAndSafe(source);
 }
 
-function showPositionMarker(lat, lon) {
+function showPositionMarker(lat, lon, source) {
   if (!speedMap || typeof L === "undefined") return;
+  if (source === "view") {
+    if (positionMarker) {
+      speedMap.removeLayer(positionMarker);
+      positionMarker = null;
+    }
+    return;
+  }
   if (!positionMarker) {
     positionMarker = L.circleMarker([lat, lon], {
-      radius: 7,
-      color: "#1a73e8",
-      weight: 2,
+      radius: 8,
+      color: "#ffffff",
+      weight: 3,
       fillColor: "#1a73e8",
-      fillOpacity: 0.9,
+      fillOpacity: 1,
     }).addTo(speedMap);
   } else {
     positionMarker.setLatLng([lat, lon]);
