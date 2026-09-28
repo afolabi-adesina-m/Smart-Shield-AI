@@ -121,7 +121,17 @@ export type MapMarker = {
   color: string;
 };
 
+export type MapSign = {
+  lat: number;
+  lon: number;
+  kind: "signal" | "stop" | "report";
+};
+
 export type MapScene = {
   routes: MapRoute[];
   markers: MapMarker[];
+  signs: MapSign[];
+  user: { lat: number; lon: number; heading: number } | null;
+  camera: "follow" | "fit";
+  headingUp: boolean;
 };

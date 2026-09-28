@@ -1,18 +1,10 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import {
-  ActivityIndicator,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import * as Location from "expo-location";
 import { MapCanvas } from "./src/MapCanvas";
-import { FleetPanel } from "./src/FleetPanel";
+import { FeatureSheet } from "./src/FeatureSheet";
+import { NavChrome } from "./src/NavChrome";
 import {
   ApiError,
   buildLoop,
@@ -27,10 +19,15 @@ import {
 } from "./src/api";
 import { API_BASE, COLD_START_HINT } from "./src/config";
 import { haversineM, warningFor, type WarningLevel } from "./src/fleetLogic";
-import { getFleetSnapshot, setLiveReader, subscribeFleet } from "./src/fleetStore";
+import { getFleetSnapshot, setLiveReader, stopTrip, subscribeFleet } from "./src/fleetStore";
+import { etaCard, instructionSpeech, nextManeuver, progressAlong, shieldFrom, type LatLon } from "./src/navCue";
 import { alertOverLimit } from "./src/overSpeedAlert";
+import { loadMuted, loadReports, saveMuted, saveReport, type ReportKind, type RoadReport } from "./src/reports";
+import { loadSignsNear, lookupStreet, signsAlong, type RoadSign } from "./src/roadSigns";
+import { speakNav, stopSpeech } from "./src/voice";
 import type {
   MapScene,
+  MapSign,
   Place,
   PracticeLoop,
   ScoredRoute,
@@ -38,15 +35,6 @@ import type {
   Suggestion,
   TestCentre,
 } from "./src/types";
-
-const ROUTE_COLORS = ["#1a73e8", "#e8710a", "#9334e6"];
-const WEATHER = [
-  { id: "auto", label: "Auto" },
-  { id: "clear", label: "Clear" },
-  { id: "wet", label: "Wet" },
-  { id: "blizzard", label: "Blizzard" },
-  { id: "ice_storm", label: "Ice" },
-] as const;
 
 const TORONTO: Place = { label: "Toronto, Ontario", lat: 43.6532, lon: -79.3832 };
 const BARRIE: Place = { label: "Barrie, Ontario", lat: 44.3894, lon: -79.6903 };
@@ -58,6 +46,10 @@ type GpsFix = {
   speedKmh: number | null;
   heading: number | null;
 };
+
+type Focus = "idle" | "nav" | "practice" | "fleet";
+
+type TripLeg = { distanceM: number; durationS: number };
 
 export default function App() {
   const [tab, setTab] = useState<"trip" | "practice" | "fleet">("trip");
@@ -72,9 +64,10 @@ export default function App() {
   const [engineNote, setEngineNote] = useState("Checking the server…");
   const [routes, setRoutes] = useState<ScoredRoute[]>([]);
   const [geometries, setGeometries] = useState<[number, number][][]>([]);
+  const [tripLegs, setTripLegs] = useState<TripLeg[]>([]);
   const [selected, setSelected] = useState(0);
   const [speed, setSpeed] = useState<SpeedReading | null>(null);
-  const [demoKmh, setDemoKmh] = useState(70);
+  const [demoKmh, setDemoKmh] = useState(30);
   const [speedMode, setSpeedMode] = useState<"gps" | "simulate">(Platform.OS === "web" ? "simulate" : "gps");
   const [gpsNote, setGpsNote] = useState(Platform.OS === "web"
     ? "This browser has no travel speed. Simulate is on."
@@ -89,6 +82,17 @@ export default function App() {
   const [loop, setLoop] = useState<PracticeLoop | null>(null);
   const [disclaimer, setDisclaimer] = useState("");
   const suggestTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [focus, setFocus] = useState<Focus>("idle");
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportNote, setReportNote] = useState("");
+  const [reports, setReports] = useState<RoadReport[]>([]);
+  const [muted, setMuted] = useState(false);
+  const [headingUp, setHeadingUp] = useState(true);
+  const [deviceHeading, setDeviceHeading] = useState<number | null>(null);
+  const [signs, setSigns] = useState<RoadSign[]>([]);
+  const [turnStreet, setTurnStreet] = useState<string | null>(null);
+  const spoken = useRef("");
 
   useEffect(() => {
     let cancelled = false;
@@ -104,9 +108,9 @@ export default function App() {
         if (!cancelled) setWaking(false);
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+    loadReports().then((saved) => { if (!cancelled) setReports(saved); }).catch(() => undefined);
+    loadMuted().then((value) => { if (!cancelled) setMuted(value); }).catch(() => undefined);
+    return () => { cancelled = true; };
   }, []);
 
   async function beginGps() {
@@ -157,6 +161,22 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    let sub: Location.LocationSubscription | null = null;
+    let cancelled = false;
+    Location.watchHeadingAsync((value) => {
+      const deg = value.trueHeading >= 0 ? value.trueHeading : value.magHeading;
+      if (deg >= 0) setDeviceHeading(deg);
+    }).then((subscription) => {
+      if (cancelled) subscription.remove();
+      else sub = subscription;
+    }).catch(() => undefined);
+    return () => {
+      cancelled = true;
+      sub?.remove();
+    };
+  }, []);
+
+  useEffect(() => {
     const place = activeField === "destination" ? destination : origin;
     if (!activeField || place.label.trim().length < 3 || place.lat != null) {
       setSuggestions([]);
@@ -174,12 +194,18 @@ export default function App() {
   const activeRoute = routes.find((route) => route.route_index === selected) || routes[0];
   const recommended = activeRoute?.recommended_speed_kmh ?? null;
   const lookupRef = useRef({ key: "", at: 0 });
+  const userLat = fix?.lat ?? origin.lat ?? TORONTO.lat ?? 43.6532;
+  const userLon = fix?.lon ?? origin.lon ?? TORONTO.lon ?? -79.3832;
 
   useEffect(() => {
-    const lat = fix?.lat ?? origin.lat ?? TORONTO.lat;
-    const lon = fix?.lon ?? origin.lon ?? TORONTO.lon;
-    if (lat == null || lon == null) return undefined;
-    const moved = haversineM(lookupRef.current.key ? Number(lookupRef.current.key.split(",")[0]) : lat, lookupRef.current.key ? Number(lookupRef.current.key.split(",")[1]) : lon, lat, lon);
+    const lat = userLat;
+    const lon = userLon;
+    const moved = haversineM(
+      lookupRef.current.key ? Number(lookupRef.current.key.split(",")[0]) : lat,
+      lookupRef.current.key ? Number(lookupRef.current.key.split(",")[1]) : lon,
+      lat,
+      lon,
+    );
     const key = `${lat.toFixed(3)},${lon.toFixed(3)}|${weather}|${activeRoute?.tier || ""}|${recommended ?? ""}`;
     const samePlace = moved < 80 && lookupRef.current.key.startsWith(`${lat.toFixed(3)},${lon.toFixed(3)}`);
     const fresh = Date.now() - lookupRef.current.at < 12000;
@@ -212,50 +238,153 @@ export default function App() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [fix, origin.lat, origin.lon, weather, activeRoute?.tier, recommended, geometries, selected]);
+  }, [userLat, userLon, weather, activeRoute?.tier, recommended, geometries, selected, fix?.heading]);
+
+  const signKey = `${userLat.toFixed(2)},${userLon.toFixed(2)}`;
+  useEffect(() => {
+    let cancelled = false;
+    const [lat, lon] = signKey.split(",").map(Number);
+    loadSignsNear(lat, lon).then((next) => {
+      if (!cancelled) setSigns(next);
+    }).catch(() => {
+      if (!cancelled) setSigns([]);
+    });
+    return () => { cancelled = true; };
+  }, [signKey]);
+
+  const fleetWatch = useRef(fleet.status);
+  useEffect(() => {
+    if (fleet.status === fleetWatch.current) return;
+    fleetWatch.current = fleet.status;
+    if (focus === "nav") return;
+    if (tab === "fleet" && (fleet.running || fleet.line.length > 1)) setFocus("fleet");
+  }, [fleet.status, fleet.running, fleet.line.length, tab, focus]);
+
+  const activeLine: LatLon[] = useMemo(() => {
+    if (focus === "practice" && loop) return loop.geometry.map(([lon, lat]) => [lat, lon]);
+    if (focus === "fleet" && fleet.line.length > 1) return fleet.line;
+    if (focus === "nav" && geometries[selected]) return geometries[selected].map(([lon, lat]) => [lat, lon]);
+    return [];
+  }, [focus, loop, fleet.line, geometries, selected]);
+
+  const progress = useMemo(
+    () => progressAlong(activeLine, userLat, userLon),
+    [activeLine, userLat, userLon],
+  );
+
+  const streetHint = turnStreet || speed?.road_name || "";
+  const maneuver = useMemo(() => {
+    if (focus !== "nav" || activeLine.length < 2) return null;
+    const next = nextManeuver(progress.ahead, streetHint, destination.label);
+    return { ...next, shield: next.shield || shieldFrom(streetHint) };
+  }, [focus, activeLine.length, progress.ahead, streetHint, destination.label]);
+
+  const turnKey = maneuver ? `${maneuver.atLat.toFixed(3)},${maneuver.atLon.toFixed(3)}` : "";
+  useEffect(() => {
+    if (!maneuver || maneuver.kind === "straight") return undefined;
+    let cancelled = false;
+    lookupStreet(maneuver.atLat, maneuver.atLon).then((name) => {
+      if (!cancelled && name) setTurnStreet(name);
+    }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [turnKey, maneuver]);
+
+  useEffect(() => {
+    if (!maneuver || focus !== "nav") return;
+    const bucket = maneuver.distanceM < 80 ? "now" : maneuver.distanceM < 300 ? "near" : maneuver.distanceM < 800 ? "mid" : "far";
+    if (bucket === "far") return;
+    const phrase = instructionSpeech(maneuver);
+    const key = `${phrase}|${bucket}`;
+    if (spoken.current === key) return;
+    spoken.current = key;
+    speakNav(phrase, muted);
+  }, [maneuver, muted, focus]);
+
+  const shownKmh = speedMode === "simulate" ? demoKmh : fix?.speedKmh ?? null;
+  const posted = speed?.posted_kmh ?? null;
+  const safe = speed?.safe_kmh ?? null;
+  const speedLevel: WarningLevel = warningFor(shownKmh, posted, safe);
+  const warnRef = useRef<WarningLevel>("unknown");
+
+  useEffect(() => {
+    if (speedLevel === "red" && warnRef.current !== "red") {
+      alertOverLimit();
+      speakNav("You are over the speed limit.", muted);
+    }
+    warnRef.current = speedLevel;
+  }, [speedLevel, muted]);
+
+  useEffect(() => {
+    setLiveReader(() => {
+      const lat = fix?.lat ?? origin.lat;
+      const lon = fix?.lon ?? origin.lon;
+      if (lat == null || lon == null || shownKmh == null || posted == null) return null;
+      return {
+        lat,
+        lon,
+        current_kmh: shownKmh,
+        posted_kmh: posted,
+        safe_kmh: safe,
+        road_mode: speed?.road_mode,
+        warning: speedLevel,
+        school_active: !!speed?.school_active,
+        exit_warning: speed?.exit_warning,
+        hazards: speed?.hazards,
+        source: speedMode === "gps" ? "gps" : "simulate",
+      };
+    });
+  }, [fix, origin.lat, origin.lon, shownKmh, posted, safe, speed, speedLevel, speedMode]);
+
+  const heading = fix != null && fix.speedKmh != null && fix.speedKmh > 3 && fix.heading != null && fix.heading >= 0
+    ? fix.heading
+    : deviceHeading != null && deviceHeading >= 0
+      ? deviceHeading
+      : progress.bearing;
 
   const scene: MapScene = useMemo(() => {
-    if (tab === "fleet" && fleet.line.length > 1) {
-      const last = fleet.line[fleet.line.length - 1];
-      return {
-        routes: [{ coords: fleet.line, color: "#1a56db", active: true }],
-        markers: [{ lat: last[0], lon: last[1], label: "Car", color: "#b3261e" }],
-      };
+    const lineSigns = focus === "nav"
+      ? signsAlong(signs, progress.ahead, 50)
+      : signs.filter((sign) => haversineM(sign.lat, sign.lon, userLat, userLon) < 500);
+    const practiceSigns: MapSign[] = focus === "practice" && loop
+      ? loop.points.filter((point) => point.kind === "signal" || point.kind === "stop").map((point) => ({
+        lat: point.lat,
+        lon: point.lon,
+        kind: point.kind === "stop" ? "stop" as const : "signal" as const,
+      }))
+      : [];
+    const reportPins: MapSign[] = reports.map((report) => ({ lat: report.lat, lon: report.lon, kind: "report" }));
+    const drawnSigns: MapSign[] = [...practiceSigns, ...lineSigns, ...reportPins];
+    const routesOut: MapScene["routes"] = [];
+    if (focus === "nav") {
+      geometries.forEach((line, index) => {
+        const latlon = line.map(([lon, lat]) => [lat, lon] as LatLon);
+        if (index === selected) {
+          if (progress.traveled.length > 1) routesOut.push({ coords: progress.traveled, color: "#9bb0c9", active: false });
+          if (progress.ahead.length > 1) routesOut.push({ coords: progress.ahead, color: "#4da3ff", active: true });
+        } else {
+          routesOut.push({ coords: latlon, color: "#6d7c90", active: false });
+        }
+      });
+    } else if (activeLine.length > 1) {
+      routesOut.push({
+        coords: activeLine,
+        color: focus === "practice" ? "#c4b5fd" : "#4da3ff",
+        active: true,
+      });
     }
-    if (tab === "practice" && loop) {
-      return {
-        routes: [{
-          coords: loop.geometry.map(([lon, lat]) => [lat, lon]),
-          color: "#6d28d9",
-          active: true,
-        }],
-        markers: [
-          { lat: loop.centre.lat || 0, lon: loop.centre.lon || 0, label: "Start", color: "#1a56db" },
-          ...loop.points.slice(0, 12).map((point) => ({
-            lat: point.lat,
-            lon: point.lon,
-            label: point.label,
-            color: point.kind === "stop" ? "#b3261e" : "#0d7a45",
-          })),
-        ],
-      };
-    }
+    const end = activeLine.length ? activeLine[activeLine.length - 1] : null;
+    const camera = (sheetOpen && activeLine.length > 1) || focus === "practice" || focus === "fleet" ? "fit" : "follow";
     return {
-      routes: geometries.map((line, index) => ({
-        coords: line.map(([lon, lat]) => [lat, lon]),
-        color: ROUTE_COLORS[index % ROUTE_COLORS.length],
-        active: index === selected,
-      })),
-      markers: [origin, destination]
-        .filter((place) => place.lat != null && place.lon != null)
-        .map((place, index) => ({
-          lat: place.lat as number,
-          lon: place.lon as number,
-          label: index === 0 ? "From" : "To",
-          color: index === 0 ? "#0d7a45" : "#b3261e",
-        })),
+      routes: routesOut,
+      markers: end && focus !== "idle"
+        ? [{ lat: end[0], lon: end[1], label: "Destination", color: "#e23b2f" }]
+        : [],
+      signs: drawnSigns,
+      user: { lat: userLat, lon: userLon, heading },
+      camera,
+      headingUp: camera === "follow" && headingUp,
     };
-  }, [tab, loop, geometries, selected, origin, destination, fleet.line]);
+  }, [focus, signs, progress, reports, geometries, selected, activeLine, sheetOpen, userLat, userLon, heading, headingUp, loop]);
 
   function pickSuggestion(item: Suggestion) {
     const place: Place = { id: item.id, label: item.label, detail: item.detail, lat: item.lat, lon: item.lon };
@@ -285,13 +414,7 @@ export default function App() {
 
   async function loadSpeed(lat: number, lon: number, tier?: string, recommendedKmh?: number | null) {
     try {
-      const reading = await fetchRoadContext({
-        lat,
-        lon,
-        weather,
-        tier,
-        recommended_kmh: recommendedKmh,
-      });
+      const reading = await fetchRoadContext({ lat, lon, weather, tier, recommended_kmh: recommendedKmh });
       setSpeed(reading);
     } catch {
       try {
@@ -305,8 +428,7 @@ export default function App() {
 
   async function ensureCoords(place: Place): Promise<Place> {
     if (place.lat != null && place.lon != null) return place;
-    const suggestions = await suggestPlaces(place.label).catch(() => []);
-    const hinted = suggestions.find((item) => item.lat != null && item.lon != null);
+    const hinted = (await suggestPlaces(place.label).catch(() => [])).find((item) => item.lat != null && item.lon != null);
     if (hinted && hinted.lat != null && hinted.lon != null) {
       return { ...place, label: hinted.label || place.label, lat: hinted.lat, lon: hinted.lon };
     }
@@ -334,8 +456,13 @@ export default function App() {
       const ordered = scored.routes || [];
       setRoutes(ordered);
       setGeometries(drawn.map((route) => route.geometry));
+      setTripLegs(drawn.map((route) => ({ distanceM: route.distance, durationS: route.duration })));
       const best = scored.best_route_index ?? ordered[0]?.route_index ?? 0;
       setSelected(best);
+      setTurnStreet(null);
+      spoken.current = "";
+      setFocus("nav");
+      setSheetOpen(false);
       setStatus(ordered.length === 1 ? "1 route scored." : `${ordered.length} routes scored.`);
       const chosen = ordered.find((route) => route.route_index === best) || ordered[0];
       await loadSpeed(from.lat, from.lon as number, chosen?.tier, chosen?.recommended_speed_kmh);
@@ -349,6 +476,7 @@ export default function App() {
 
   async function openPractice() {
     setTab("practice");
+    setSheetOpen(true);
     if (centres.length) return;
     setStatus("Loading DriveTest centres…");
     try {
@@ -370,12 +498,12 @@ export default function App() {
     try {
       const data = await buildLoop(centreId, level);
       setLoop(data);
+      setFocus("practice");
+      setSheetOpen(false);
       if (data.disclaimer) setDisclaimer(data.disclaimer);
       const km = (data.distance_m / 1000).toFixed(1);
       setStatus(`${data.centre.name} · ${data.level} · ${km} km loop.`);
-      if (data.centre.lat != null && data.centre.lon != null) {
-        await loadSpeed(data.centre.lat, data.centre.lon);
-      }
+      if (data.centre.lat != null && data.centre.lon != null) await loadSpeed(data.centre.lat, data.centre.lon);
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Could not build a loop.");
     } finally {
@@ -384,372 +512,126 @@ export default function App() {
     }
   }
 
-  const shownKmh = speedMode === "simulate" ? demoKmh : fix?.speedKmh ?? null;
-  const posted = speed?.posted_kmh ?? null;
-  const safe = speed?.safe_kmh ?? null;
-  const speedLevel: WarningLevel = warningFor(shownKmh, posted, safe);
-  const warnRef = useRef<WarningLevel>("unknown");
-  const speedCaption = speedLevel === "red"
-    ? "Over the limit"
-    : speedLevel === "amber"
-      ? "Above the safe speed"
-      : speedLevel === "ok"
-        ? "At or under the limit"
-        : speedMode === "gps"
-          ? "Waiting for a speed fix"
-          : "Waiting for the posted limit";
+  function exitDrive() {
+    if (fleet.running) stopTrip().catch(() => undefined);
+    stopSpeech();
+    spoken.current = "";
+    setFocus("idle");
+    setRoutes([]);
+    setGeometries([]);
+    setTripLegs([]);
+    setLoop(null);
+    setStatus("Search a destination.");
+  }
 
-  useEffect(() => {
-    if (speedLevel === "red" && warnRef.current !== "red") alertOverLimit();
-    warnRef.current = speedLevel;
-  }, [speedLevel]);
+  async function storeReport(kind: ReportKind) {
+    const next = await saveReport({ kind, lat: userLat, lon: userLon });
+    setReports(next);
+    setReportNote("Saved on this phone.");
+  }
 
-  useEffect(() => {
-    setLiveReader(() => {
-      const lat = fix?.lat ?? origin.lat;
-      const lon = fix?.lon ?? origin.lon;
-      if (lat == null || lon == null || shownKmh == null || posted == null) return null;
-      return {
-        lat,
-        lon,
-        current_kmh: shownKmh,
-        posted_kmh: posted,
-        safe_kmh: safe,
-        road_mode: speed?.road_mode,
-        warning: speedLevel,
-        school_active: !!speed?.school_active,
-        exit_warning: speed?.exit_warning,
-        hazards: speed?.hazards,
-        source: speedMode === "gps" ? "gps" : "simulate",
-      };
-    });
-  }, [fix, origin.lat, origin.lon, shownKmh, posted, safe, speed, speedLevel, speedMode]);
+  function toggleMute() {
+    const next = !muted;
+    setMuted(next);
+    if (next) stopSpeech();
+    saveMuted(next).catch(() => undefined);
+  }
+
+  const leg = tripLegs[selected];
+  const totalM = leg?.distanceM || progress.aheadM;
+  const eta = focus === "nav"
+    ? etaCard(progress.aheadM, totalM, leg?.durationS || 0, destination.label)
+    : null;
+  const showExit = focus !== "idle";
+  const etaTitle = focus === "fleet"
+    ? `Score ${fleet.score}`
+    : focus === "practice" && loop
+      ? `${(loop.distance_m / 1000).toFixed(1)} km`
+      : eta?.title || "Where to?";
+  const etaSubtitle = focus === "fleet"
+    ? fleet.status
+    : focus === "practice"
+      ? (status || "Practice loop")
+      : eta?.subtitle || "Search a destination";
+
+  const sheetStatus = waking && status.startsWith("Finding")
+    ? status
+    : engineNote && status === "Set a start and a destination."
+      ? `${status} ${engineNote}`
+      : status;
 
   return (
     <View style={styles.root}>
-      <StatusBar style="dark" />
-      <View style={styles.mapPane}>
-        <MapCanvas scene={scene} />
-        <View style={styles.topChip}>
-          <Text style={styles.brand}>Smart-Shield</Text>
-          <Text style={styles.engine}>{waking ? "Contacting server…" : engineNote}</Text>
-        </View>
-        <View style={[styles.speedCard, speedLevel === "red" && styles.speedCardRed, speedLevel === "amber" && styles.speedCardAmber]}>
-          <SpeedStat label="Limit" value={posted == null ? "—" : String(posted)} />
-          <SpeedStat label={speedMode === "gps" ? "GPS" : "Simulate"} value={shownKmh == null ? "—" : String(shownKmh)} warn={speedLevel === "amber"} danger={speedLevel === "red"} />
-          <SpeedStat label="Safe" value={safe == null ? "—" : String(safe)} />
-          <Text style={[styles.speedCaption, speedLevel === "red" && styles.danger, speedLevel === "amber" && styles.warn]}>{speedCaption}</Text>
-        </View>
-      </View>
-
-      <View style={styles.sheet}>
-        <View style={styles.tabs}>
-          <Tab label="Trip" active={tab === "trip"} onPress={() => setTab("trip")} />
-          <Tab label="Fleet" active={tab === "fleet"} onPress={() => setTab("fleet")} />
-          <Tab label="Practice" active={tab === "practice"} onPress={openPractice} />
-        </View>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.sheetBody}>
-          {tab === "fleet" ? (
-            <FleetPanel speedMode={speedMode} />
-          ) : tab === "trip" ? (
-            <>
-              <Field
-                label="From"
-                value={origin.label}
-                onChangeText={(label) => {
-                  setOrigin({ label, lat: null, lon: null });
-                  setActiveField("origin");
-                }}
-                onFocus={() => setActiveField("origin")}
-              />
-              {activeField === "origin" ? <SuggestList items={suggestions} onPick={pickSuggestion} /> : null}
-              <Field
-                label="To"
-                value={destination.label}
-                onChangeText={(label) => {
-                  setDestination({ label, lat: null, lon: null });
-                  setActiveField("destination");
-                }}
-                onFocus={() => setActiveField("destination")}
-              />
-              {activeField === "destination" ? <SuggestList items={suggestions} onPick={pickSuggestion} /> : null}
-              <Pressable style={styles.secondary} onPress={useMyLocation}>
-                <Text style={styles.secondaryText}>Use my location as start</Text>
-              </Pressable>
-              <Text style={styles.kicker}>Road conditions</Text>
-              <View style={styles.chips}>
-                {WEATHER.map((item) => (
-                  <Pressable
-                    key={item.id}
-                    style={[styles.chip, weather === item.id && styles.chipOn]}
-                    onPress={() => setWeather(item.id)}
-                  >
-                    <Text style={[styles.chipText, weather === item.id && styles.chipTextOn]}>{item.label}</Text>
-                  </Pressable>
-                ))}
-              </View>
-              <Pressable style={[styles.primary, busy && styles.disabled]} disabled={busy} onPress={findRoute}>
-                {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryText}>Find safest route</Text>}
-              </Pressable>
-              {routes.map((route) => (
-                <RouteCard
-                  key={route.route_index}
-                  route={route}
-                  selected={route.route_index === selected}
-                  onPress={() => setSelected(route.route_index)}
-                />
-              ))}
-            </>
-          ) : (
-            <>
-              <Text style={styles.kicker}>DriveTest centre</Text>
-              <View style={styles.chips}>
-                {centres.map((centre) => (
-                  <Pressable
-                    key={centre.id}
-                    style={[styles.chip, centreId === centre.id && styles.chipOn]}
-                    onPress={() => setCentreId(centre.id)}
-                  >
-                    <Text style={[styles.chipText, centreId === centre.id && styles.chipTextOn]}>{centre.name}</Text>
-                  </Pressable>
-                ))}
-              </View>
-              <View style={styles.chips}>
-                {(["G2", "G"] as const).map((item) => (
-                  <Pressable key={item} style={[styles.chip, level === item && styles.chipOn]} onPress={() => setLevel(item)}>
-                    <Text style={[styles.chipText, level === item && styles.chipTextOn]}>{item}</Text>
-                  </Pressable>
-                ))}
-              </View>
-              <Pressable style={[styles.primary, busy && styles.disabled]} disabled={busy || !centreId} onPress={makeLoop}>
-                {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryText}>Build practice loop</Text>}
-              </Pressable>
-              {disclaimer ? <Text style={styles.note}>{disclaimer}</Text> : null}
-              {loop?.points.map((point, index) => (
-                <Text key={`${point.kind}-${index}`} style={styles.point}>{point.label}</Text>
-              ))}
-            </>
-          )}
-          <Text style={styles.status}>{status}</Text>
-          <View style={styles.sliderRow}>
-            <Text style={styles.kicker}>{speedMode === "gps" ? "GPS speed" : `Simulate ${demoKmh} km/h`}</Text>
-            <Text style={styles.note}>{gpsNote}</Text>
-            {speedMode === "gps" ? (
-              <Pressable style={styles.secondary} onPress={() => { wantGps.current = false; setSpeedMode("simulate"); setGpsNote("Simulate is on. Pick a speed to test indoors."); }}>
-                <Text style={styles.secondaryText}>Simulate a speed</Text>
-              </Pressable>
-            ) : (
-              <Pressable style={styles.secondary} onPress={() => { wantGps.current = true; setGpsNote("Asking for GPS…"); beginGps().catch(() => setGpsNote("Location is off. Simulate stays on.")); }}>
-                <Text style={styles.secondaryText}>Use GPS speed</Text>
-              </Pressable>
-            )}
-            {speedMode === "simulate" ? (
-              <View style={styles.slider}>
-                {[40, 60, 80, 100, 120].map((value) => (
-                  <Pressable key={value} style={[styles.chip, demoKmh === value && styles.chipOn]} onPress={() => { wantGps.current = false; setSpeedMode("simulate"); setDemoKmh(value); }}>
-                    <Text style={[styles.chipText, demoKmh === value && styles.chipTextOn]}>{value}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            ) : null}
-            {speed?.road_name ? <Text style={styles.note}>{speed.road_name}{speed.road_mode ? ` · ${speed.road_mode}` : ""}{speed.estimated ? " · estimated" : ""}</Text> : null}
-            {speed?.summary ? <Text style={styles.note}>{speed.summary}</Text> : null}
-            {recommended != null ? <Text style={styles.note}>Route recommendation {recommended} km/h, folded into the safe speed.</Text> : null}
-          </View>
-          <Text style={styles.fine}>API {API_BASE}</Text>
-        </ScrollView>
-      </View>
-    </View>
-  );
-}
-
-function Field(props: {
-  label: string;
-  value: string;
-  onChangeText: (value: string) => void;
-  onFocus: () => void;
-}) {
-  return (
-    <View style={styles.field}>
-      <Text style={styles.kicker}>{props.label}</Text>
-      <TextInput
-        value={props.value}
-        onChangeText={props.onChangeText}
-        onFocus={props.onFocus}
-        placeholder={props.label}
-        placeholderTextColor="#8b97a6"
-        style={styles.input}
-        autoCorrect={false}
-        autoCapitalize="none"
+      <StatusBar style="light" />
+      <MapCanvas scene={scene} />
+      <NavChrome
+        maneuver={focus === "nav" ? maneuver : null}
+        posted={posted}
+        current={shownKmh}
+        safe={safe}
+        level={speedLevel}
+        etaTitle={etaTitle}
+        etaSubtitle={etaSubtitle}
+        showExit={showExit}
+        heading={heading}
+        muted={muted}
+        reportOpen={reportOpen}
+        reportNote={reportNote}
+        onCompass={() => setHeadingUp((value) => !value)}
+        onSearch={() => { setTab("trip"); setSheetOpen(true); }}
+        onMute={toggleMute}
+        onRoutes={() => { setTab("trip"); setSheetOpen(true); }}
+        onReport={() => { setReportNote(""); setReportOpen(true); }}
+        onCloseReport={() => setReportOpen(false)}
+        onSaveReport={(kind) => { storeReport(kind).catch(() => setReportNote("Could not save the report.")); }}
+        onExit={exitDrive}
+        onWhereTo={() => { setTab("trip"); setSheetOpen(true); }}
       />
+      {sheetOpen ? (
+        <FeatureSheet
+          tab={tab}
+          onTab={(next) => { if (next === "practice") openPractice(); else setTab(next); }}
+          origin={origin}
+          destination={destination}
+          onOrigin={(label) => { setOrigin({ label, lat: null, lon: null }); setActiveField("origin"); }}
+          onDestination={(label) => { setDestination({ label, lat: null, lon: null }); setActiveField("destination"); }}
+          onFocusField={setActiveField}
+          activeField={activeField}
+          suggestions={suggestions}
+          onPick={pickSuggestion}
+          onUseLocation={() => { useMyLocation().catch(() => setStatus("Location is off. Type a start address instead.")); }}
+          weather={weather}
+          onWeather={setWeather}
+          busy={busy}
+          onFind={() => { findRoute().catch(() => undefined); }}
+          routes={routes}
+          selected={selected}
+          onSelect={setSelected}
+          centres={centres}
+          centreId={centreId}
+          onCentre={setCentreId}
+          level={level}
+          onLevel={setLevel}
+          onLoop={() => { makeLoop().catch(() => undefined); }}
+          disclaimer={disclaimer}
+          loop={loop}
+          status={sheetStatus}
+          speedMode={speedMode}
+          demoKmh={demoKmh}
+          gpsNote={gpsNote}
+          onSimulate={() => { wantGps.current = false; setSpeedMode("simulate"); setGpsNote("Simulate is on. Pick a speed to test indoors."); }}
+          onGps={() => { wantGps.current = true; setGpsNote("Asking for GPS…"); beginGps().catch(() => setGpsNote("Location is off. Simulate stays on.")); }}
+          onSpeed={(value) => { wantGps.current = false; setSpeedMode("simulate"); setDemoKmh(value); }}
+          speed={speed}
+          recommended={recommended}
+          apiBase={API_BASE}
+          onClose={() => setSheetOpen(false)}
+        />
+      ) : null}
     </View>
-  );
-}
-
-function SuggestList({ items, onPick }: { items: Suggestion[]; onPick: (item: Suggestion) => void }) {
-  if (!items.length) return null;
-  return (
-    <View style={styles.suggest}>
-      {items.map((item) => (
-        <Pressable key={item.id || item.label} style={styles.suggestItem} onPress={() => onPick(item)}>
-          <Text style={styles.suggestLabel}>{item.label}</Text>
-          {item.detail ? <Text style={styles.note}>{item.detail}</Text> : null}
-        </Pressable>
-      ))}
-    </View>
-  );
-}
-
-function Tab(props: { label: string; active: boolean; onPress: () => void }) {
-  return (
-    <Pressable style={[styles.tab, props.active && styles.tabOn]} onPress={props.onPress}>
-      <Text style={[styles.tabText, props.active && styles.tabTextOn]}>{props.label}</Text>
-    </Pressable>
-  );
-}
-
-function SpeedStat(props: { label: string; value: string; warn?: boolean; danger?: boolean }) {
-  return (
-    <View style={styles.speedStat}>
-      <Text style={styles.speedLabel}>{props.label}</Text>
-      <Text style={[styles.speedValue, props.warn && styles.warn, props.danger && styles.danger]}>{props.value}</Text>
-    </View>
-  );
-}
-
-function RouteCard(props: { route: ScoredRoute; selected: boolean; onPress: () => void }) {
-  const route = props.route;
-  const stage = route.stage_a_fatal;
-  const stageText = stage == null
-    ? "Stage A fatal: not available"
-    : `Stage A fatal: ${stage.flagged ? "flagged" : "not flagged"}${stage.p_fatal != null ? ` (${Math.round(stage.p_fatal * 100)}%)` : ""}`;
-  return (
-    <Pressable style={[styles.card, props.selected && styles.cardOn]} onPress={props.onPress}>
-      <View style={styles.cardHead}>
-        <Text style={styles.cardTitle}>{route.summary || `Route ${(route.route_index ?? 0) + 1}`}</Text>
-        <Text style={[styles.score, { color: route.tier_color || "#1a56db" }]}>
-          {route.safety_score == null ? "—" : route.safety_score}
-        </Text>
-      </View>
-      <Text style={styles.tier}>{route.tier || "Unscored"} · {route.duration_text || ""} · {route.distance_km ?? "—"} km</Text>
-      <Text style={styles.note}>
-        Recommended {route.recommended_speed_kmh == null ? "—" : `${route.recommended_speed_kmh} km/h`}
-        {" · "}
-        Collision risk {route.collision_risk_index == null ? "—" : route.collision_risk_index}
-      </Text>
-      <Text style={styles.note}>{stageText}. Display only. It is not part of the safety score.</Text>
-      {route.alert_preview ? <Text style={styles.note}>{route.alert_preview}</Text> : null}
-      <Text style={styles.fine}>
-        Alerts: {route.alert_source || "—"} · Weather: {route.e_index_source || "—"} · Vision: {route.vision_source || "—"}
-      </Text>
-      {route.operational_message ? <Text style={styles.note}>{route.operational_message}</Text> : null}
-    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#e8edf3" },
-  mapPane: { flex: 1, minHeight: 220 },
-  topChip: {
-    position: "absolute",
-    top: 12,
-    left: 12,
-    pointerEvents: "none",
-    backgroundColor: "#ffffff",
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: "rgba(22,25,31,0.12)",
-  },
-  brand: { fontWeight: "700", color: "#16191f", fontSize: 14 },
-  engine: { color: "#526072", fontSize: 12, marginTop: 2 },
-  speedCard: {
-    position: "absolute",
-    left: 12,
-    bottom: 12,
-    right: 12,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-    backgroundColor: "rgba(255,255,255,0.96)",
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: "rgba(22,25,31,0.12)",
-  },
-  speedCardAmber: { borderColor: "#8a5a00" },
-  speedCardRed: { borderColor: "#b3261e", backgroundColor: "#fff6f5" },
-  speedCaption: { width: "100%", fontSize: 12, fontWeight: "700", color: "#0d7a45" },
-  speedStat: { minWidth: 64 },
-  speedLabel: { fontSize: 11, color: "#526072", fontWeight: "600" },
-  speedValue: { fontSize: 22, fontWeight: "700", color: "#16191f" },
-  warn: { color: "#8a5a00" },
-  danger: { color: "#b3261e" },
-  sheet: {
-    maxHeight: "58%",
-    backgroundColor: "#ffffff",
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
-    borderWidth: 1,
-    borderColor: "rgba(22,25,31,0.08)",
-  },
-  tabs: { flexDirection: "row", gap: 8, padding: 12, paddingBottom: 0 },
-  tab: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: "#eef2f7" },
-  tabOn: { backgroundColor: "#1a56db" },
-  tabText: { fontWeight: "700", color: "#526072" },
-  tabTextOn: { color: "#ffffff" },
-  sheetBody: { padding: 12, paddingBottom: 28, gap: 8 },
-  field: { gap: 4 },
-  kicker: { fontSize: 12, fontWeight: "700", color: "#526072" },
-  input: {
-    borderWidth: 1,
-    borderColor: "rgba(22,25,31,0.12)",
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-    color: "#16191f",
-    backgroundColor: "#fff",
-  },
-  suggest: { borderWidth: 1, borderColor: "rgba(22,25,31,0.12)", borderRadius: 12, overflow: "hidden" },
-  suggestItem: { paddingHorizontal: 12, paddingVertical: 10, borderTopWidth: 1, borderTopColor: "rgba(22,25,31,0.06)" },
-  suggestLabel: { color: "#16191f", fontWeight: "600" },
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: "#eef2f7" },
-  chipOn: { backgroundColor: "#1a56db" },
-  chipText: { color: "#16191f", fontWeight: "600" },
-  chipTextOn: { color: "#ffffff" },
-  primary: {
-    backgroundColor: "#1a56db",
-    borderRadius: 14,
-    minHeight: 46,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 4,
-  },
-  primaryText: { color: "#ffffff", fontWeight: "700", fontSize: 16 },
-  secondary: { alignSelf: "flex-start", paddingVertical: 6 },
-  secondaryText: { color: "#1a56db", fontWeight: "700" },
-  disabled: { opacity: 0.6 },
-  card: {
-    borderWidth: 1,
-    borderColor: "rgba(22,25,31,0.12)",
-    borderRadius: 16,
-    padding: 12,
-    gap: 4,
-    marginTop: 4,
-  },
-  cardOn: { borderColor: "#1a56db" },
-  cardHead: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
-  cardTitle: { flex: 1, fontWeight: "700", color: "#16191f" },
-  score: { fontSize: 22, fontWeight: "800" },
-  tier: { color: "#16191f", fontWeight: "600" },
-  note: { color: "#526072", fontSize: 13, lineHeight: 18 },
-  point: { color: "#16191f", fontSize: 14, paddingVertical: 2 },
-  status: { color: "#16191f", fontSize: 13, lineHeight: 18, marginTop: 6 },
-  sliderRow: { gap: 8, marginTop: 8 },
-  slider: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  fine: { color: "#8b97a6", fontSize: 11 },
+  root: { flex: 1, backgroundColor: "#0e1620" },
 });

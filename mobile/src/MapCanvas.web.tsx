@@ -40,7 +40,7 @@ export function MapCanvas({ scene }: Props) {
           width: "100%",
           height: "100%",
           border: "0",
-          backgroundColor: "#d5dde6",
+          backgroundColor: "#0e1620",
         },
       })}
     </View>
@@ -48,5 +48,5 @@ export function MapCanvas({ scene }: Props) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, position: "relative", backgroundColor: "#d5dde6" },
+  wrap: { flex: 1, position: "relative", backgroundColor: "#0e1620" },
 });
