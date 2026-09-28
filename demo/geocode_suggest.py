@@ -4,7 +4,7 @@ Default provider is the public Photon (Komoot) API, which is meant for
 typeahead. Nominatim's public service asks callers not to use it for
 autocomplete, so it is only a backup if Photon fails, or an explicit
 GEOCODE_PROVIDER=nominatim choice. Both are capped at one upstream request
-per second and sent with a identifying User-Agent.
+per second and sent with an identifying User-Agent and Referer.
 
 Google Places and Mapbox are optional. Set GEOCODE_PROVIDER and the matching
 key; if the key is missing, suggestions fall back to Photon.
@@ -24,7 +24,10 @@ from urllib.parse import quote
 
 import requests
 
-USER_AGENT = "SmartShieldCapstone/1.0 (Sheridan PAIDA academic demo)"
+# Nominatim's usage policy requires a real application identity and a Referer.
+USER_AGENT = "Smart-Shield-AI/1.0 (capstone; https://github.com/afolabi-adesina-m/Smart-Shield-AI)"
+REFERER = "https://github.com/afolabi-adesina-m/Smart-Shield-AI"
+GEOCODE_HEADERS = {"User-Agent": USER_AGENT, "Referer": REFERER}
 MIN_CHARS = 3
 MAX_CHARS = 120
 RESULT_LIMIT = 6
@@ -228,7 +231,10 @@ def suggestion_from_google_prediction(pred: dict) -> dict:
 
 
 def _get(url: str, params: dict, get: Callable) -> Any:
-    resp = get(url, params=params, headers={"User-Agent": USER_AGENT}, timeout=8)
+    try:
+        resp = get(url, params=params, headers=dict(GEOCODE_HEADERS), timeout=8)
+    except requests.RequestException as exc:
+        raise RuntimeError("Geocoder request failed") from exc
     status = getattr(resp, "status_code", 200)
     if status >= 400:
         raise RuntimeError(f"Geocoder HTTP {status}")
@@ -243,6 +249,11 @@ def _reserve_upstream_slot(min_interval: float) -> None:
         if wait > 0:
             time.sleep(wait)
         _last_upstream = time.time()
+
+
+def reserve_upstream_slot(min_interval: float = MIN_INTERVAL_S) -> None:
+    """Shared pace for autocomplete and single-place lookup (max one upstream call per second)."""
+    _reserve_upstream_slot(min_interval)
 
 
 def _fetch_photon(query: str, lat: float, lon: float, get: Callable) -> List[dict]:

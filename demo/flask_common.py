@@ -21,6 +21,7 @@ from geocode_suggest import (
     resolve_place,
     suggest_places,
 )
+from place_geocode import FRIENDLY_UNAVAILABLE, GeocodeLookupError, geocode_place
 from road_rules import load_demo_route, load_rules, prefetch_corridor, road_context
 from speed_limit import lookup_posted_speed, overpass_urls, safe_speed_kmh
 from vision_runtime import get_vision_runtime
@@ -302,23 +303,19 @@ def register_api_routes(app: Flask) -> None:
         q = (request.args.get("q") or "").strip()
         if not q:
             return jsonify({"error": "Missing query parameter q"}), 400
+        if len(q) > 200:
+            return jsonify({"error": "Query is too long"}), 400
         try:
-            data = _osm_get(NOMINATIM_URL, {
-                "q": q,
-                "format": "json",
-                "limit": 1,
-                "countrycodes": "ca",
-            })
-            if not data:
-                return jsonify({"error": f"Address not found: {q}"}), 404
-            hit = data[0]
-            return jsonify({
-                "lat": float(hit["lat"]),
-                "lon": float(hit["lon"]),
-                "display_name": hit.get("display_name", q),
-            })
-        except Exception as exc:
-            return jsonify({"error": str(exc)}), 502
+            hit = geocode_place(q)
+        except GeocodeLookupError as exc:
+            return jsonify({"error": str(exc)}), exc.status
+        except Exception:
+            return jsonify({"error": FRIENDLY_UNAVAILABLE}), 502
+        return jsonify({
+            "lat": hit["lat"],
+            "lon": hit["lon"],
+            "display_name": hit.get("display_name") or q,
+        })
 
     @app.get("/api/directions")
     def directions():
