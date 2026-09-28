@@ -4,14 +4,14 @@ This is a small app for Android and iPhone. It talks to the same Smart-Shield se
 
 https://smart-shield-ai.onrender.com
 
-You can try it on a real phone with **Expo Go**. This project uses **Expo SDK 54**.
+You can try it on a real phone with **Expo Go** from the store. This project uses **Expo SDK 57**, which matches the current App Store Expo Go (SDK 57) and the current Play Store Expo Go (57.0.9).
 
-- **iPhone:** install Expo Go from the App Store. That store build is SDK 54, which matches this project. You do not need a Mac or an Apple Developer account for that test.
-- **Android:** the Play Store copy of Expo Go was updated on 17 Aug 2026 to version 57.0.9. That copy is SDK 57 and will not open this project. Install the SDK 54 build instead: on the phone, open https://expo.dev/go?device=true&platform=android&sdkVersion=54 and download **Expo Go 54.0.8**. Android may ask you to allow install from that source.
+- **iPhone:** install Expo Go from the App Store. You do not need a Mac or an Apple Developer account for that test.
+- **Android:** install Expo Go from the Play Store.
 
 ## Try it on your phone
 
-1. Install the Expo Go build described above.
+1. Install Expo Go from the App Store or the Play Store.
 2. On the computer, open a terminal in the `mobile` folder. If the folder path contains spaces, put quotes around it when you change directory.
 3. Install the app's packages once:
 
@@ -32,7 +32,7 @@ You can try it on a real phone with **Expo Go**. This project uses **Expo SDK 54
    ```
 
 5. A QR code appears in the terminal.
-   - **Android:** open the SDK 54 Expo Go and scan the QR code.
+   - **Android:** open Expo Go and scan the QR code.
    - **iPhone:** open the Camera app and scan the QR code. It offers to open Expo Go.
 
 The phone and the computer need to be on the same Wi-Fi. If they are not, start with a tunnel instead:
