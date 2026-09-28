@@ -101,6 +101,9 @@
     if (!panel || !button) return;
     button.addEventListener("click", () => {
       const collapsed = panel.classList.toggle("is-collapsed");
+      if (collapsed) panel.classList.remove("is-open");
+      else panel.classList.add("is-open");
+      if (collapsed) document.dispatchEvent(new CustomEvent("smartshield:close-suggest"));
       button.setAttribute("aria-expanded", collapsed ? "false" : "true");
       button.setAttribute("aria-label", collapsed ? "Expand panel" : "Collapse panel");
       const map = window.SmartShieldMap && window.SmartShieldMap();

@@ -9,7 +9,10 @@ export type ManeuverKind =
   | "slight-left"
   | "slight-right"
   | "uturn"
-  | "arrive";
+  | "arrive"
+  | "merge"
+  | "roundabout"
+  | "exit";
 
 export type Maneuver = {
   kind: ManeuverKind;
@@ -156,8 +159,181 @@ export function instructionSpeech(maneuver: Maneuver): string {
     "slight-left": "bear left",
     "slight-right": "bear right",
     uturn: "make a U-turn",
+    merge: "merge",
+    roundabout: "enter the roundabout",
+    exit: "take the exit",
   }[maneuver.kind];
-  return `${lead}${turn} onto ${maneuver.street}`.trim();
+  return `${lead}${turn || "continue"} onto ${maneuver.street}`.trim();
+}
+
+export const ALERT_WINDOW_M = 1500;
+export const ALERT_CORRIDOR_M = 80;
+const PASSED_M = 35;
+
+export type RoadStepLike = {
+  name?: string;
+  type?: string;
+  modifier?: string;
+  location?: [number, number] | null;
+  geometry?: [number, number][];
+};
+
+export function maneuverKindFromStep(step: RoadStepLike): ManeuverKind {
+  const type = (step.type || "").replace(/[_-]/g, " ").trim().toLowerCase();
+  const modifier = (step.modifier || "").trim().toLowerCase();
+  if (type === "arrive") return "arrive";
+  if (type.includes("roundabout") || type === "rotary") return "roundabout";
+  if (type === "merge") return "merge";
+  if (type === "off ramp" || type === "fork" || type === "exit roundabout") return "exit";
+  if (modifier === "uturn") return "uturn";
+  if (modifier === "sharp left" || modifier === "left") return "left";
+  if (modifier === "sharp right" || modifier === "right") return "right";
+  if (modifier === "slight left") return "slight-left";
+  if (modifier === "slight right") return "slight-right";
+  return "straight";
+}
+
+function stepPoint(step: RoadStepLike): { lat: number; lon: number } | null {
+  if (step.location && step.location.length >= 2) return { lat: step.location[1], lon: step.location[0] };
+  const first = step.geometry && step.geometry[0];
+  if (first && first.length >= 2) return { lat: first[1], lon: first[0] };
+  return null;
+}
+
+function segmentT(a: LatLon, b: LatLon, lat: number, lon: number): number {
+  const midLat = ((a[0] + b[0]) / 2) * Math.PI / 180;
+  const lonScale = Math.cos(midLat) * 111320;
+  const dx = (b[1] - a[1]) * lonScale;
+  const dy = (b[0] - a[0]) * 111320;
+  const len2 = dx * dx + dy * dy;
+  if (len2 < 1) return 0;
+  const px = (lon - a[1]) * lonScale;
+  const py = (lat - a[0]) * 111320;
+  return Math.max(0, Math.min(1, (px * dx + py * dy) / len2));
+}
+
+export function projectAlong(line: LatLon[], lat: number, lon: number): { alongM: number; offM: number } {
+  if (!line.length) return { alongM: 0, offM: Infinity };
+  if (line.length === 1) return { alongM: 0, offM: haversineM(lat, lon, line[0][0], line[0][1]) };
+  let along = 0;
+  let best = { alongM: 0, offM: Infinity };
+  for (let index = 1; index < line.length; index += 1) {
+    const start = line[index - 1];
+    const end = line[index];
+    const length = haversineM(start[0], start[1], end[0], end[1]);
+    const t = segmentT(start, end, lat, lon);
+    const latP = start[0] + (end[0] - start[0]) * t;
+    const lonP = start[1] + (end[1] - start[1]) * t;
+    const off = haversineM(lat, lon, latP, lonP);
+    if (off < best.offM) best = { alongM: along + length * t, offM: off };
+    along += length;
+  }
+  return best;
+}
+
+export function upcomingManeuvers(
+  steps: RoadStepLike[],
+  line: LatLon[],
+  lat: number,
+  lon: number,
+): { current: Maneuver | null; then: Maneuver | null } {
+  const user = projectAlong(line, lat, lon);
+  const placed = steps.map((step) => {
+    const point = stepPoint(step);
+    if (!point) return null;
+    const alongM = line.length >= 2 ? projectAlong(line, point.lat, point.lon).alongM : 0;
+    return { step, point, alongM };
+  }).filter((item): item is { step: RoadStepLike; point: { lat: number; lon: number }; alongM: number } => item != null);
+  placed.sort((a, b) => a.alongM - b.alongM);
+  const upcoming = placed.filter((item) => item.alongM - user.alongM >= -PASSED_M);
+  while (
+    upcoming.length > 1
+    && upcoming[0].alongM - user.alongM < 40
+    && (upcoming[0].step.type || "").toLowerCase() === "depart"
+  ) {
+    upcoming.shift();
+  }
+  const toManeuver = (item: typeof placed[number]): Maneuver => ({
+    kind: maneuverKindFromStep(item.step),
+    distanceM: Math.max(0, item.alongM - user.alongM),
+    street: item.step.name || "Unnamed road",
+    shield: shieldFrom(item.step.name),
+    atLat: item.point.lat,
+    atLon: item.point.lon,
+  });
+  if (!upcoming.length) return { current: null, then: null };
+  return {
+    current: toManeuver(upcoming[0]),
+    then: upcoming[1] ? toManeuver(upcoming[1]) : null,
+  };
+}
+
+export function featuresAhead<T extends { lat: number; lon: number }>(
+  features: T[],
+  line: LatLon[],
+  lat: number,
+  lon: number,
+  windowM = ALERT_WINDOW_M,
+  corridorM = ALERT_CORRIDOR_M,
+): T[] {
+  if (line.length < 2) return [];
+  const user = projectAlong(line, lat, lon);
+  return features.filter((feature) => {
+    const projected = projectAlong(line, feature.lat, feature.lon);
+    if (projected.offM > corridorM) return false;
+    const ahead = projected.alongM - user.alongM;
+    return ahead >= -PASSED_M && ahead <= windowM;
+  });
+}
+
+export function featuresAlongRoute<T extends { lat: number; lon: number }>(
+  features: T[],
+  line: LatLon[],
+  corridorM = ALERT_CORRIDOR_M,
+): T[] {
+  if (line.length < 2) return [];
+  return features.filter((feature) => projectAlong(line, feature.lat, feature.lon).offM <= corridorM);
+}
+
+export function pointAlong(line: LatLon[], meters: number): {
+  lat: number;
+  lon: number;
+  bearing: number;
+  alongM: number;
+  done: boolean;
+} {
+  if (!line.length) return { lat: 0, lon: 0, bearing: 0, alongM: 0, done: true };
+  const first = line[0];
+  if (meters <= 0 || line.length === 1) {
+    const next = line[Math.min(1, line.length - 1)];
+    return {
+      lat: first[0],
+      lon: first[1],
+      bearing: line.length > 1 ? bearingDeg(first[0], first[1], next[0], next[1]) : 0,
+      alongM: 0,
+      done: line.length < 2,
+    };
+  }
+  let walked = 0;
+  for (let index = 1; index < line.length; index += 1) {
+    const start = line[index - 1];
+    const end = line[index];
+    const length = haversineM(start[0], start[1], end[0], end[1]);
+    if (walked + length >= meters || index === line.length - 1) {
+      const remain = Math.max(0, meters - walked);
+      const t = length > 1 ? Math.min(1, remain / length) : 1;
+      return {
+        lat: start[0] + (end[0] - start[0]) * t,
+        lon: start[1] + (end[1] - start[1]) * t,
+        bearing: bearingDeg(start[0], start[1], end[0], end[1]),
+        alongM: walked + length * t,
+        done: t >= 1 && index === line.length - 1,
+      };
+    }
+    walked += length;
+  }
+  const last = line[line.length - 1];
+  return { lat: last[0], lon: last[1], bearing: 0, alongM: walked, done: true };
 }
 
 export function formatClock(date: Date): string {

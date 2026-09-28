@@ -25,7 +25,10 @@
     signCell: "",
     cameraCell: "",
     cameras: [],
+    signs: [],
     torontoCameras: null,
+    navigating: false,
+    maneuver: null,
     spokenCameras: {},
     lastCameraSpeech: 0,
     posted: null,
@@ -237,6 +240,7 @@
   }
 
   function openTools(which) {
+    document.body.classList.add("nav-tools-open");
     const panel = document.getElementById("side-panel");
     if (panel) {
       panel.classList.remove("is-collapsed");
@@ -270,20 +274,29 @@
     )).join("");
     return `
       <div id="nav-chrome" class="nav-chrome">
+        <button type="button" id="nav-search-pill" class="nav-search-pill">
+          <span class="nav-search-pill-text">Search an address or place</span>
+          <span class="nav-search-pill-go">Directions</span>
+        </button>
         <div id="nav-banner" class="nav-banner" hidden>
-          <div id="nav-turn" class="nav-turn" aria-hidden="true"></div>
+          <button type="button" id="nav-turn" class="nav-turn" aria-label="Show the next turn"></button>
           <div class="nav-banner-copy">
             <div id="nav-distance" class="nav-distance"></div>
             <div class="nav-street-row">
               <span id="nav-shield" class="nav-shield" hidden></span>
               <div id="nav-street" class="nav-street"></div>
             </div>
+            <div id="nav-then" class="nav-then" hidden></div>
           </div>
         </div>
         <div class="nav-side">
           <div class="nav-side-stack">
             <button type="button" id="nav-compass" class="nav-round" aria-label="Compass">
               <span id="nav-needle" class="nav-needle" aria-hidden="true"></span>
+            </button>
+            <button type="button" id="nav-recenter" class="nav-round" aria-label="Recenter" hidden>◎</button>
+            <button type="button" id="nav-layers" class="nav-round" aria-label="Settings">
+              <span class="nav-layers-icon" aria-hidden="true"></span>
             </button>
             <button type="button" id="nav-search" class="nav-round" aria-label="Search">
               <span class="nav-search-icon" aria-hidden="true"></span>
@@ -294,11 +307,11 @@
             <button type="button" id="nav-routes" class="nav-round" aria-label="Route options">
               <span class="nav-fork" aria-hidden="true"></span>
             </button>
+            <button type="button" id="nav-report" class="nav-report">
+              <span class="nav-warn" aria-hidden="true"></span>
+              Report
+            </button>
           </div>
-          <button type="button" id="nav-report" class="nav-report">
-            <span class="nav-warn" aria-hidden="true"></span>
-            Report
-          </button>
         </div>
         <section id="nav-card" class="nav-card" aria-label="Trip">
           <button type="button" id="nav-where" class="nav-card-main">
@@ -308,10 +321,10 @@
           <div id="nav-eta" class="nav-card-main" hidden>
             <strong id="nav-eta-title">—</strong>
             <span id="nav-eta-sub"></span>
+            <span id="nav-score" class="nav-score" hidden></span>
           </div>
           <button type="button" id="nav-exit" class="nav-exit" hidden>Exit</button>
         </section>
-        <p class="camera-disclaimer">Camera locations from OpenStreetMap and City of Toronto open data; may be incomplete.</p>
         <div id="nav-report-layer" class="nav-report-layer" hidden>
           <button type="button" id="nav-report-back" class="nav-report-back" aria-label="Close report"></button>
           <div class="nav-report-sheet" role="dialog" aria-labelledby="nav-report-title">
@@ -327,6 +340,9 @@
 
   function turnMarkup(kind) {
     if (kind === "arrive") return '<span class="nav-arrive"></span>';
+    if (kind === "roundabout") return '<span class="nav-roundabout"></span>';
+    if (kind === "merge") return '<span class="nav-merge"></span>';
+    if (kind === "exit") return '<span class="nav-arrow nav-exit-arrow"></span>';
     const rotate = {
       straight: 0,
       left: -90,
@@ -359,6 +375,18 @@
       shield.textContent = "";
     }
     document.getElementById("nav-street").textContent = maneuver.street;
+    const thenRow = document.getElementById("nav-then");
+    const follow = maneuver.then;
+    if (thenRow) {
+      if (!follow || !follow.kind) {
+        thenRow.hidden = true;
+        thenRow.innerHTML = "";
+      } else {
+        thenRow.hidden = false;
+        thenRow.innerHTML = `<span class="nav-then-label">Then</span><span class="nav-then-icon">${turnMarkup(follow.kind)}</span><span class="nav-then-street"></span>`;
+        thenRow.querySelector(".nav-then-street").textContent = follow.street || "Unnamed road";
+      }
+    }
   }
 
   function renderEta() {
@@ -372,6 +400,7 @@
       eta.hidden = true;
       exit.hidden = true;
       renderManeuver(null);
+      paintFeatures();
       return;
     }
     const line = toLatLon(route.geometry);
@@ -380,10 +409,21 @@
     const needle = document.getElementById("nav-needle");
     if (needle) needle.style.transform = `rotate(${state.headingUp ? 0 : -state.bearing}deg)`;
     const dest = route.destination || "Destination";
-    const maneuver = nextManeuver(progress.ahead, state.roadName, dest);
-    if (state.roadName) maneuver.shield = maneuver.shield || shieldFrom(state.roadName);
-    renderManeuver(maneuver);
-    maybeSpeakTurn(maneuver);
+    const guide = window.NavProgress && route.steps && route.steps.length
+      ? window.NavProgress.upcomingManeuvers(route.steps, line, pos.lat, pos.lon)
+      : { current: nextManeuver(progress.ahead, state.roadName, dest), then: null };
+    const maneuver = guide.current;
+    if (maneuver) {
+      maneuver.then = guide.then;
+      if (!maneuver.shield) maneuver.shield = shieldFrom(maneuver.street);
+    }
+    state.maneuver = maneuver;
+    if (state.navigating) {
+      renderManeuver(maneuver);
+      maybeSpeakTurn(maneuver);
+    } else {
+      renderManeuver(null);
+    }
 
     const totalM = route.distanceM || pathLength(line) || 1;
     const fraction = Math.min(1, Math.max(0, progress.aheadM / totalM));
@@ -399,11 +439,25 @@
       ? `${Math.max(1, Math.round(progress.aheadM))} m`
       : `${(progress.aheadM / 1000).toFixed(progress.aheadM < 10000 ? 1 : 0)} km`;
     const clock = new Date(Date.now() + seconds * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    if (!state.navigating) {
+      where.hidden = true;
+      eta.hidden = true;
+      exit.hidden = true;
+      paintFeatures();
+      return;
+    }
     where.hidden = true;
     eta.hidden = false;
     exit.hidden = false;
-    document.getElementById("nav-eta-title").textContent = title;
-    document.getElementById("nav-eta-sub").textContent = arriving ? shortPlace(dest) : `${distance} · ${clock}`;
+    document.getElementById("nav-eta-title").textContent = clock;
+    document.getElementById("nav-eta-sub").textContent = arriving ? shortPlace(dest) : `${title} · ${distance}`;
+    const score = document.getElementById("nav-score");
+    if (score) {
+      const value = route.safetyScore;
+      score.hidden = value == null || value === "";
+      score.textContent = value == null || value === "" ? "" : `Risk ${value}`;
+    }
+    paintFeatures();
     if (state.following) followCamera();
   }
 
@@ -443,6 +497,66 @@
   let signLayer = null;
   let cameraLayer = null;
   let reportLayer = null;
+  let dotLayer = null;
+
+  function routeLine() {
+    return state.route && state.route.geometry ? toLatLon(state.route.geometry) : [];
+  }
+
+  function setFeatureCount(count) {
+    const chip = document.getElementById("feature-count");
+    if (!chip) return;
+    const show = !state.navigating && count > 0;
+    chip.hidden = !show;
+    chip.textContent = count === 1 ? "1 alert on this route" : `${count} alerts on this route`;
+  }
+
+  function drawDots(features) {
+    const leaflet = map();
+    if (!leaflet || !window.L) return;
+    if (!dotLayer) dotLayer = window.L.layerGroup().addTo(leaflet);
+    dotLayer.clearLayers();
+    (features || []).forEach((feature) => {
+      window.L.circleMarker([feature.lat, feature.lon], {
+        radius: 4,
+        color: "#ffffff",
+        weight: 1,
+        fillColor: feature.kind === "stop" || feature.kind === "stop-all" ? "#d93025" : "#f5c542",
+        fillOpacity: 0.85,
+        interactive: false,
+      }).addTo(dotLayer);
+    });
+  }
+
+  function paintFeatures() {
+    const progressApi = window.NavProgress;
+    const line = routeLine();
+    const pos = state.position;
+    if (!progressApi || !pos || line.length < 2) {
+      drawSigns([]);
+      drawCameras([]);
+      drawDots([]);
+      setFeatureCount(0);
+      return;
+    }
+    if (state.navigating) {
+      drawDots([]);
+      drawSigns(progressApi.featuresAhead(state.signs, line, pos.lat, pos.lon));
+      drawCameras(cameraAlertsOn()
+        ? progressApi.featuresAhead(state.cameras, line, pos.lat, pos.lon)
+        : []);
+      setFeatureCount(0);
+      return;
+    }
+    const along = progressApi.featuresAlongRoute(
+      (state.signs || []).concat(cameraAlertsOn() ? state.cameras || [] : []),
+      line,
+    );
+    drawSigns([]);
+    drawCameras([]);
+    drawDots(along);
+    setFeatureCount(along.length);
+  }
 
   function cameraAlertsOn() {
     try { return localStorage.getItem(CAMERA_KEY) !== "0"; } catch (err) { return true; }
@@ -518,13 +632,13 @@
       }
     }
     state.cameras = api.dedupeCameras(osm || [], state.torontoCameras || []);
-    drawCameras(state.cameras.filter((item) => api.haversineM(item.lat, item.lon, lat, lon) < 2500));
+    paintFeatures();
     maybeSpeakCameras();
   }
 
   function maybeSpeakCameras() {
     const api = window.SmartShieldCameras;
-    if (!api || !state.position || !state.cameras.length) return;
+    if (!state.navigating || !api || !state.position || !state.cameras.length) return;
     if (state.muted || !cameraAlertsOn()) return;
     if (Date.now() - state.lastCameraSpeech < 4000) return;
     const lat = state.position.lat;
@@ -606,7 +720,8 @@
     try {
       const saved = JSON.parse(localStorage.getItem(cacheKey) || "null");
       if (saved && saved.at && Date.now() - saved.at < 6 * 60 * 60 * 1000 && Array.isArray(saved.signs)) {
-        drawSigns(saved.signs);
+        state.signs = saved.signs;
+        paintFeatures();
         return;
       }
     } catch (err) { /* lookup again */ }
@@ -636,7 +751,8 @@
       try {
         localStorage.setItem(cacheKey, JSON.stringify({ at: Date.now(), signs }));
       } catch (err) { /* cache is optional */ }
-      drawSigns(signs);
+      state.signs = signs;
+      paintFeatures();
     } catch (err) {
       /* Best effort. A missed lookup leaves the previous icons, or none. */
     } finally {
@@ -656,17 +772,70 @@
       document.getElementById("nav-compass").setAttribute("aria-label", state.headingUp ? "Heading up" : "North up");
       recenter();
     });
+    const recenterBtn = document.getElementById("nav-recenter");
+    if (recenterBtn) {
+      recenterBtn.addEventListener("click", () => {
+        state.following = true;
+        recenterBtn.hidden = true;
+        recenter();
+      });
+    }
+    const turnBtn = document.getElementById("nav-turn");
+    if (turnBtn) {
+      turnBtn.addEventListener("click", () => {
+        const leaflet = map();
+        const maneuver = state.maneuver;
+        if (!leaflet || !maneuver) return;
+        leaflet.setView([maneuver.atLat, maneuver.atLon], Math.max(leaflet.getZoom() || 0, 16), { animate: true });
+      });
+    }
+    const layers = document.getElementById("nav-layers");
+    const settings = document.getElementById("nav-settings");
+    if (layers && settings) {
+      layers.addEventListener("click", () => { settings.hidden = false; });
+    }
+    const settingsClose = document.getElementById("nav-settings-close");
+    const settingsBack = document.getElementById("nav-settings-back");
+    if (settings) {
+      if (settingsClose) settingsClose.addEventListener("click", () => { settings.hidden = true; });
+      if (settingsBack) settingsBack.addEventListener("click", () => { settings.hidden = true; });
+    }
+    const voice = document.getElementById("nav-voice");
+    if (voice) {
+      voice.checked = !state.muted;
+      voice.addEventListener("change", () => {
+        state.muted = !voice.checked;
+        saveMuted(state.muted);
+        mute.setAttribute("aria-pressed", state.muted ? "true" : "false");
+        mute.setAttribute("aria-label", state.muted ? "Unmute voice" : "Mute voice");
+        mute.classList.toggle("is-muted", state.muted);
+        if (state.muted && window.speechSynthesis) window.speechSynthesis.cancel();
+      });
+    }
     document.getElementById("nav-search").addEventListener("click", () => {
       openTools("directions");
       const input = document.getElementById("map-search-input") || document.getElementById("destination");
       if (input) input.focus();
     });
+    const searchPill = document.getElementById("nav-search-pill");
+    if (searchPill) {
+      searchPill.addEventListener("click", (event) => {
+        const directions = event.target.closest(".nav-search-pill-go");
+        openTools("directions");
+        const input = directions
+          ? document.getElementById("destination")
+          : (document.getElementById("map-search-input") || document.getElementById("destination"));
+        if (input) input.focus();
+      });
+    }
     mute.addEventListener("click", () => {
       state.muted = !state.muted;
       saveMuted(state.muted);
       mute.setAttribute("aria-pressed", state.muted ? "true" : "false");
       mute.setAttribute("aria-label", state.muted ? "Unmute voice" : "Mute voice");
       mute.classList.toggle("is-muted", state.muted);
+      const voiceBox = document.getElementById("nav-voice");
+      if (voiceBox) voiceBox.checked = !state.muted;
       if (state.muted && window.speechSynthesis) window.speechSynthesis.cancel();
     });
     const cameraBox = document.getElementById("camera-alerts");
@@ -674,6 +843,7 @@
       cameraBox.checked = cameraAlertsOn();
       cameraBox.addEventListener("change", () => {
         try { localStorage.setItem(CAMERA_KEY, cameraBox.checked ? "1" : "0"); } catch (err) { /* ignore */ }
+        paintFeatures();
       });
     }
     document.getElementById("nav-routes").addEventListener("click", () => {
@@ -688,12 +858,48 @@
       const input = document.getElementById("destination") || document.getElementById("map-search-input");
       if (input) input.focus();
     });
-    document.getElementById("nav-exit").addEventListener("click", () => {
-      state.route = null;
+    function leaveNavigation() {
+      state.navigating = false;
+      state.following = false;
       state.spokenTurn = "";
+      document.body.classList.remove("is-navigating");
+      document.body.classList.remove("nav-tools-open");
+      const panel = document.getElementById("side-panel");
+      const sheet = document.getElementById("bottom-sheet");
+      if (panel) panel.classList.remove("is-collapsed");
+      if (sheet) sheet.classList.remove("is-hidden");
+      const recenterButton = document.getElementById("nav-recenter");
+      if (recenterButton) recenterButton.hidden = true;
+    }
+    document.getElementById("nav-exit").addEventListener("click", () => {
+      const drive = document.getElementById("speed-drive");
+      if (drive && drive.textContent.trim() === "Stop") drive.click();
+      state.route = null;
+      leaveNavigation();
       document.dispatchEvent(new CustomEvent("smartshield:clear-nav"));
       const status = document.getElementById("status");
       if (status) status.textContent = "Set a start and destination.";
+      renderEta();
+    });
+    document.addEventListener("smartshield:start-nav", () => {
+      if (!state.route || !state.route.geometry) return;
+      state.navigating = true;
+      state.following = true;
+      state.headingUp = true;
+      state.spokenTurn = "";
+      document.body.classList.add("is-navigating");
+      const panel = document.getElementById("side-panel");
+      const sheet = document.getElementById("bottom-sheet");
+      if (panel) {
+        panel.classList.add("is-collapsed");
+        panel.classList.remove("is-open");
+      }
+      if (sheet) sheet.classList.add("is-hidden");
+      const line = toLatLon(state.route.geometry);
+      if (line[0] && window.SmartShieldSetLocation) {
+        window.SmartShieldSetLocation(line[0][0], line[0][1], "nav-start");
+      }
+      recenter();
       renderEta();
     });
     document.getElementById("nav-report").addEventListener("click", () => {
@@ -719,6 +925,9 @@
     });
     document.addEventListener("smartshield:clear-nav", () => {
       state.route = null;
+      state.navigating = false;
+      document.body.classList.remove("is-navigating");
+      document.body.classList.remove("nav-tools-open");
       renderEta();
     });
     document.addEventListener("smartshield:road", (event) => {
@@ -743,8 +952,11 @@
       }
       renderEta();
     });
-    document.addEventListener("smartshield:usermove", () => {
+    document.addEventListener("smartshield:usermove", (event) => {
+      if (!event.detail || event.detail.reason !== "pan") return;
       state.following = false;
+      const button = document.getElementById("nav-recenter");
+      if (button && state.navigating) button.hidden = false;
     });
 
     const panel = document.getElementById("side-panel");
@@ -754,11 +966,13 @@
     }
     const collapse = document.getElementById("panel-collapse");
     if (collapse) {
-      collapse.addEventListener("click", () => {
-        if (panel && panel.classList.contains("is-collapsed")) panel.classList.remove("is-open");
-        else if (panel) panel.classList.add("is-open");
-        setTimeout(syncDock, 40);
-      });
+      collapse.addEventListener("click", () => setTimeout(() => {
+        syncDock();
+        const panel = document.getElementById("side-panel");
+        if (panel && panel.classList.contains("is-collapsed")) {
+          document.body.classList.remove("nav-tools-open");
+        }
+      }, 40));
     }
     window.addEventListener("resize", syncDock);
     document.addEventListener("DOMContentLoaded", () => {

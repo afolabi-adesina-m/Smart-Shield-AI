@@ -24,6 +24,7 @@ function mountMapSearch() {
     <svg class="icon search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M16 16.5 20 20.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
     <input id="map-search-input" type="search" enterkeyhint="search"
       placeholder="Search an address or place" aria-label="Search an address or place" />
+    <button type="button" id="map-directions" class="map-directions">Directions</button>
     <div id="map-search-assign" class="address-assign" hidden>
       <button type="button" data-assign="origin">Set as From</button>
       <button type="button" data-assign="destination">Set as To</button>
@@ -41,6 +42,22 @@ function mountMapSearch() {
       assign.dataset.lon = place.lon;
     },
   });
+  const directions = box.querySelector("#map-directions");
+  if (directions) {
+    directions.addEventListener("click", () => {
+      const section = document.querySelector('.panel-section[data-panel-action="directions"]');
+      if (section) section.open = true;
+      const panel = document.getElementById("side-panel");
+      if (panel) {
+        panel.classList.remove("is-collapsed");
+        panel.classList.add("is-open");
+      }
+      const sheet = document.getElementById("bottom-sheet");
+      if (sheet && typeof setSheetState === "function") setSheetState("half");
+      const dest = document.getElementById("destination");
+      if (dest) dest.focus();
+    });
+  }
   assign.addEventListener("click", (e) => {
     const btn = e.target.closest("button[data-assign]");
     if (!btn) return;
@@ -113,12 +130,21 @@ function attachAddressField(input, options) {
   function placeList() {
     const rect = input.getBoundingClientRect();
     const hud = document.getElementById("speed-panel");
-    const limitBottom = hud ? hud.getBoundingClientRect().top - 12 : window.innerHeight - 16;
-    const space = Math.max(120, limitBottom - rect.bottom - 8);
+    const foot = document.querySelector(".panel-foot, .sheet-foot");
+    let limitBottom = window.innerHeight - 16;
+    if (hud) limitBottom = Math.min(limitBottom, hud.getBoundingClientRect().top - 12);
+    if (foot) limitBottom = Math.min(limitBottom, foot.getBoundingClientRect().top - 8);
+    const below = limitBottom - rect.bottom - 8;
     list.style.left = Math.max(8, rect.left) + "px";
-    list.style.top = (rect.bottom + 4) + "px";
     list.style.width = Math.max(180, rect.width) + "px";
-    list.style.maxHeight = Math.min(320, space) + "px";
+    if (below >= 96) {
+      list.style.top = (rect.bottom + 4) + "px";
+      list.style.maxHeight = Math.min(320, below) + "px";
+      return;
+    }
+    const above = Math.max(96, Math.min(280, rect.top - 12));
+    list.style.maxHeight = above + "px";
+    list.style.top = Math.max(8, rect.top - above - 4) + "px";
   }
 
   function close() {
@@ -278,6 +304,8 @@ function attachAddressField(input, options) {
     if (box && box.contains(e.target)) return;
     close();
   });
+  document.addEventListener("smartshield:start-nav", close);
+  document.addEventListener("smartshield:close-suggest", close);
 
   return { close };
 }

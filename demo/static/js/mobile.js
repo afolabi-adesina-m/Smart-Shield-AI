@@ -84,7 +84,9 @@ function initBottomSheet() {
 
   handle.addEventListener("click", () => {
     const i = states.indexOf(sheet.dataset.state);
-    setSheetState(states[Math.min(i + 1, states.length - 1)]);
+    const next = i >= states.length - 1 ? "peek" : states[i + 1];
+    setSheetState(next);
+    if (next === "peek") document.body.classList.remove("nav-tools-open");
   });
 
   handle.addEventListener("touchstart", (e) => {
@@ -184,6 +186,7 @@ async function findRoutes() {
     document.getElementById("results-block").hidden = false;
     renderHighRiskBanner(lastScoredRoutes);
     renderRouteCards(lastScoredRoutes);
+    renderRoutePreview(lastScoredRoutes);
     drawRoutesOnMap(lastOsrmRoutes, selectedIndex, o, d);
     const safetyCard = document.getElementById("safety-card");
     if (safetyCard) safetyCard.hidden = false;
@@ -281,6 +284,56 @@ function renderHighRiskBanner(scored) {
     <ul class="guidance-steps">${steps}</ul>
     <p class="relative-speed">${escapeHtml(relativeSpeedText(worst))}</p>
   `;
+}
+
+function renderRoutePreview(scored) {
+  const box = document.getElementById("route-preview");
+  if (!box) return;
+  box.innerHTML = "";
+  if (!scored || !scored.length) {
+    box.hidden = true;
+    return;
+  }
+  box.hidden = false;
+  const sorted = [...scored].sort((a, b) => (a.safety_rank || 0) - (b.safety_rank || 0));
+  sorted.forEach((route) => {
+    const card = document.createElement("article");
+    card.className = "route-preview-card" + (route.route_index === selectedIndex ? " is-selected" : "");
+    const copy = document.createElement("div");
+    const title = document.createElement("strong");
+    title.textContent = route.duration_text || route.summary || "Route";
+    const meta = document.createElement("span");
+    meta.textContent = `${route.distance_km} km · ${route.summary || "Route"}`;
+    const chip = document.createElement("em");
+    chip.textContent = `Risk ${scoreLabel(route.safety_score)}`;
+    copy.appendChild(title);
+    copy.appendChild(meta);
+    copy.appendChild(chip);
+    const start = document.createElement("button");
+    start.type = "button";
+    start.className = "route-start";
+    start.textContent = "Start";
+    start.addEventListener("click", (event) => {
+      event.stopPropagation();
+      selectedIndex = route.route_index;
+      drawRoutesOnMap(lastOsrmRoutes, selectedIndex);
+      document.dispatchEvent(new CustomEvent("smartshield:start-nav"));
+    });
+    card.addEventListener("click", () => {
+      selectedIndex = route.route_index;
+      document.querySelectorAll(".route-preview-card").forEach((el) => el.classList.remove("is-selected"));
+      card.classList.add("is-selected");
+      drawRoutesOnMap(lastOsrmRoutes, selectedIndex);
+      if (typeof setSheetState === "function") setSheetState("half");
+    });
+    card.appendChild(copy);
+    card.appendChild(start);
+    box.appendChild(card);
+  });
+  const firstStart = box.querySelector(".route-start");
+  if (firstStart && window.matchMedia("(max-width: 860px)").matches) {
+    requestAnimationFrame(() => firstStart.scrollIntoView({ block: "center", inline: "nearest" }));
+  }
 }
 
 function renderRouteCards(scored) {
@@ -397,6 +450,8 @@ function drawRoutesOnMap(routes, activeIndex, origin = null, dest = null) {
         distanceM: route.distance,
         durationS: route.duration,
         destination: (dest && dest.display_name) || (destInput && destInput.value) || "Destination",
+        steps: route.steps || [],
+        safetyScore: (lastScoredRoutes.find((item) => item.route_index === activeIndex) || {}).safety_score,
       },
     }));
   }
