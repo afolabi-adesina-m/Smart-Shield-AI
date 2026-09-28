@@ -14,6 +14,16 @@ export type Suggestion = {
   lon: number | null;
 };
 
+export type RoadStep = {
+  name: string;
+  distance: number;
+  location: [number, number] | null;
+  geometry: [number, number][];
+  type: string;
+  modifier: string;
+  instruction: string;
+};
+
 export type OsrmRoute = {
   distance: number;
   duration: number;
@@ -21,6 +31,7 @@ export type OsrmRoute = {
   geometry: [number, number][];
   mid_lat: number | null;
   mid_lon: number | null;
+  steps?: RoadStep[];
 };
 
 export type StageA = {
@@ -135,6 +146,20 @@ export type MapHeat = {
   kind: "estimate" | "order";
 };
 
+export type MapPreview = {
+  name: string;
+  coords: [number, number][];
+  lat: number;
+  lon: number;
+};
+
+export type MapStep = {
+  name: string;
+  coords: [number, number][];
+  lat: number;
+  lon: number;
+};
+
 export type MapScene = {
   routes: MapRoute[];
   markers: MapMarker[];
@@ -144,4 +169,6 @@ export type MapScene = {
   camera: "follow" | "fit";
   headingUp: boolean;
   night: boolean;
+  steps: MapStep[];
+  preview: MapPreview | null;
 };

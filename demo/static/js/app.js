@@ -45,6 +45,7 @@ function initMap() {
     routeLayers.forEach((layer) => map.removeLayer(layer));
     routeLayers = [];
     if (markerGroup) markerGroup.clearLayers();
+    clearDirectionPreview();
   });
 
   L.control.zoom({ position: "bottomright" }).addTo(map);
@@ -351,6 +352,7 @@ function drawRoutesOnMap(routes, activeIndex, origin = null, dest = null) {
   const scored = lastScoredRoutes.find((r) => r.route_index === activeIndex);
   if (scored) updateMapBadge(scored);
   publishNavRoute(routes, activeIndex, dest);
+  showDirectionSteps(routes, activeIndex);
 }
 
 function publishNavRoute(routes, activeIndex, dest) {
@@ -365,6 +367,25 @@ function publishNavRoute(routes, activeIndex, dest) {
       destination: (dest && dest.display_name) || (destInput && destInput.value) || "Destination",
     },
   }));
+}
+
+function clearDirectionPreview() {
+  if (window.RoadPreview && map) window.RoadPreview.clear(map, true);
+  const list = document.getElementById("direction-steps");
+  if (list) {
+    list.innerHTML = "";
+    list.hidden = true;
+  }
+  const label = document.getElementById("direction-steps-label");
+  if (label) label.hidden = true;
+}
+
+function showDirectionSteps(routes, activeIndex) {
+  if (!window.RoadPreview || !map) return;
+  window.RoadPreview.clear(map, true);
+  window.RoadPreview.attachHits(map, routes, routeLayers);
+  const route = routes && routes[activeIndex];
+  window.RoadPreview.fillList(map, document.getElementById("direction-steps"), (route && route.steps) || []);
 }
 
 function updateMapBadge(route) {

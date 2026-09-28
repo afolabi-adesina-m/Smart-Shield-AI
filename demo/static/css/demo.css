@@ -235,6 +235,76 @@ input:focus, select:focus, .weather-select:focus {
 #routes-section { padding: 0 14px 14px; border-top: 1px solid var(--line); }
 #routes-section h2 { margin: 12px 0 8px; font-size: 14px; font-weight: 650; }
 
+.direction-label {
+  margin: 12px 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.direction-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.direction-step {
+  position: relative;
+  padding: 8px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.direction-step:hover,
+.direction-step.is-preview,
+.direction-step:focus-visible {
+  background: rgba(20, 104, 92, 0.1);
+  outline: none;
+}
+
+.direction-instruction {
+  display: block;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.road-name-tip {
+  display: none;
+  position: absolute;
+  left: 10px;
+  top: calc(100% - 4px);
+  z-index: 6;
+  background: #16191f;
+  color: #fff;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
+  pointer-events: none;
+}
+
+.direction-step:hover .road-name-tip,
+.direction-step.is-preview .road-name-tip,
+.direction-step:focus-visible .road-name-tip {
+  display: block;
+}
+
+.leaflet-tooltip.road-preview-tip {
+  background: #16191f;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
+}
+
+.leaflet-tooltip.road-preview-tip::before {
+  border-top-color: #16191f;
+}
+
 .route-card {
   border: 1px solid var(--line);
   border-radius: 14px;

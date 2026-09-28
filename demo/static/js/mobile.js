@@ -51,6 +51,7 @@ function initMap() {
     routeLayers.forEach((layer) => map.removeLayer(layer));
     routeLayers = [];
     if (markerGroup) markerGroup.clearLayers();
+    clearDirectionPreview();
   });
   L.control.zoom({ position: "bottomright" }).addTo(map);
   if (window.SmartShieldTheme) window.SmartShieldTheme.attachMap(map);
@@ -386,6 +387,7 @@ function drawRoutesOnMap(routes, activeIndex, origin = null, dest = null) {
 
   const scored = lastScoredRoutes.find((r) => r.route_index === activeIndex);
   if (scored) updateMapBadge(scored);
+  showDirectionSteps(routes, activeIndex);
   const route = routes && routes[activeIndex];
   if (route) {
     const destInput = document.getElementById("destination");
@@ -407,6 +409,25 @@ function fitMapToRoute() {
       : { paddingTopLeft: [24, 88], paddingBottomRight: [80, 220] };
     map.fitBounds(lastBounds, pad);
   }
+}
+
+function clearDirectionPreview() {
+  if (window.RoadPreview && map) window.RoadPreview.clear(map, true);
+  const list = document.getElementById("direction-steps");
+  if (list) {
+    list.innerHTML = "";
+    list.hidden = true;
+  }
+  const label = document.getElementById("direction-steps-label");
+  if (label) label.hidden = true;
+}
+
+function showDirectionSteps(routes, activeIndex) {
+  if (!window.RoadPreview || !map) return;
+  window.RoadPreview.clear(map, true);
+  window.RoadPreview.attachHits(map, routes, routeLayers);
+  const route = routes && routes[activeIndex];
+  window.RoadPreview.fillList(map, document.getElementById("direction-steps"), (route && route.steps) || []);
 }
 
 function updateMapBadge(route) {

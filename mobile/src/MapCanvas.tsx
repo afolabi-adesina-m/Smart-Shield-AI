@@ -8,13 +8,14 @@ import type { MapScene, MapSign } from "./types";
 
 type Props = {
   scene: MapScene;
+  onRoutePoint?: (lat: number, lon: number) => void;
 };
 
 /**
  * Phone map inside Expo Go. iPhone uses Apple Maps. Android uses Google Maps
  * with Expo Go's built-in development key. The browser uses MapCanvas.web.tsx.
  */
-export function MapCanvas({ scene }: Props) {
+export function MapCanvas({ scene, onRoutePoint }: Props) {
   const mapRef = useRef<MapView>(null);
   const latest = useRef(scene);
   latest.current = scene;
@@ -95,6 +96,38 @@ export function MapCanvas({ scene }: Props) {
             strokeWidth={7}
           />
         ) : null)}
+        {scene.routes.map((route, index) => route.active ? (
+          <Polyline
+            key={`route-hit-${index}`}
+            coordinates={route.coords.map(([lat, lon]) => ({ latitude: lat, longitude: lon }))}
+            strokeColor="rgba(77,163,255,0.01)"
+            strokeWidth={28}
+            tappable
+            onPress={(event) => {
+              const coordinate = event.nativeEvent.coordinate;
+              if (coordinate && onRoutePoint) onRoutePoint(coordinate.latitude, coordinate.longitude);
+            }}
+          />
+        ) : null)}
+        {scene.preview && scene.preview.coords.length >= 2 ? (
+          <Polyline
+            key="road-preview"
+            coordinates={scene.preview.coords.map(([lat, lon]) => ({ latitude: lat, longitude: lon }))}
+            strokeColor="#f5c542"
+            strokeWidth={10}
+          />
+        ) : null}
+        {scene.preview ? (
+          <Marker
+            key="road-preview-point"
+            coordinate={{ latitude: scene.preview.lat, longitude: scene.preview.lon }}
+            anchor={{ x: 0.5, y: 0.5 }}
+            title={scene.preview.name}
+            zIndex={7}
+          >
+            <View style={styles.previewDot} />
+          </Marker>
+        ) : null}
         {scene.markers.map((marker, index) => (
           <Marker
             key={`pin-${index}`}
@@ -128,6 +161,11 @@ export function MapCanvas({ scene }: Props) {
           </Marker>
         ) : null}
       </MapView>
+      {scene.preview ? (
+        <View style={styles.previewChip} pointerEvents="none">
+          <Text style={styles.previewChipText}>{scene.preview.name}</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -246,4 +284,22 @@ const styles = StyleSheet.create({
     borderRightColor: "transparent",
     borderBottomColor: "#f5c542",
   },
+  previewDot: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: "#14685c",
+    borderWidth: 3,
+    borderColor: "#ffffff",
+  },
+  previewChip: {
+    position: "absolute",
+    top: 120,
+    alignSelf: "center",
+    backgroundColor: "#16191f",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  previewChipText: { color: "#ffffff", fontWeight: "700" },
 });

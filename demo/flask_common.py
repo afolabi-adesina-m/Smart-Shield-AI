@@ -22,6 +22,7 @@ from geocode_suggest import (
     suggest_places,
 )
 from place_geocode import FRIENDLY_UNAVAILABLE, GeocodeLookupError, geocode_place
+from road_preview import steps_from_route
 from road_rules import load_demo_route, load_rules, prefetch_corridor, road_context
 from speed_limit import lookup_posted_speed, overpass_urls, safe_speed_kmh
 from vision_runtime import get_vision_runtime
@@ -362,7 +363,7 @@ def register_api_routes(app: Flask) -> None:
                 "alternatives": "true",
                 "overview": "full",
                 "geometries": "geojson",
-                "steps": "false",
+                "steps": "true",
             })
             if data.get("code") != "Ok":
                 return jsonify({"error": data.get("message", "Routing failed")}), 404
@@ -381,6 +382,7 @@ def register_api_routes(app: Flask) -> None:
                     # per route when calling /api/score-routes.
                     "mid_lon": mid[0] if mid else None,
                     "mid_lat": mid[1] if mid else None,
+                    "steps": steps_from_route(route),
                 })
             return jsonify({"routes": routes})
         except Exception as exc:

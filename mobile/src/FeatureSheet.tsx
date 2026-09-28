@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { FleetPanel } from "./FleetPanel";
-import type { Place, PracticeLoop, ScoredRoute, SpeedReading, Suggestion, TestCentre } from "./types";
+import type { Place, PracticeLoop, RoadStep, ScoredRoute, SpeedReading, Suggestion, TestCentre } from "./types";
 
 const WEATHER = [
   { id: "auto", label: "Auto" },
@@ -35,6 +35,9 @@ type Props = {
   routes: ScoredRoute[];
   selected: number;
   onSelect: (index: number) => void;
+  steps: RoadStep[];
+  onPreviewStep: (index: number) => void;
+  onClearPreview: () => void;
   centres: TestCentre[];
   centreId: string;
   onCentre: (id: string) => void;
@@ -125,6 +128,24 @@ export function FeatureSheet(props: Props) {
                   onPress={() => props.onSelect(route.route_index)}
                 />
               ))}
+              {props.steps.length ? (
+                <>
+                  <Text style={styles.kicker}>Turn-by-turn</Text>
+                  {props.steps.map((step, index) => (
+                    <Pressable
+                      key={`${step.name}-${index}`}
+                      onPress={() => props.onPreviewStep(index)}
+                      onLongPress={() => props.onPreviewStep(index)}
+                      onHoverIn={() => props.onPreviewStep(index)}
+                      onHoverOut={props.onClearPreview}
+                      style={styles.step}
+                    >
+                      <Text style={styles.point}>{step.instruction}</Text>
+                      <Text style={styles.note}>{step.name}</Text>
+                    </Pressable>
+                  ))}
+                </>
+              ) : null}
             </>
           ) : (
             <>
@@ -331,6 +352,7 @@ const styles = StyleSheet.create({
   tier: { color: "#16191f", fontWeight: "600" },
   note: { color: "#526072", fontSize: 13, lineHeight: 18 },
   point: { color: "#16191f", fontSize: 14, paddingVertical: 2 },
+  step: { paddingVertical: 6, paddingHorizontal: 4, borderRadius: 10 },
   status: { color: "#16191f", fontSize: 13, lineHeight: 18, marginTop: 6 },
   fine: { color: "#8b97a6", fontSize: 11 },
 });
