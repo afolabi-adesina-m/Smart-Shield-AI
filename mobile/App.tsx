@@ -26,6 +26,7 @@ import { etaCard, instructionSpeech, nextManeuver, progressAlong, shieldFrom, ty
 import { nearestStep, previewFromStep } from "./src/roadPreview";
 import { alertOverLimit } from "./src/overSpeedAlert";
 import { loadMuted, loadReports, saveMuted, saveReport, type ReportKind, type RoadReport } from "./src/reports";
+import { alertsAhead, CAMERA_DISCLAIMER, loadCameraAlerts, loadEnforcement, saveCameraAlerts, type CameraFeature } from "./src/cameras";
 import { loadSignsNear, lookupStreet, signsAlong, type RoadSign } from "./src/roadSigns";
 import { speakNav, stopSpeech } from "./src/voice";
 import type { HeatSpot } from "./src/deliveryLogic";
@@ -102,6 +103,8 @@ export default function App() {
   const [headingUp, setHeadingUp] = useState(true);
   const [deviceHeading, setDeviceHeading] = useState<number | null>(null);
   const [signs, setSigns] = useState<RoadSign[]>([]);
+  const [cameras, setCameras] = useState<CameraFeature[]>([]);
+  const [cameraAlerts, setCameraAlerts] = useState(true);
   const [turnStreet, setTurnStreet] = useState<string | null>(null);
   const spoken = useRef("");
 
@@ -121,6 +124,7 @@ export default function App() {
     })();
     loadReports().then((saved) => { if (!cancelled) setReports(saved); }).catch(() => undefined);
     loadMuted().then((value) => { if (!cancelled) setMuted(value); }).catch(() => undefined);
+    loadCameraAlerts().then((value) => { if (!cancelled) setCameraAlerts(value); }).catch(() => undefined);
     return () => { cancelled = true; };
   }, []);
 
@@ -263,6 +267,17 @@ export default function App() {
     return () => { cancelled = true; };
   }, [signKey]);
 
+  useEffect(() => {
+    let cancelled = false;
+    const [lat, lon] = signKey.split(",").map(Number);
+    loadEnforcement(lat, lon, API_BASE).then((next) => {
+      if (!cancelled) setCameras(next);
+    }).catch(() => {
+      if (!cancelled) setCameras([]);
+    });
+    return () => { cancelled = true; };
+  }, [signKey]);
+
   const fleetWatch = useRef(fleet.status);
   useEffect(() => {
     if (fleet.status === fleetWatch.current) return;
@@ -363,6 +378,29 @@ export default function App() {
     : deviceHeading != null && deviceHeading >= 0
       ? deviceHeading
       : progress.bearing;
+  const spokenCameras = useRef<Record<string, boolean>>({});
+  const lastCameraSpeech = useRef(0);
+  useEffect(() => {
+    if (!cameraAlerts || muted || !cameras.length) return;
+    const route = focus === "nav" && progress.ahead.length >= 2 ? progress.ahead : [];
+    const moving = fix != null && fix.speedKmh != null && fix.speedKmh > 3 && fix.heading != null && fix.heading >= 0;
+    const alertHeading = route.length >= 2
+      ? progress.bearing
+      : moving
+        ? fix!.heading
+        : null;
+    const next = alertsAhead(cameras, userLat, userLon, {
+      heading: alertHeading,
+      route,
+      roadMode: speed?.road_mode,
+      postedKmh: posted,
+      spoken: spokenCameras.current,
+    });
+    if (!next.length || Date.now() - lastCameraSpeech.current < 4000) return;
+    spokenCameras.current[next[0].id] = true;
+    lastCameraSpeech.current = Date.now();
+    speakNav(next[0].phrase, muted);
+  }, [cameraAlerts, muted, cameras, userLat, userLon, focus, progress, speed?.road_mode, posted, fix]);
 
   const scene: MapScene = useMemo(() => {
     const lineSigns = focus === "nav"
@@ -376,7 +414,15 @@ export default function App() {
       }))
       : [];
     const reportPins: MapSign[] = reports.map((report) => ({ lat: report.lat, lon: report.lon, kind: "report" }));
-    const drawnSigns: MapSign[] = [...practiceSigns, ...lineSigns, ...reportPins];
+    const cameraPins: MapSign[] = cameras
+      .filter((item) => haversineM(item.lat, item.lon, userLat, userLon) < 1600)
+      .map((item) => ({
+        lat: item.lat,
+        lon: item.lon,
+        kind: item.kind,
+        label: item.limit_kmh ? String(item.limit_kmh) : item.kind === "variable" ? "VAR" : "",
+      }));
+    const drawnSigns: MapSign[] = [...practiceSigns, ...lineSigns, ...cameraPins, ...reportPins];
     const routesOut: MapScene["routes"] = [];
     if (focus === "nav") {
       geometries.forEach((line, index) => {
@@ -415,7 +461,7 @@ export default function App() {
       }),
       preview: focus === "nav" ? preview : null,
     };
-  }, [focus, signs, progress, reports, geometries, selected, activeLine, sheetOpen, userLat, userLon, heading, headingUp, loop, night, heat, routeSteps, preview]);
+  }, [focus, signs, cameras, progress, reports, geometries, selected, activeLine, sheetOpen, userLat, userLon, heading, headingUp, loop, night, heat, routeSteps, preview]);
 
   function pickSuggestion(item: Suggestion) {
     const place: Place = { id: item.id, label: item.label, detail: item.detail, lat: item.lat, lon: item.lon };
@@ -630,6 +676,7 @@ export default function App() {
         onExit={exitDrive}
         onWhereTo={() => { setTab("trip"); setSheetOpen(true); }}
         night={night}
+        cameraNote={CAMERA_DISCLAIMER}
       />
       {sheetOpen ? (
         <FeatureSheet
@@ -676,6 +723,12 @@ export default function App() {
           recommended={recommended}
           apiBase={API_BASE}
           onClose={() => setSheetOpen(false)}
+          cameraAlerts={cameraAlerts}
+          onCameraAlerts={(enabled) => {
+            setCameraAlerts(enabled);
+            saveCameraAlerts(enabled).catch(() => undefined);
+          }}
+          cameraNote={CAMERA_DISCLAIMER}
           delivery={tab === "delivery" ? (
             <DeliveryPanel
               lat={userLat}

@@ -350,6 +350,62 @@ html[data-theme="light"] .nav-report-row { background: #eef2f7; color: #16191f; 
 .nav-report-note { color: #9ee0c8 !important; font-weight: 750; }
 
 .plain-sign { background: transparent; border: none; }
+.camera-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 4px;
+  font-size: 14px;
+  font-weight: 650;
+}
+.camera-disclaimer {
+  position: absolute;
+  left: 50%;
+  bottom: 96px;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: min(360px, calc(100vw - 180px));
+  margin: 0;
+  padding: 5px 8px;
+  border-radius: 8px;
+  background: rgba(14, 22, 32, 0.82);
+  color: #d5dde6;
+  font-size: 11px;
+  line-height: 1.35;
+  pointer-events: none;
+  z-index: 1;
+}
+.cam, .cam-var {
+  background: #111;
+  border: 1px solid #fff;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+  color: #f5c542;
+  font: 700 9px/16px Inter, sans-serif;
+  text-align: center;
+}
+.cam {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.cam i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f5c542;
+  box-shadow: 0 0 0 2px #3a3a3a;
+  display: block;
+}
+.cam-red i { background: #d93025; }
+.cam-var {
+  width: 34px;
+  height: 18px;
+  border-radius: 3px;
+  line-height: 16px;
+}
 .nav-signal {
   width: 12px;
   height: 26px;

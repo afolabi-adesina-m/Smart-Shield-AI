@@ -21,10 +21,12 @@ from geocode_suggest import (
     resolve_place,
     suggest_places,
 )
+from place_geocode import FRIENDLY_UNAVAILABLE, GeocodeLookupError, geocode_place
 from road_preview import steps_from_route
 from road_rules import load_demo_route, load_rules, prefetch_corridor, road_context
 from speed_limit import lookup_posted_speed, overpass_urls, safe_speed_kmh
 from vision_runtime import get_vision_runtime
+from cameras import DISCLAIMER as CAMERA_DISCLAIMER, cameras_near, load_toronto_cameras, public_features
 
 NOMINATIM_URL = os.getenv("NOMINATIM_URL", "https://nominatim.openstreetmap.org/search")
 OSRM_URL = os.getenv("OSRM_URL", "https://router.project-osrm.org/route/v1/driving")
@@ -298,28 +300,51 @@ def register_api_routes(app: Flask) -> None:
                 "hazards": 0,
             })
 
+    @app.get("/api/cameras")
+    def cameras():
+        """City of Toronto enforcement cameras. OpenStreetMap features stay on the client."""
+        try:
+            lat = float(request.args["lat"]) if request.args.get("lat") else None
+            lon = float(request.args["lon"]) if request.args.get("lon") else None
+        except ValueError:
+            return jsonify({"error": "lat and lon must be numeric", "disclaimer": CAMERA_DISCLAIMER}), 400
+        if (lat is None) != (lon is None):
+            return jsonify({"error": "Provide both lat and lon", "disclaimer": CAMERA_DISCLAIMER}), 400
+        if lat is not None and not (-90 <= lat <= 90 and -180 <= lon <= 180):
+            return jsonify({"error": "lat/lon out of range", "disclaimer": CAMERA_DISCLAIMER}), 400
+        features = load_toronto_cameras()
+        if lat is not None:
+            try:
+                radius = float(request.args.get("radius") or 4000)
+            except ValueError:
+                return jsonify({"error": "radius must be numeric", "disclaimer": CAMERA_DISCLAIMER}), 400
+            features = cameras_near(features, lat, lon, min(8000.0, max(100.0, radius)))
+        else:
+            features = public_features(features)
+        return jsonify({
+            "features": features,
+            "count": len(features),
+            "disclaimer": CAMERA_DISCLAIMER,
+        })
+
     @app.get("/api/geocode")
     def geocode():
         q = (request.args.get("q") or "").strip()
         if not q:
             return jsonify({"error": "Missing query parameter q"}), 400
+        if len(q) > 200:
+            return jsonify({"error": "Query is too long"}), 400
         try:
-            data = _osm_get(NOMINATIM_URL, {
-                "q": q,
-                "format": "json",
-                "limit": 1,
-                "countrycodes": "ca",
-            })
-            if not data:
-                return jsonify({"error": f"Address not found: {q}"}), 404
-            hit = data[0]
-            return jsonify({
-                "lat": float(hit["lat"]),
-                "lon": float(hit["lon"]),
-                "display_name": hit.get("display_name", q),
-            })
-        except Exception as exc:
-            return jsonify({"error": str(exc)}), 502
+            hit = geocode_place(q)
+        except GeocodeLookupError as exc:
+            return jsonify({"error": str(exc)}), exc.status
+        except Exception:
+            return jsonify({"error": FRIENDLY_UNAVAILABLE}), 502
+        return jsonify({
+            "lat": hit["lat"],
+            "lon": hit["lon"],
+            "display_name": hit.get("display_name") or q,
+        })
 
     @app.get("/api/directions")
     def directions():

@@ -135,7 +135,8 @@ export type MapMarker = {
 export type MapSign = {
   lat: number;
   lon: number;
-  kind: "signal" | "stop" | "stop-all" | "report";
+  kind: "signal" | "stop" | "stop-all" | "report" | "red_light" | "speed_camera" | "variable";
+  label?: string;
 };
 
 export type MapHeat = {

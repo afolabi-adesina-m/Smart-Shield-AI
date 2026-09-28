@@ -57,6 +57,9 @@ type Props = {
   recommended: number | null;
   apiBase: string;
   onClose: () => void;
+  cameraAlerts: boolean;
+  onCameraAlerts: (enabled: boolean) => void;
+  cameraNote: string;
 };
 
 export function FeatureSheet(props: Props) {
@@ -103,6 +106,17 @@ export function FeatureSheet(props: Props) {
                   </Pressable>
                 ))}
               </View>
+              <Pressable
+                accessibilityRole="switch"
+                accessibilityLabel="Camera alerts"
+                accessibilityState={{ checked: props.cameraAlerts }}
+                onPress={() => props.onCameraAlerts(!props.cameraAlerts)}
+                style={styles.cameraRow}
+              >
+                <View style={[styles.cameraBox, props.cameraAlerts && styles.cameraBoxOn]} />
+                <Text style={styles.cameraLabel}>Camera alerts</Text>
+              </Pressable>
+              <Text style={styles.cameraFine}>{props.cameraNote}</Text>
               <Pressable style={[styles.primary, props.busy && styles.disabled]} disabled={props.busy} onPress={props.onFind}>
                 {props.busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryText}>Find safest route</Text>}
               </Pressable>
@@ -304,6 +318,11 @@ const styles = StyleSheet.create({
   suggest: { borderWidth: 1, borderColor: "rgba(22,25,31,0.12)", borderRadius: 12, overflow: "hidden" },
   suggestItem: { paddingHorizontal: 12, paddingVertical: 10, borderTopWidth: 1, borderTopColor: "rgba(22,25,31,0.06)" },
   suggestLabel: { color: "#16191f", fontWeight: "600" },
+  cameraRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 },
+  cameraBox: { width: 18, height: 18, borderRadius: 4, borderWidth: 2, borderColor: "#1a56db" },
+  cameraBoxOn: { backgroundColor: "#1a56db" },
+  cameraLabel: { fontSize: 15, fontWeight: "700", color: "#16191f" },
+  cameraFine: { fontSize: 12, lineHeight: 16, color: "#526072" },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   chip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, backgroundColor: "#eef2f7" },
   chipOn: { backgroundColor: "#1a56db" },

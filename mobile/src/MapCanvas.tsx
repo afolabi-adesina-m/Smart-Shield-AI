@@ -180,6 +180,27 @@ function Puck() {
 }
 
 function SignView({ sign }: { sign: MapSign }) {
+  if (sign.kind === "red_light") {
+    return (
+      <View style={styles.cam}>
+        <View style={[styles.lens, styles.lensRed]} />
+      </View>
+    );
+  }
+  if (sign.kind === "speed_camera") {
+    return (
+      <View style={styles.cam}>
+        {sign.label ? <Text style={styles.camText}>{sign.label}</Text> : <View style={[styles.lens, styles.lensAmber]} />}
+      </View>
+    );
+  }
+  if (sign.kind === "variable") {
+    return (
+      <View style={styles.varSign}>
+        <Text style={styles.camText}>{sign.label || "VAR"}</Text>
+      </View>
+    );
+  }
   if (sign.kind === "signal") {
     return (
       <View style={styles.signal}>
@@ -216,6 +237,30 @@ const styles = StyleSheet.create({
     borderColor: "#fff",
     marginTop: -4,
   },
+  cam: {
+    width: 22,
+    height: 22,
+    borderRadius: 5,
+    backgroundColor: "#111",
+    borderWidth: 1,
+    borderColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  lens: { width: 8, height: 8, borderRadius: 4, borderWidth: 2, borderColor: "#3a3a3a" },
+  lensRed: { backgroundColor: "#d93025" },
+  lensAmber: { backgroundColor: "#f5c542" },
+  varSign: {
+    width: 34,
+    height: 18,
+    borderRadius: 3,
+    backgroundColor: "#111",
+    borderWidth: 1,
+    borderColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  camText: { color: "#f5c542", fontSize: 9, fontWeight: "700" },
   signal: {
     width: 12,
     height: 26,

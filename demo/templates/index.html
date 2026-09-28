@@ -23,7 +23,7 @@
   <link rel="stylesheet" href="/static/css/speed-panel.css?v=20260928s" />
   <link rel="stylesheet" href="/static/css/address-search.css?v=20260927p" />
   <link rel="stylesheet" href="/static/css/fleet.css?v=20260927p" />
-  <link rel="stylesheet" href="/static/css/nav-chrome.css?v=20260928s" />
+  <link rel="stylesheet" href="/static/css/nav-chrome.css?v=20260928c" />
   <link rel="stylesheet" href="/static/css/delivery.css?v=20260928r" />
   <script src="/static/js/theme.js?v=20260928s"></script>
 </head>
@@ -78,6 +78,11 @@
                   <option value="auto">Automatic</option>
                 </select>
               </details>
+              <label class="camera-toggle" for="camera-alerts">
+                <input id="camera-alerts" type="checkbox" checked />
+                Camera alerts
+              </label>
+              <p class="fine-print">Camera locations from OpenStreetMap and City of Toronto open data; may be incomplete.</p>
               <p class="fine-print">Not official MTO or 511 guidance.</p>
               <p id="direction-steps-label" class="direction-label" hidden>Turn-by-turn</p>
               <ol id="direction-steps" class="direction-steps" hidden></ol>
@@ -152,7 +157,8 @@
   <script src="https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate.js"></script>
   <script src="/static/js/leaflet-heat.js?v=20260928r"></script>
   <script src="/static/js/stop-sign.js?v=20260928o"></script>
-  <script src="/static/js/nav-chrome.js?v=20260928s"></script>
+  <script src="/static/js/cameras.js?v=20260928c"></script>
+  <script src="/static/js/nav-chrome.js?v=20260928c"></script>
   <script src="/static/js/weather-picker.js?v=20260927p"></script>
   <script src="/static/js/speed-panel.js?v=20260928s"></script>
   <script src="/static/js/address-search.js?v=20260927p"></script>
