@@ -3,6 +3,7 @@ import { Appearance, Platform, StyleSheet, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import * as Location from "expo-location";
 import { MapCanvas } from "./src/MapCanvas";
+import { DeliveryPanel } from "./src/DeliveryPanel";
 import { FeatureSheet } from "./src/FeatureSheet";
 import { NavChrome } from "./src/NavChrome";
 import {
@@ -26,6 +27,8 @@ import { alertOverLimit } from "./src/overSpeedAlert";
 import { loadMuted, loadReports, saveMuted, saveReport, type ReportKind, type RoadReport } from "./src/reports";
 import { loadSignsNear, lookupStreet, signsAlong, type RoadSign } from "./src/roadSigns";
 import { speakNav, stopSpeech } from "./src/voice";
+import type { HeatSpot } from "./src/deliveryLogic";
+import { ESTIMATE_LABEL } from "./src/deliveryLogic";
 import type {
   MapScene,
   MapSign,
@@ -53,7 +56,9 @@ type Focus = "idle" | "nav" | "practice" | "fleet";
 type TripLeg = { distanceM: number; durationS: number };
 
 export default function App() {
-  const [tab, setTab] = useState<"trip" | "practice" | "fleet">("trip");
+  const [tab, setTab] = useState<"trip" | "practice" | "fleet" | "delivery">("trip");
+  const [heat, setHeat] = useState<HeatSpot[]>([]);
+  const [estimateOn, setEstimateOn] = useState(false);
   const [origin, setOrigin] = useState<Place>(TORONTO);
   const [destination, setDestination] = useState<Place>(BARRIE);
   const [activeField, setActiveField] = useState<"origin" | "destination" | null>(null);
@@ -394,11 +399,12 @@ export default function App() {
         : [],
       signs: drawnSigns,
       user: { lat: userLat, lon: userLon, heading },
+      heat,
       camera,
       headingUp: camera === "follow" && headingUp,
       night,
     };
-  }, [focus, signs, progress, reports, geometries, selected, activeLine, sheetOpen, userLat, userLon, heading, headingUp, loop, night]);
+  }, [focus, signs, progress, reports, geometries, selected, activeLine, sheetOpen, userLat, userLon, heading, headingUp, loop, night, heat]);
 
   function pickSuggestion(item: Suggestion) {
     const place: Place = { id: item.id, label: item.label, detail: item.detail, lat: item.lat, lon: item.lon };
@@ -595,6 +601,8 @@ export default function App() {
         onSearch={() => { setTab("trip"); setSheetOpen(true); }}
         onMute={toggleMute}
         onRoutes={() => { setTab("trip"); setSheetOpen(true); }}
+        onDelivery={() => { setTab("delivery"); setSheetOpen(true); setEstimateOn(true); }}
+        estimateNote={estimateOn ? ESTIMATE_LABEL : ""}
         onReport={() => { setReportNote(""); setReportOpen(true); }}
         onCloseReport={() => setReportOpen(false)}
         onSaveReport={(kind) => { storeReport(kind).catch(() => setReportNote("Could not save the report.")); }}
@@ -641,6 +649,15 @@ export default function App() {
           recommended={recommended}
           apiBase={API_BASE}
           onClose={() => setSheetOpen(false)}
+          delivery={tab === "delivery" ? (
+            <DeliveryPanel
+              lat={userLat}
+              lon={userLon}
+              trips={fleet.trips}
+              recording={fleet.running}
+              onHeat={(spots, estimate) => { setHeat(spots); setEstimateOn(estimate); }}
+            />
+          ) : null}
         />
       ) : null}
     </View>

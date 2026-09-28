@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { FleetPanel } from "./FleetPanel";
 import type { Place, PracticeLoop, ScoredRoute, SpeedReading, Suggestion, TestCentre } from "./types";
@@ -12,9 +13,12 @@ const WEATHER = [
 
 const SPEEDS = [30, 40, 50, 60, 80, 100, 120];
 
+type SheetTab = "trip" | "practice" | "fleet" | "delivery";
+
 type Props = {
-  tab: "trip" | "practice" | "fleet";
-  onTab: (tab: "trip" | "practice" | "fleet") => void;
+  tab: SheetTab;
+  onTab: (tab: SheetTab) => void;
+  delivery: ReactNode;
   origin: Place;
   destination: Place;
   onOrigin: (label: string) => void;
@@ -58,7 +62,7 @@ export function FeatureSheet(props: Props) {
       <Pressable style={styles.backdrop} testID="sheet-backdrop" onPress={props.onClose} />
       <View style={styles.sheet}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Trip tools</Text>
+          <Text style={styles.headerTitle}>{props.tab === "delivery" ? "Delivery" : "Trip tools"}</Text>
           <Pressable onPress={props.onClose} testID="sheet-close">
             <Text style={styles.close}>Close</Text>
           </Pressable>
@@ -67,9 +71,12 @@ export function FeatureSheet(props: Props) {
           <Tab label="Trip" active={props.tab === "trip"} onPress={() => props.onTab("trip")} />
           <Tab label="Fleet" active={props.tab === "fleet"} onPress={() => props.onTab("fleet")} />
           <Tab label="Practice" active={props.tab === "practice"} onPress={() => props.onTab("practice")} />
+          <Tab label="Delivery" active={props.tab === "delivery"} onPress={() => props.onTab("delivery")} />
         </View>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.body}>
-          {props.tab === "fleet" ? (
+          {props.tab === "delivery" ? (
+            props.delivery
+          ) : props.tab === "fleet" ? (
             <FleetPanel speedMode={props.speedMode} />
           ) : props.tab === "trip" ? (
             <>
@@ -255,7 +262,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 16, fontWeight: "700", color: "#16191f" },
   close: { color: "#1a56db", fontWeight: "700" },
-  tabs: { flexDirection: "row", gap: 8, padding: 12, paddingBottom: 0 },
+  tabs: { flexDirection: "row", flexWrap: "wrap", gap: 8, padding: 12, paddingBottom: 0 },
   tab: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: "#eef2f7" },
   tabOn: { backgroundColor: "#1a56db" },
   tabText: { fontWeight: "700", color: "#526072" },

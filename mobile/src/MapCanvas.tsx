@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Platform, StyleSheet, View } from "react-native";
-import MapView, { Marker, Polyline, PROVIDER_DEFAULT, PROVIDER_GOOGLE } from "react-native-maps";
+import MapView, { Circle, Marker, Polyline, PROVIDER_DEFAULT, PROVIDER_GOOGLE } from "react-native-maps";
 import { DARK_MAP_STYLE } from "./darkMapStyle";
 import { StopSign } from "./StopSign";
 import { stopLayout } from "./stopSign";
@@ -68,6 +68,17 @@ export function MapCanvas({ scene }: Props) {
           longitudeDelta: 0.02,
         }}
       >
+        {scene.heat.map((spot, index) => (
+          <Circle
+            key={`heat-${spot.kind}-${index}`}
+            center={{ latitude: spot.lat, longitude: spot.lon }}
+            radius={280}
+            fillColor={spot.kind === "order"
+              ? `rgba(26,86,219,${(0.45 + spot.weight * 0.4).toFixed(2)})`
+              : `rgba(226,59,47,${(0.4 + spot.weight * 0.45).toFixed(2)})`}
+            strokeColor="transparent"
+          />
+        ))}
         {scene.routes.map((route, index) => (
           <Polyline
             key={`route-${index}`}
