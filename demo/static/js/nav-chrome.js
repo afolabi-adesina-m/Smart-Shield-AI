@@ -3,6 +3,7 @@
 (function () {
   const REPORTS_KEY = "smartshield.reports.v1";
   const MUTE_KEY = "smartshield.navMute.v1";
+  const CAMERA_KEY = "smartshield.cameraAlerts.v1";
   const REPORTS = [
     { kind: "hazard", label: "Hazard" },
     { kind: "police", label: "Police" },
@@ -22,6 +23,13 @@
     spokenTurn: "",
     spokenRed: false,
     signCell: "",
+    cameraCell: "",
+    cameras: [],
+    torontoCameras: null,
+    spokenCameras: {},
+    lastCameraSpeech: 0,
+    posted: null,
+    roadMode: "",
   };
 
   function haversineM(lat1, lon1, lat2, lon2) {
@@ -303,6 +311,7 @@
           </div>
           <button type="button" id="nav-exit" class="nav-exit" hidden>Exit</button>
         </section>
+        <p class="camera-disclaimer">Camera locations from OpenStreetMap and City of Toronto open data; may be incomplete.</p>
         <div id="nav-report-layer" class="nav-report-layer" hidden>
           <button type="button" id="nav-report-back" class="nav-report-back" aria-label="Close report"></button>
           <div class="nav-report-sheet" role="dialog" aria-labelledby="nav-report-title">
@@ -432,7 +441,110 @@
   }
 
   let signLayer = null;
+  let cameraLayer = null;
   let reportLayer = null;
+
+  function cameraAlertsOn() {
+    try { return localStorage.getItem(CAMERA_KEY) !== "0"; } catch (err) { return true; }
+  }
+
+  function drawCameras(features) {
+    const api = window.SmartShieldCameras;
+    const leaflet = map();
+    if (!api || !leaflet || !window.L) return;
+    if (!cameraLayer) cameraLayer = window.L.layerGroup().addTo(leaflet);
+    cameraLayer.clearLayers();
+    (features || []).forEach((feature) => {
+      const wide = feature.kind === "variable";
+      const icon = window.L.divIcon({
+        className: "plain-sign",
+        html: api.iconHtml(feature),
+        iconSize: wide ? [34, 18] : [22, 22],
+        iconAnchor: wide ? [17, 9] : [11, 11],
+      });
+      window.L.marker([feature.lat, feature.lon], { icon, interactive: false, keyboard: false }).addTo(cameraLayer);
+    });
+  }
+
+  async function fetchOsmCameras(lat, lon) {
+    const api = window.SmartShieldCameras;
+    if (!api) return [];
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12000);
+    try {
+      const response = await fetch("https://overpass-api.de/api/interpreter", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+        body: `data=${encodeURIComponent(api.overpassQuery(lat, lon))}`,
+        signal: controller.signal,
+      });
+      if (!response.ok) return [];
+      const data = await response.json();
+      return api.parseOverpass(data.elements || []);
+    } catch (err) {
+      return [];
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function loadCameras(lat, lon) {
+    const api = window.SmartShieldCameras;
+    if (!api) return;
+    const cell = `${lat.toFixed(2)},${lon.toFixed(2)}`;
+    if (cell === state.cameraCell) return;
+    state.cameraCell = cell;
+    const cacheKey = `smartshield.osmCameras.v1.${cell}`;
+    let osm = null;
+    try {
+      const saved = JSON.parse(localStorage.getItem(cacheKey) || "null");
+      if (saved && saved.at && Date.now() - saved.at < 6 * 60 * 60 * 1000 && Array.isArray(saved.features)) {
+        osm = saved.features;
+      }
+    } catch (err) { /* fetch again */ }
+    if (!osm) {
+      osm = await fetchOsmCameras(lat, lon);
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify({ at: Date.now(), features: osm }));
+      } catch (err) { /* cache is optional */ }
+    }
+    if (!state.torontoCameras) {
+      try {
+        const response = await fetch("/api/cameras");
+        const data = response.ok ? await response.json() : {};
+        state.torontoCameras = Array.isArray(data.features) ? data.features : [];
+      } catch (err) {
+        state.torontoCameras = [];
+      }
+    }
+    state.cameras = api.dedupeCameras(osm || [], state.torontoCameras || []);
+    drawCameras(state.cameras.filter((item) => api.haversineM(item.lat, item.lon, lat, lon) < 2500));
+    maybeSpeakCameras();
+  }
+
+  function maybeSpeakCameras() {
+    const api = window.SmartShieldCameras;
+    if (!api || !state.position || !state.cameras.length) return;
+    if (state.muted || !cameraAlertsOn()) return;
+    if (Date.now() - state.lastCameraSpeech < 4000) return;
+    const lat = state.position.lat;
+    const lon = state.position.lon;
+    const line = state.route && state.route.geometry ? toLatLon(state.route.geometry) : [];
+    const progress = line.length ? progressAlong(line, lat, lon) : null;
+    const route = progress && progress.ahead && progress.ahead.length >= 2 ? progress.ahead : [];
+    const heading = route.length ? progress.bearing : null;
+    const alerts = api.alertsAhead(state.cameras, lat, lon, {
+      heading,
+      route,
+      roadMode: state.roadMode,
+      postedKmh: state.posted,
+      spoken: state.spokenCameras,
+    });
+    if (!alerts.length) return;
+    state.spokenCameras[alerts[0].id] = true;
+    state.lastCameraSpeech = Date.now();
+    speak(alerts[0].phrase);
+  }
 
   function signIcon(kind) {
     if (kind === "signal") {
@@ -557,6 +669,13 @@
       mute.classList.toggle("is-muted", state.muted);
       if (state.muted && window.speechSynthesis) window.speechSynthesis.cancel();
     });
+    const cameraBox = document.getElementById("camera-alerts");
+    if (cameraBox) {
+      cameraBox.checked = cameraAlertsOn();
+      cameraBox.addEventListener("change", () => {
+        try { localStorage.setItem(CAMERA_KEY, cameraBox.checked ? "1" : "0"); } catch (err) { /* ignore */ }
+      });
+    }
     document.getElementById("nav-routes").addEventListener("click", () => {
       openTools("directions");
       const safety = document.getElementById("safety-section");
@@ -608,8 +727,12 @@
         state.position = { lat: detail.lat, lon: detail.lon };
         if (window.SmartShieldTheme) window.SmartShieldTheme.followSun(detail.lat, detail.lon);
         loadSigns(detail.lat, detail.lon);
+        loadCameras(detail.lat, detail.lon);
       }
       if (detail.road_name) state.roadName = detail.road_name;
+      if (detail.posted_kmh != null) state.posted = detail.posted_kmh;
+      if (detail.road_mode) state.roadMode = detail.road_mode;
+      maybeSpeakCameras();
       if (detail.warning === "red") {
         if (!state.spokenRed) {
           state.spokenRed = true;
