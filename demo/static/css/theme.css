@@ -44,7 +44,7 @@ html[data-theme="light"] {
 
 /* Night mode recolors the same keyless OSM tiles. Vectors stay unfiltered. */
 .leaflet-container.tiles-night .leaflet-tile-pane {
-  filter: invert(100%) hue-rotate(180deg) brightness(0.95) contrast(0.9) saturate(0.7);
+  filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9);
 }
 
 html[data-theme="dark"] {

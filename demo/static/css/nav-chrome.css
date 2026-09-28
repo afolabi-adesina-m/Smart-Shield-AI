@@ -16,11 +16,19 @@
   pointer-events: auto;
 }
 
+.nav-banner[hidden],
+.nav-where[hidden],
+.nav-eta[hidden],
+.nav-exit[hidden],
+.nav-shield[hidden] {
+  display: none !important;
+}
+
 .nav-banner {
   position: absolute;
   top: calc(12px + env(safe-area-inset-top, 0px));
   left: calc(var(--dock-left, 0px) + 12px + env(safe-area-inset-left, 0px));
-  right: calc(76px + env(safe-area-inset-right, 0px));
+  right: calc(84px + env(safe-area-inset-right, 0px));
   display: flex;
   align-items: center;
   gap: 12px;
@@ -94,10 +102,13 @@ html[data-theme="light"] .nav-distance { color: #3d6b62; }
 }
 
 .nav-side {
-  position: absolute;
+  position: fixed;
+  z-index: 780;
   top: calc(108px + env(safe-area-inset-top, 0px));
-  right: calc(12px + env(safe-area-inset-right, 0px));
+  right: max(20px, env(safe-area-inset-right, 0px));
   bottom: calc(118px + env(safe-area-inset-bottom, 0px));
+  width: max-content;
+  max-width: calc(100vw - 32px);
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -526,5 +537,6 @@ body[data-speed-layout="mobile"] .speed-panel {
 
 .leaflet-bottom.leaflet-right {
   bottom: 118px;
-  right: 72px;
+  right: 128px !important;
+  margin-right: 0 !important;
 }

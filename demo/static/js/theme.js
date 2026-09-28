@@ -1,6 +1,7 @@
 /* Light and night-driving themes, plus the map tile style that matches them.
-   Night follows local sunset. Keyless CARTO tiles are the default; OpenStreetMap
-   is the fallback when those tiles fail. A configured public style still wins. */
+   Night follows local sunset. Tiles are OpenStreetMap and need no key. Night
+   darkens those same tiles with a CSS filter. A configured public style still
+   wins, except CARTO, which now requires a key and is never requested. */
 
 (function () {
   const KEY = "smartshield-theme";
@@ -148,22 +149,21 @@
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>',
   };
 
-  const CARTO = {
-    light: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
-    dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
-    subdomains: "abcd",
-    maxZoom: 20,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-  };
-
   let keyedTiles = null;
+
+  function usableTiles(tiles) {
+    if (!tiles || !tiles.url) return null;
+    const urls = `${tiles.url} ${tiles.dark_url || ""}`;
+    if (/carto\.com|cartocdn\.com/i.test(urls)) return null;
+    return tiles;
+  }
 
   function loadKeyedTiles() {
     return fetch("/api/config")
       .then((response) => (response.ok ? response.json() : {}))
       .then((data) => {
         const tiles = (data && data.map_tiles) || {};
-        keyedTiles = tiles.url ? tiles : null;
+        keyedTiles = usableTiles(tiles);
         return keyedTiles;
       })
       .catch(() => {
@@ -183,16 +183,6 @@
         subdomains: keyedTiles.subdomains || "",
         nightFilter: night && !darkUrl,
         provider: keyedTiles.provider || "keyed",
-      };
-    }
-    if (!forceOsm) {
-      return {
-        url: night ? CARTO.dark : CARTO.light,
-        maxZoom: CARTO.maxZoom,
-        attribution: CARTO.attribution,
-        subdomains: CARTO.subdomains,
-        nightFilter: false,
-        provider: "carto",
       };
     }
     return {

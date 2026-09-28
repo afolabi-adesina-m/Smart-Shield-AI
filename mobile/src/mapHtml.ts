@@ -67,7 +67,7 @@ export const MAP_HTML = `<!DOCTYPE html>
     map.setView([43.6532, -79.3832], 16);
     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
-      attribution: "&copy; OpenStreetMap"
+      attribution: "&copy; OpenStreetMap contributors"
     }).addTo(map);
     var drawn = L.layerGroup().addTo(map);
     var STOP_SVG = ${JSON.stringify(stopSignSvg(false))};
