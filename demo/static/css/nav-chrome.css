@@ -18,9 +18,9 @@
 
 .nav-banner {
   position: absolute;
-  top: 12px;
-  left: calc(var(--dock-left, 0px) + 12px);
-  right: 76px;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  left: calc(var(--dock-left, 0px) + 12px + env(safe-area-inset-left, 0px));
+  right: calc(76px + env(safe-area-inset-right, 0px));
   display: flex;
   align-items: center;
   gap: 12px;
@@ -95,9 +95,9 @@ html[data-theme="light"] .nav-distance { color: #3d6b62; }
 
 .nav-side {
   position: absolute;
-  top: 108px;
-  right: 12px;
-  bottom: 118px;
+  top: calc(108px + env(safe-area-inset-top, 0px));
+  right: calc(12px + env(safe-area-inset-right, 0px));
+  bottom: calc(118px + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -245,9 +245,9 @@ html[data-theme="light"] .nav-report {
 
 .nav-card {
   position: absolute;
-  left: calc(var(--dock-left, 0px) + 12px);
-  right: 12px;
-  bottom: 12px;
+  left: calc(var(--dock-left, 0px) + 12px + env(safe-area-inset-left, 0px));
+  right: calc(12px + env(safe-area-inset-right, 0px));
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
   min-height: 88px;
   display: flex;
   align-items: center;
@@ -353,6 +353,24 @@ html[data-theme="light"] .nav-report-row { background: #eef2f7; color: #16191f; 
 }
 .nav-signal i { width: 6px; height: 6px; border-radius: 50%; background: #3a3a3a; display: block; }
 .nav-signal i.on { background: #3ddc6a; }
+.offline-note {
+  position: absolute;
+  z-index: 980;
+  left: calc(12px + env(safe-area-inset-left, 0px));
+  right: calc(12px + env(safe-area-inset-right, 0px));
+  top: calc(8px + env(safe-area-inset-top, 0px));
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: #1b1d22;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 650;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  pointer-events: none;
+}
+html[data-theme="light"] .offline-note { background: #fff; color: #16191f; }
+body.is-offline .nav-banner { top: calc(64px + env(safe-area-inset-top, 0px)); }
+
 .nav-report-pin {
   width: 0;
   height: 0;
@@ -363,9 +381,9 @@ html[data-theme="light"] .nav-report-row { background: #eef2f7; color: #16191f; 
 
 /* Phone-style speed widget. The simulate controls stay in the disclosure. */
 .speed-panel {
-  left: calc(var(--dock-left, 0px) + 12px) !important;
+  left: calc(var(--dock-left, 0px) + 12px + env(safe-area-inset-left, 0px)) !important;
   right: auto !important;
-  bottom: 116px !important;
+  bottom: calc(116px + env(safe-area-inset-bottom, 0px)) !important;
   top: auto !important;
   width: max-content !important;
   max-width: calc(100% - var(--dock-left, 0px) - 88px);
@@ -462,17 +480,17 @@ html[data-theme="dark"] .speed-panel #speed-now.red {
 }
 
 body[data-speed-layout="mobile"] .nav-banner {
-  top: 132px;
-  left: 12px;
+  top: calc(132px + env(safe-area-inset-top, 0px));
+  left: calc(12px + env(safe-area-inset-left, 0px));
 }
-body[data-speed-layout="mobile"] .nav-side { top: 210px; }
+body[data-speed-layout="mobile"] .nav-side { top: calc(210px + env(safe-area-inset-top, 0px)); }
 body[data-speed-layout="mobile"] .nav-card {
-  left: 12px;
-  bottom: calc(var(--sheet-offset, 176px) + 8px);
+  left: calc(12px + env(safe-area-inset-left, 0px));
+  bottom: calc(var(--sheet-offset, 176px) + 8px + env(safe-area-inset-bottom, 0px));
 }
 body[data-speed-layout="mobile"] .speed-panel {
-  left: 12px !important;
-  bottom: calc(var(--sheet-offset, 176px) + 108px) !important;
+  left: calc(12px + env(safe-area-inset-left, 0px)) !important;
+  bottom: calc(var(--sheet-offset, 176px) + 108px + env(safe-area-inset-bottom, 0px)) !important;
 }
 
 @media (max-width: 860px) {
@@ -480,8 +498,10 @@ body[data-speed-layout="mobile"] .speed-panel {
   .nav-banner,
   .nav-card,
   .speed-panel {
-    left: 12px !important;
+    left: calc(12px + env(safe-area-inset-left, 0px)) !important;
   }
+  .nav-card { bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+  #side-panel { padding-bottom: env(safe-area-inset-bottom, 0px); }
   .nav-street { font-size: 18px; }
   .nav-card-main strong { font-size: 24px; }
   #side-panel {

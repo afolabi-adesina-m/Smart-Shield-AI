@@ -78,6 +78,8 @@ Both can run simultaneously - they use different ports and share the same scorin
 
 The desktop server also serves the mobile layout at `/mobile` on the same port. That is the URL to use on a public host. `mobile_server.py` is only needed when you want a second local port for a phone on the same Wi-Fi.
 
+**iPhone Home Screen.** The site is an installable web app. On the phone, open the site in Safari, then Share, then Add to Home Screen. The icon is Smart-Shield. It opens full screen, without the Safari toolbar, and keeps working on mobile data. The saved shell is the map page and its buttons. Live routes and speeds need a connection; if the phone is offline, the page says you're offline instead of calling the server. API answers are not saved on the phone.
+
 Requires trained models in `../models/` for the tabular and ResNet brains. If those files are missing, route scoring still runs: NLP uses the in-repo TF-IDF fallback and vision uses the preset proxy. The speed panel does not need the model files.
 
 ## Map interface

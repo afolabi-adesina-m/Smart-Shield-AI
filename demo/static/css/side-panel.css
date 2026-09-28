@@ -5,9 +5,9 @@ html, body { overflow: hidden; }
 .side-panel {
   position: absolute;
   z-index: 800;
-  top: 12px;
-  left: 12px;
-  bottom: 12px;
+  top: calc(12px + env(safe-area-inset-top, 0px));
+  left: calc(12px + env(safe-area-inset-left, 0px));
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
   width: min(380px, calc(100vw - 88px));
   display: flex;
   flex-direction: column;
