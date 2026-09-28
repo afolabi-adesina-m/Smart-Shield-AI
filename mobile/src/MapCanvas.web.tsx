@@ -12,7 +12,7 @@ type Frame = {
   contentWindow?: { applyScene?: (scene: MapScene) => void };
 };
 
-/** The computer preview uses an iframe. Phones use MapCanvas.tsx instead. */
+/** The computer preview uses OpenStreetMap in an iframe. Phones use the native map. */
 export function MapCanvas({ scene }: Props) {
   const frameRef = useRef<Frame | null>(null);
   const latest = useRef(scene);
@@ -40,7 +40,7 @@ export function MapCanvas({ scene }: Props) {
           width: "100%",
           height: "100%",
           border: "0",
-          backgroundColor: "#0e1620",
+          backgroundColor: scene.night ? "#0e1620" : "#d5dde6",
         },
       })}
     </View>
@@ -48,5 +48,5 @@ export function MapCanvas({ scene }: Props) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, position: "relative", backgroundColor: "#0e1620" },
+  wrap: { flex: 1, position: "relative", backgroundColor: "#d5dde6" },
 });

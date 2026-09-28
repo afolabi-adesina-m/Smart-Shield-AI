@@ -124,7 +124,7 @@ export type MapMarker = {
 export type MapSign = {
   lat: number;
   lon: number;
-  kind: "signal" | "stop" | "report";
+  kind: "signal" | "stop" | "stop-all" | "report";
 };
 
 export type MapScene = {
@@ -134,4 +134,5 @@ export type MapScene = {
   user: { lat: number; lon: number; heading: number } | null;
   camera: "follow" | "fit";
   headingUp: boolean;
+  night: boolean;
 };

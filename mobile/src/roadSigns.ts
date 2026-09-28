@@ -5,10 +5,10 @@ import type { LatLon } from "./navCue";
 export type RoadSign = {
   lat: number;
   lon: number;
-  kind: "signal" | "stop";
+  kind: "signal" | "stop" | "stop-all";
 };
 
-const SIGN_KEY = "smartshield.osmSigns.v1";
+const SIGN_KEY = "smartshield.osmSigns.v2";
 const memory = new Map<string, { at: number; signs: RoadSign[] }>();
 const streets = new Map<string, string | null>();
 const OVERPASS = "https://overpass-api.de/api/interpreter";
@@ -53,6 +53,13 @@ async function overpass(query: string): Promise<{ elements?: { lat?: number; lon
   }
 }
 
+function stopKind(tags: Record<string, string> | undefined): "stop" | "stop-all" {
+  const stop = (tags?.stop || "").toLowerCase().replace(/-/g, "_");
+  const allWay = (tags?.all_way || tags?.["all-way"] || "").toLowerCase();
+  if (stop === "all" || stop === "all_way" || stop === "allway" || allWay === "yes") return "stop-all";
+  return "stop";
+}
+
 /** Traffic signals and stop signs near the driver. Empty when Overpass is unavailable. */
 export async function loadSignsNear(lat: number, lon: number): Promise<RoadSign[]> {
   const key = cellKey(lat, lon);
@@ -69,7 +76,11 @@ export async function loadSignsNear(lat: number, lon: number): Promise<RoadSign[
     if (element.lat == null || element.lon == null) continue;
     const highway = element.tags?.highway;
     if (highway !== "traffic_signals" && highway !== "stop") continue;
-    signs.push({ lat: element.lat, lon: element.lon, kind: highway === "stop" ? "stop" : "signal" });
+    signs.push({
+      lat: element.lat,
+      lon: element.lon,
+      kind: highway === "stop" ? stopKind(element.tags) : "signal",
+    });
   }
   const at = Date.now();
   memory.set(key, { at, signs });

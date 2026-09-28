@@ -122,4 +122,8 @@ If the folder path contains `&`, use `node node_modules/eas-cli/bin/run build -p
 
 ## Map
 
-The map uses OpenStreetMap tiles, drawn dark, with no Google or Mapbox key. Expo Go does include `react-native-maps`, but that view needs a Google map key for this kind of dark navigation screen and it does not render in the browser preview. The phone and the browser therefore share this OpenStreetMap map. Traffic lights and stop signs come from OpenStreetMap when that lookup answers; if it does not, the map simply leaves them off.
+On a phone, Expo Go draws the native map. iPhone uses Apple Maps, which needs no key. Android uses Google Maps with the key built into Expo Go for development, so you do not add a paid key. The map is light in the daytime and dark after local sunset. The turn banner, buttons, speed tile, and arrival card follow that same day or night colour.
+
+The browser preview still uses OpenStreetMap, because the native map does not run there. It uses the same day and night colours.
+
+Traffic lights and stop signs come from OpenStreetMap when that lookup answers. A stop tagged as all-way is drawn with an ALL WAY plate under the sign. A regular stop is the sign alone. If the lookup fails, those icons are left off.
