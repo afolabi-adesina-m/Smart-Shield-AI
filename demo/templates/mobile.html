@@ -20,15 +20,8 @@
   <link rel="stylesheet" href="/static/css/speed-panel.css?v=20260927p" />
   <link rel="stylesheet" href="/static/css/address-search.css?v=20260927p" />
   <link rel="stylesheet" href="/static/css/fleet.css?v=20260927p" />
-  <script>
-    try {
-      var savedTheme = localStorage.getItem("smartshield-theme");
-      if (savedTheme !== "light" && savedTheme !== "dark") {
-        savedTheme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-      }
-      document.documentElement.setAttribute("data-theme", savedTheme);
-    } catch (e) {}
-  </script>
+  <link rel="stylesheet" href="/static/css/nav-chrome.css?v=20260928n" />
+  <script src="/static/js/theme.js?v=20260928n"></script>
 </head>
 <body data-speed-layout="mobile">
   <div id="mobile-app">
@@ -154,13 +147,15 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="/static/js/theme.js?v=20260927p"></script>
+  <script src="https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate.js"></script>
+  <script src="/static/js/stop-sign.js?v=20260928n"></script>
+  <script src="/static/js/nav-chrome.js?v=20260928n"></script>
   <script src="/static/js/weather-picker.js?v=20260927p"></script>
-  <script src="/static/js/speed-panel.js?v=20260927p"></script>
+  <script src="/static/js/speed-panel.js?v=20260928n"></script>
   <script src="/static/js/address-search.js?v=20260927p"></script>
   <script src="/static/js/fleet.js?v=20260927p"></script>
   <script src="/static/js/test-prep.js?v=20260927p"></script>
   <script src="/static/js/panel.js?v=20260927p"></script>
-  <script src="/static/js/mobile.js?v=20260927p" defer></script>
+  <script src="/static/js/mobile.js?v=20260928n" defer></script>
 </body>
 </html>

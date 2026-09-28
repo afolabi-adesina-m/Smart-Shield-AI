@@ -120,7 +120,7 @@ function speedPanelHtml() {
       </div>
       <div id="speed-alert" class="speed-alert ok" role="status" aria-live="assertive">Within the safe speed</div>
       <details id="speed-details" class="speed-controls">
-        <summary>Speed details</summary>
+        <summary>Simulate</summary>
         <p id="speed-road" class="speed-road">Looking up the posted limit…</p>
         <p id="speed-safe-note" class="speed-safe-note"></p>
         <div id="hazard-lines" class="hazard-lines" hidden></div>
