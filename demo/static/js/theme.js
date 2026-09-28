@@ -1,18 +1,105 @@
-/* Light and night-driving themes, plus the map tile style that matches them. */
+/* Light and night-driving themes, plus the map tile style that matches them.
+   Night follows local sunset. Keyless CARTO tiles are the default; OpenStreetMap
+   is the fallback when those tiles fail. A configured public style still wins. */
 
 (function () {
   const KEY = "smartshield-theme";
+  const HOME = { lat: 43.6532, lon: -79.3832 };
 
-  function preferred() {
+  function radians(degrees) {
+    return (degrees * Math.PI) / 180;
+  }
+
+  function degrees(radiansValue) {
+    return (radiansValue * 180) / Math.PI;
+  }
+
+  function wrap360(value) {
+    return ((value % 360) + 360) % 360;
+  }
+
+  function wrap24(value) {
+    return ((value % 24) + 24) % 24;
+  }
+
+  function dayOfYear(when) {
+    const start = Date.UTC(when.getUTCFullYear(), 0, 0);
+    return Math.floor((Date.UTC(when.getUTCFullYear(), when.getUTCMonth(), when.getUTCDate()) - start) / 86400000);
+  }
+
+  function eventHour(lat, lon, when, rising) {
+    const zenith = 90.833;
+    const lngHour = lon / 15;
+    const t = dayOfYear(when) + ((rising ? 6 : 18) - lngHour) / 24;
+    const mean = (0.9856 * t) - 3.289;
+    let sunLong = mean + (1.916 * Math.sin(radians(mean))) + (0.020 * Math.sin(radians(2 * mean))) + 282.634;
+    sunLong = wrap360(sunLong);
+    let rightAsc = degrees(Math.atan(0.91764 * Math.tan(radians(sunLong))));
+    rightAsc = wrap360(rightAsc);
+    const longQuad = Math.floor(sunLong / 90) * 90;
+    const raQuad = Math.floor(rightAsc / 90) * 90;
+    rightAsc = (rightAsc + (longQuad - raQuad)) / 15;
+    const sinDec = 0.39782 * Math.sin(radians(sunLong));
+    const cosDec = Math.cos(Math.asin(sinDec));
+    const cosHour = (Math.cos(radians(zenith)) - (sinDec * Math.sin(radians(lat)))) / (cosDec * Math.cos(radians(lat)));
+    if (cosHour > 1 || cosHour < -1) return null;
+    const hourAngle = (rising ? 360 - degrees(Math.acos(cosHour)) : degrees(Math.acos(cosHour))) / 15;
+    return wrap24(hourAngle + rightAsc - (0.06571 * t) - 6.622 - lngHour);
+  }
+
+  function utcHourToDate(when, hour) {
+    const midnight = Date.UTC(when.getUTCFullYear(), when.getUTCMonth(), when.getUTCDate());
+    return new Date(midnight + hour * 3600 * 1000);
+  }
+
+  function sunTimes(lat, lon, when) {
+    const riseHour = eventHour(lat, lon, when, true);
+    const setHour = eventHour(lat, lon, when, false);
+    if (riseHour == null || setHour == null) return null;
+    return { rise: utcHourToDate(when, riseHour), set: utcHourToDate(when, setHour) };
+  }
+
+  function sunsetAfterRise(sun) {
+    return sun.set.getTime() <= sun.rise.getTime()
+      ? new Date(sun.set.getTime() + 86400000)
+      : sun.set;
+  }
+
+  function isNight(lat, lon, when) {
+    const sun = sunTimes(lat, lon, when);
+    if (!sun) return null;
+    const set = sunsetAfterRise(sun);
+    if (when.getTime() >= sun.rise.getTime() && when.getTime() <= set.getTime()) return false;
+    if (when.getTime() < sun.rise.getTime()) {
+      const yesterday = new Date(when.getTime() - 86400000);
+      const previous = sunTimes(lat, lon, yesterday);
+      if (previous && when.getTime() <= sunsetAfterRise(previous).getTime()) return false;
+    }
+    return true;
+  }
+
+  function nightAt(lat, lon, when) {
+    const night = isNight(lat, lon, when || new Date());
+    if (night == null) {
+      if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) return true;
+      const hour = (when || new Date()).getHours();
+      return hour < 7 || hour >= 19;
+    }
+    return night;
+  }
+
+  function savedTheme() {
     try {
       const saved = localStorage.getItem(KEY);
       if (saved === "light" || saved === "dark") return saved;
     } catch (err) {
       /* private mode */
     }
-    return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
-      ? "dark"
-      : "light";
+    return null;
+  }
+
+  function preferred() {
+    return savedTheme() || (nightAt(HOME.lat, HOME.lon) ? "dark" : "light");
   }
 
   function apply(theme) {
@@ -28,10 +115,10 @@
     document.dispatchEvent(new CustomEvent("smartshield:theme", { detail: { theme } }));
   }
 
-  apply(document.documentElement.getAttribute("data-theme") || preferred());
+  apply(preferred());
 
   document.addEventListener("DOMContentLoaded", () => {
-    apply(document.documentElement.getAttribute("data-theme") || preferred());
+    apply(preferred());
     const btn = document.getElementById("theme-toggle");
     if (btn) {
       btn.addEventListener("click", () => {
@@ -59,6 +146,14 @@
     url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
     maxZoom: 19,
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>',
+  };
+
+  const CARTO = {
+    light: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
+    dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+    subdomains: "abcd",
+    maxZoom: 20,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
   };
 
   let keyedTiles = null;
@@ -90,6 +185,16 @@
         provider: keyedTiles.provider || "keyed",
       };
     }
+    if (!forceOsm) {
+      return {
+        url: night ? CARTO.dark : CARTO.light,
+        maxZoom: CARTO.maxZoom,
+        attribution: CARTO.attribution,
+        subdomains: CARTO.subdomains,
+        nightFilter: false,
+        provider: "carto",
+      };
+    }
     return {
       url: OSM.url,
       maxZoom: OSM.maxZoom,
@@ -109,7 +214,7 @@
 
     const options = {
       maxZoom: spec.maxZoom,
-      maxNativeZoom: spec.maxZoom,
+      maxNativeZoom: Math.min(spec.maxZoom, 20),
       attribution: spec.attribution,
     };
     if (spec.subdomains && spec.url.indexOf("{s}") !== -1) {
@@ -139,6 +244,13 @@
     },
     tileUrl(theme) {
       return specFor(theme || this.current(), false).url;
+    },
+    nightAt(lat, lon, when) {
+      return nightAt(lat, lon, when);
+    },
+    followSun(lat, lon) {
+      if (savedTheme()) return;
+      apply(nightAt(lat, lon) ? "dark" : "light");
     },
     attachMap(map) {
       const paint = (theme) => paintTiles(map, theme || this.current());

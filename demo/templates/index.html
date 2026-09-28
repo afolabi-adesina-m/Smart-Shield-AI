@@ -2,10 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#f3f6fb" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#14685c" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Smart-Shield" />
   <title>Smart-Shield AI Enterprise</title>
+  <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png" sizes="180x180" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -17,15 +23,8 @@
   <link rel="stylesheet" href="/static/css/speed-panel.css?v=20260927p" />
   <link rel="stylesheet" href="/static/css/address-search.css?v=20260927p" />
   <link rel="stylesheet" href="/static/css/fleet.css?v=20260927p" />
-  <script>
-    try {
-      var savedTheme = localStorage.getItem("smartshield-theme");
-      if (savedTheme !== "light" && savedTheme !== "dark") {
-        savedTheme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-      }
-      document.documentElement.setAttribute("data-theme", savedTheme);
-    } catch (e) {}
-  </script>
+  <link rel="stylesheet" href="/static/css/nav-chrome.css?v=20260928q" />
+  <script src="/static/js/theme.js?v=20260928o"></script>
 </head>
 <body data-speed-layout="desktop">
   <div id="app">
@@ -38,6 +37,13 @@
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2 19 6.2v5.6c0 4.2-2.8 7.2-7 8.8-4.2-1.6-7-4.6-7-8.8V6.2L12 3.2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
             <span>Smart-Shield AI Enterprise</span>
           </a>
+          <div class="top-actions">
+            <button id="theme-toggle" class="icon-btn" type="button" aria-label="Switch to night theme" aria-pressed="false">
+              <svg class="icon icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 3.2A8.5 8.5 0 1 0 20.8 14 7 7 0 0 1 16 3.2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+              <svg class="icon icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.2 5.2l1.4 1.4M17.4 17.4l1.4 1.4M18.8 5.2l-1.4 1.4M6.6 17.4l-1.4 1.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            </button>
+            <a id="mobile-demo-link" class="text-link" href="/mobile">Mobile</a>
+          </div>
           <button id="panel-collapse" class="icon-btn panel-collapse" type="button" aria-expanded="true" aria-controls="panel-body" aria-label="Collapse panel">
             <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 10h12M6 14h12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
           </button>
@@ -137,23 +143,19 @@
       </div>
     </aside>
 
-    <div class="top-actions">
-      <button id="theme-toggle" class="icon-btn" type="button" aria-label="Switch to night theme" aria-pressed="false">
-        <svg class="icon icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 3.2A8.5 8.5 0 1 0 20.8 14 7 7 0 0 1 16 3.2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
-        <svg class="icon icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.2 5.2l1.4 1.4M17.4 17.4l1.4 1.4M18.8 5.2l-1.4 1.4M6.6 17.4l-1.4 1.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-      </button>
-      <a id="mobile-demo-link" class="text-link" href="/mobile">Mobile</a>
-    </div>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="/static/js/theme.js?v=20260927p"></script>
+  <script src="https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate.js"></script>
+  <script src="/static/js/stop-sign.js?v=20260928o"></script>
+  <script src="/static/js/nav-chrome.js?v=20260928o"></script>
   <script src="/static/js/weather-picker.js?v=20260927p"></script>
-  <script src="/static/js/speed-panel.js?v=20260927p"></script>
+  <script src="/static/js/speed-panel.js?v=20260928o"></script>
   <script src="/static/js/address-search.js?v=20260927p"></script>
   <script src="/static/js/fleet.js?v=20260927p"></script>
   <script src="/static/js/test-prep.js?v=20260927p"></script>
   <script src="/static/js/panel.js?v=20260927p"></script>
-  <script src="/static/js/app.js?v=20260927p" defer></script>
+  <script src="/static/js/pwa.js?v=20260928q"></script>
+  <script src="/static/js/app.js?v=20260928o" defer></script>
 </body>
 </html>

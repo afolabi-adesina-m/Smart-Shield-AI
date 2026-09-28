@@ -31,10 +31,12 @@ print(f"Smart-Shield AI Enterprise: {_ENGINE['message']}", file=sys.stderr)
 from flask import Flask, render_template
 
 from flask_common import apply_public_cors, disable_demo_cache, register_api_routes
+from pwa_routes import register_pwa_routes
 
 APP = Flask(__name__, static_folder="static", template_folder="templates")
 apply_public_cors(APP)
 register_api_routes(APP)
+register_pwa_routes(APP)
 disable_demo_cache(APP)
 
 MOBILE_PORT = int(os.getenv("PORT", os.getenv("SMART_SHIELD_MOBILE_PORT", "5051")))

@@ -36,7 +36,17 @@ function updateWeatherSummary(value) {
 }
 
 function initMap() {
-  map = L.map("map", { zoomControl: false, attributionControl: true, zoomSnap: 1, zoomDelta: 1 }).setView([43.6532, -79.3832], 9);
+  const mapOptions = { zoomControl: false, attributionControl: true, zoomSnap: 1, zoomDelta: 1 };
+  try {
+    map = L.map("map", Object.assign({
+      rotate: true,
+      bearing: 0,
+      touchRotate: false,
+      rotateControl: false,
+    }, mapOptions)).setView([43.6532, -79.3832], 9);
+  } catch (err) {
+    map = L.map("map", mapOptions).setView([43.6532, -79.3832], 9);
+  }
   document.addEventListener("smartshield:clear-nav", () => {
     routeLayers.forEach((layer) => map.removeLayer(layer));
     routeLayers = [];
@@ -216,6 +226,11 @@ async function fetchRoutes(origin, dest) {
   return data;
 }
 
+function scoreLabel(value) {
+  if (value == null || value === "") return "—";
+  return String(value);
+}
+
 function primaryGuidance(route) {
   if (route.operational_message) return route.operational_message;
   if (route.tier === "HIGH") return "Consider postponing this trip — conditions are hazardous.";
@@ -297,7 +312,7 @@ function renderRouteCards(scored) {
           ${isBest ? '<div class="rank-tag">★ Safest pick</div>' : `<div class="rank-tag">Option ${r.safety_rank}</div>`}
           <div class="route-title">${escapeHtml(r.summary)}</div>
         </div>
-        <div class="safety-pill" style="background:${r.tier_color}">S ${r.safety_score}</div>
+        <div class="safety-pill" style="background:${r.tier_color}">S ${scoreLabel(r.safety_score)}</div>
       </div>
       ${highAlert}
       <div class="route-meta">
@@ -344,12 +359,16 @@ function drawRoutesOnMap(routes, activeIndex, origin = null, dest = null) {
     latlngs.forEach((ll) => bounds.extend(ll));
 
     const isActive = i === activeIndex;
-    const layer = L.polyline(latlngs, {
-      color: ROUTE_COLORS[i % ROUTE_COLORS.length],
-      weight: isActive ? 6 : 3,
-      opacity: isActive ? 0.92 : 0.35,
-    }).addTo(map);
-    routeLayers.push(layer);
+    if (isActive) {
+      routeLayers.push(L.polyline(latlngs, { color: "#ffffff", weight: 12, opacity: 0.92 }).addTo(map));
+      routeLayers.push(L.polyline(latlngs, { color: "#4da3ff", weight: 7, opacity: 1 }).addTo(map));
+    } else {
+      routeLayers.push(L.polyline(latlngs, {
+        color: ROUTE_COLORS[i % ROUTE_COLORS.length],
+        weight: 5,
+        opacity: 0.45,
+      }).addTo(map));
+    }
   });
 
   if (origin && dest) {
@@ -367,6 +386,18 @@ function drawRoutesOnMap(routes, activeIndex, origin = null, dest = null) {
 
   const scored = lastScoredRoutes.find((r) => r.route_index === activeIndex);
   if (scored) updateMapBadge(scored);
+  const route = routes && routes[activeIndex];
+  if (route) {
+    const destInput = document.getElementById("destination");
+    document.dispatchEvent(new CustomEvent("smartshield:nav-route", {
+      detail: {
+        geometry: route.geometry,
+        distanceM: route.distance,
+        durationS: route.duration,
+        destination: (dest && dest.display_name) || (destInput && destInput.value) || "Destination",
+      },
+    }));
+  }
 }
 
 function fitMapToRoute() {
@@ -388,7 +419,7 @@ function updateMapBadge(route) {
   const section = document.getElementById("safety-section");
   if (section) section.open = true;
   badge.dataset.tier = (route.tier || "").toLowerCase();
-  scoreEl.textContent = route.safety_score;
+  scoreEl.textContent = scoreLabel(route.safety_score);
   scoreEl.style.color = "";
   const tier = document.getElementById("safety-tier");
   if (tier) tier.textContent = route.tier || "";
