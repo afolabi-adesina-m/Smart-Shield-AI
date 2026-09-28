@@ -126,4 +126,4 @@ On a phone, Expo Go draws the native map. iPhone uses Apple Maps, which needs no
 
 The browser preview still uses OpenStreetMap, because the native map does not run there. It uses the same day and night colours.
 
-Traffic lights and stop signs come from OpenStreetMap when that lookup answers. A stop tagged as all-way is drawn with an ALL WAY plate under the sign. A regular stop is the sign alone. If the lookup fails, those icons are left off.
+Traffic lights and stop signs come from OpenStreetMap when that lookup answers. A regular stop is a red octagon with the word STOP. A stop tagged as all-way uses that same sign with a white ALL WAY plate under it. If the lookup fails, those icons are left off.
