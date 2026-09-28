@@ -44,6 +44,11 @@ export const MAP_HTML = `<!DOCTYPE html>
       border-right: 7px solid transparent;
       border-bottom: 12px solid #f5c542;
     }
+    .leaflet-tooltip.road-preview-tip {
+      background: #16191f; color: #fff; border: none; border-radius: 8px;
+      font-weight: 700; padding: 6px 10px;
+    }
+    .leaflet-tooltip.road-preview-tip::before { border-top-color: #16191f; }
   </style>
 </head>
 <body>
@@ -70,6 +75,23 @@ export const MAP_HTML = `<!DOCTYPE html>
       attribution: "&copy; OpenStreetMap contributors"
     }).addTo(map);
     var drawn = L.layerGroup().addTo(map);
+    var roadTip = L.tooltip({ sticky: true, className: "road-preview-tip", direction: "top", opacity: 1 });
+    var lastPointer = null;
+
+    function nearestRoad(steps, lat, lon) {
+      var best = null;
+      var bestD = Infinity;
+      (steps || []).forEach(function (step) {
+        (step.coords || []).forEach(function (pair) {
+          if (!pair) return;
+          var dlat = pair[0] - lat;
+          var dlon = pair[1] - lon;
+          var d = dlat * dlat + dlon * dlon;
+          if (d < bestD) { bestD = d; best = step; }
+        });
+      });
+      return best;
+    }
     var STOP_SVG = ${JSON.stringify(stopSignSvg(false))};
     var STOP_ALL_SVG = ${JSON.stringify(stopSignSvg(true))};
 
@@ -105,13 +127,60 @@ export const MAP_HTML = `<!DOCTYPE html>
       (scene.routes || []).forEach(function (route) {
         if (!route.coords || route.coords.length < 2) return;
         if (route.active) {
-          L.polyline(route.coords, { color: "#ffffff", weight: 12, opacity: 0.92 }).addTo(drawn);
-          L.polyline(route.coords, { color: route.color || "#4da3ff", weight: 7, opacity: 1 }).addTo(drawn);
+          L.polyline(route.coords, { color: "#ffffff", weight: 12, opacity: 0.92, interactive: false }).addTo(drawn);
+          L.polyline(route.coords, { color: route.color || "#4da3ff", weight: 7, opacity: 1, interactive: false }).addTo(drawn);
+          if (scene.steps && scene.steps.length) {
+            var hit = L.polyline(route.coords, { weight: 22, opacity: 0 }).addTo(drawn);
+            hit.on("mousemove", function (event) {
+              lastPointer = event.latlng;
+              if (scene.preview) return;
+              var step = nearestRoad(scene.steps, event.latlng.lat, event.latlng.lng);
+              if (!step) return;
+              roadTip.setContent(step.name || "Unnamed road");
+              roadTip.setLatLng(event.latlng);
+              if (!map.hasLayer(roadTip)) roadTip.addTo(map);
+            });
+            hit.on("mouseout", function () {
+              lastPointer = null;
+              if (map.hasLayer(roadTip)) map.removeLayer(roadTip);
+            });
+            hit.on("click", function (event) {
+              if (window.parent) {
+                window.parent.postMessage({
+                  type: "smartshield-route-press",
+                  lat: event.latlng.lat,
+                  lon: event.latlng.lng
+                }, "*");
+              }
+            });
+          }
         } else {
-          L.polyline(route.coords, { color: route.color || "#8aa0b8", weight: 5, opacity: 0.55 }).addTo(drawn);
+          L.polyline(route.coords, { color: route.color || "#8aa0b8", weight: 5, opacity: 0.55, interactive: false }).addTo(drawn);
         }
         route.coords.forEach(function (pair) { bounds.push(pair); });
       });
+      if (scene.preview && scene.preview.lat != null) {
+        if (map.hasLayer(roadTip)) map.removeLayer(roadTip);
+        var preview = scene.preview;
+        if (preview.coords && preview.coords.length >= 2) {
+          L.polyline(preview.coords, {
+            color: "#f5c542", weight: 10, opacity: 0.95, interactive: false, className: "road-preview-highlight"
+          }).addTo(drawn);
+        }
+        var maneuver = L.circleMarker([preview.lat, preview.lon], {
+          radius: 7, color: "#ffffff", weight: 3, fillColor: "#14685c", fillOpacity: 1, interactive: false
+        }).addTo(drawn);
+        maneuver.bindTooltip(preview.name || "Unnamed road", {
+          permanent: true, direction: "top", className: "road-preview-tip", offset: [0, -6]
+        }).openTooltip();
+      } else if (lastPointer && scene.steps && scene.steps.length) {
+        var hovered = nearestRoad(scene.steps, lastPointer.lat, lastPointer.lng);
+        if (hovered) {
+          roadTip.setContent(hovered.name || "Unnamed road");
+          roadTip.setLatLng(lastPointer);
+          if (!map.hasLayer(roadTip)) roadTip.addTo(map);
+        }
+      }
       (scene.markers || []).forEach(function (marker) {
         if (marker.lat == null || marker.lon == null) return;
         L.circleMarker([marker.lat, marker.lon], {

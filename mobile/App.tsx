@@ -23,6 +23,7 @@ import { isNight } from "./src/dayNight";
 import { haversineM, warningFor, type WarningLevel } from "./src/fleetLogic";
 import { getFleetSnapshot, setLiveReader, stopTrip, subscribeFleet } from "./src/fleetStore";
 import { etaCard, instructionSpeech, nextManeuver, progressAlong, shieldFrom, type LatLon } from "./src/navCue";
+import { nearestStep, previewFromStep } from "./src/roadPreview";
 import { alertOverLimit } from "./src/overSpeedAlert";
 import { loadMuted, loadReports, saveMuted, saveReport, type ReportKind, type RoadReport } from "./src/reports";
 import { loadSignsNear, lookupStreet, signsAlong, type RoadSign } from "./src/roadSigns";
@@ -30,10 +31,12 @@ import { speakNav, stopSpeech } from "./src/voice";
 import type { HeatSpot } from "./src/deliveryLogic";
 import { ESTIMATE_LABEL } from "./src/deliveryLogic";
 import type {
+  MapPreview,
   MapScene,
   MapSign,
   Place,
   PracticeLoop,
+  RoadStep,
   ScoredRoute,
   SpeedReading,
   Suggestion,
@@ -70,6 +73,8 @@ export default function App() {
   const [engineNote, setEngineNote] = useState("Checking the server…");
   const [routes, setRoutes] = useState<ScoredRoute[]>([]);
   const [geometries, setGeometries] = useState<[number, number][][]>([]);
+  const [routeSteps, setRouteSteps] = useState<RoadStep[][]>([]);
+  const [preview, setPreview] = useState<MapPreview | null>(null);
   const [tripLegs, setTripLegs] = useState<TripLeg[]>([]);
   const [selected, setSelected] = useState(0);
   const [speed, setSpeed] = useState<SpeedReading | null>(null);
@@ -392,6 +397,7 @@ export default function App() {
     }
     const end = activeLine.length ? activeLine[activeLine.length - 1] : null;
     const camera = (sheetOpen && activeLine.length > 1) || focus === "practice" || focus === "fleet" ? "fit" : "follow";
+    const activeSteps = focus === "nav" ? (routeSteps[selected] || []) : [];
     return {
       routes: routesOut,
       markers: end && focus !== "idle"
@@ -403,8 +409,13 @@ export default function App() {
       camera,
       headingUp: camera === "follow" && headingUp,
       night,
+      steps: activeSteps.map((step) => {
+        const drawn = previewFromStep(step);
+        return { name: drawn.name, coords: drawn.coords, lat: drawn.lat, lon: drawn.lon };
+      }),
+      preview: focus === "nav" ? preview : null,
     };
-  }, [focus, signs, progress, reports, geometries, selected, activeLine, sheetOpen, userLat, userLon, heading, headingUp, loop, night, heat]);
+  }, [focus, signs, progress, reports, geometries, selected, activeLine, sheetOpen, userLat, userLon, heading, headingUp, loop, night, heat, routeSteps, preview]);
 
   function pickSuggestion(item: Suggestion) {
     const place: Place = { id: item.id, label: item.label, detail: item.detail, lat: item.lat, lon: item.lon };
@@ -476,6 +487,8 @@ export default function App() {
       const ordered = scored.routes || [];
       setRoutes(ordered);
       setGeometries(drawn.map((route) => route.geometry));
+      setRouteSteps(drawn.map((route) => route.steps || []));
+      setPreview(null);
       setTripLegs(drawn.map((route) => ({ distanceM: route.distance, durationS: route.duration })));
       const best = scored.best_route_index ?? ordered[0]?.route_index ?? 0;
       setSelected(best);
@@ -539,6 +552,8 @@ export default function App() {
     setFocus("idle");
     setRoutes([]);
     setGeometries([]);
+    setRouteSteps([]);
+    setPreview(null);
     setTripLegs([]);
     setLoop(null);
     setStatus("Search a destination.");
@@ -583,7 +598,13 @@ export default function App() {
   return (
     <View style={styles.root}>
       <StatusBar style={night ? "light" : "dark"} />
-      <MapCanvas scene={scene} />
+      <MapCanvas
+        scene={scene}
+        onRoutePoint={(lat, lon) => {
+          const step = nearestStep(routeSteps[selected] || [], lat, lon);
+          if (step) setPreview(previewFromStep(step));
+        }}
+      />
       <NavChrome
         maneuver={focus === "nav" ? maneuver : null}
         posted={posted}
@@ -629,7 +650,13 @@ export default function App() {
           onFind={() => { findRoute().catch(() => undefined); }}
           routes={routes}
           selected={selected}
-          onSelect={setSelected}
+          onSelect={(index) => { setSelected(index); setPreview(null); }}
+          steps={routeSteps[selected] || []}
+          onPreviewStep={(index) => {
+            const step = (routeSteps[selected] || [])[index];
+            if (step) setPreview(previewFromStep(step));
+          }}
+          onClearPreview={() => setPreview(null)}
           centres={centres}
           centreId={centreId}
           onCentre={setCentreId}
