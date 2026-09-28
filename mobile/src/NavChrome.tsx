@@ -29,6 +29,7 @@ type Props = {
   onExit: () => void;
   onWhereTo: () => void;
   night: boolean;
+  cameraNote?: string;
 };
 
 export function NavChrome(props: Props) {
@@ -39,6 +40,11 @@ export function NavChrome(props: Props) {
   return (
     <View style={styles.overlay} pointerEvents="box-none">
       {props.maneuver ? <Banner maneuver={props.maneuver} night={props.night} /> : null}
+      {props.cameraNote ? (
+        <View style={styles.cameraNote} pointerEvents="none">
+          <Text style={styles.cameraNoteText}>{props.cameraNote}</Text>
+        </View>
+      ) : null}
       {props.estimateNote ? (
         <View style={[styles.estimate, props.maneuver ? styles.estimateBelow : null, !props.night && styles.estimateDay]} testID="delivery-map-label">
           <Text style={[styles.estimateText, !props.night && styles.ink]}>{props.estimateNote}</Text>
@@ -225,6 +231,17 @@ function WarningIcon() {
 
 const styles = StyleSheet.create({
   overlay: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
+  cameraNote: {
+    position: "absolute",
+    left: 12,
+    right: 88,
+    bottom: 112,
+    backgroundColor: "rgba(14,22,32,0.82)",
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  cameraNoteText: { color: "#d5dde6", fontSize: 11, lineHeight: 15 },
   estimate: {
     position: "absolute",
     top: 12,

@@ -38,6 +38,15 @@ export const MAP_HTML = `<!DOCTYPE html>
     }
     .signal i { width: 6px; height: 6px; border-radius: 50%; background: #3a3a3a; display: block; }
     .signal i.on { background: #3ddc6a; }
+    .cam, .cam-var {
+      background: #111; border: 1px solid #fff; color: #f5c542;
+      font: 700 9px/16px sans-serif; text-align: center;
+      box-shadow: 0 0 0 1px rgba(0,0,0,.35);
+    }
+    .cam { width: 22px; height: 22px; border-radius: 5px; display: flex; align-items: center; justify-content: center; }
+    .cam i { width: 8px; height: 8px; border-radius: 50%; background: #f5c542; box-shadow: 0 0 0 2px #3a3a3a; display: block; }
+    .cam-red i { background: #d93025; }
+    .cam-var { width: 34px; height: 18px; border-radius: 3px; line-height: 16px; }
     .report-pin {
       width: 0; height: 0;
       border-left: 7px solid transparent;
@@ -127,6 +136,16 @@ export const MAP_HTML = `<!DOCTYPE html>
         if (sign.lat == null || sign.lon == null) return;
         var html = '<div class="signal"><i></i><i class="on"></i><i></i></div>';
         var w = 12, h = 26, ax = null, ay = null;
+        if (sign.kind === "red_light") {
+          html = '<div class="cam cam-red"><i></i></div>'; w = 22; h = 22;
+        }
+        if (sign.kind === "speed_camera") {
+          html = '<div class="cam cam-speed">' + (sign.label ? '<b>' + sign.label + '</b>' : '<i></i>') + '</div>';
+          w = 22; h = 22;
+        }
+        if (sign.kind === "variable") {
+          html = '<div class="cam-var">' + (sign.label || "VAR") + '</div>'; w = 34; h = 18;
+        }
         if (sign.kind === "stop") {
           html = STOP_SVG; w = ${regularStop.width}; h = ${regularStop.height};
           ax = ${regularStop.cx}; ay = ${regularStop.cy};
