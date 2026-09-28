@@ -130,12 +130,21 @@ function attachAddressField(input, options) {
   function placeList() {
     const rect = input.getBoundingClientRect();
     const hud = document.getElementById("speed-panel");
-    const limitBottom = hud ? hud.getBoundingClientRect().top - 12 : window.innerHeight - 16;
-    const space = Math.max(120, limitBottom - rect.bottom - 8);
+    const foot = document.querySelector(".panel-foot, .sheet-foot");
+    let limitBottom = window.innerHeight - 16;
+    if (hud) limitBottom = Math.min(limitBottom, hud.getBoundingClientRect().top - 12);
+    if (foot) limitBottom = Math.min(limitBottom, foot.getBoundingClientRect().top - 8);
+    const below = limitBottom - rect.bottom - 8;
     list.style.left = Math.max(8, rect.left) + "px";
-    list.style.top = (rect.bottom + 4) + "px";
     list.style.width = Math.max(180, rect.width) + "px";
-    list.style.maxHeight = Math.min(320, space) + "px";
+    if (below >= 96) {
+      list.style.top = (rect.bottom + 4) + "px";
+      list.style.maxHeight = Math.min(320, below) + "px";
+      return;
+    }
+    const above = Math.max(96, Math.min(280, rect.top - 12));
+    list.style.maxHeight = above + "px";
+    list.style.top = Math.max(8, rect.top - above - 4) + "px";
   }
 
   function close() {
@@ -295,6 +304,8 @@ function attachAddressField(input, options) {
     if (box && box.contains(e.target)) return;
     close();
   });
+  document.addEventListener("smartshield:start-nav", close);
+  document.addEventListener("smartshield:close-suggest", close);
 
   return { close };
 }

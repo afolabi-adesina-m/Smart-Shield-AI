@@ -107,12 +107,11 @@
     document.documentElement.setAttribute("data-theme", theme);
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute("content", theme === "dark" ? "#0e1116" : "#f3f6fb");
-    const btn = document.getElementById("theme-toggle");
-    if (btn) {
-      const toDark = theme !== "dark";
+    const toDark = theme !== "dark";
+    document.querySelectorAll("[data-theme-toggle]").forEach((btn) => {
       btn.setAttribute("aria-label", toDark ? "Switch to night theme" : "Switch to day theme");
       btn.setAttribute("aria-pressed", theme === "dark" ? "true" : "false");
-    }
+    });
     document.dispatchEvent(new CustomEvent("smartshield:theme", { detail: { theme } }));
   }
 
@@ -120,14 +119,13 @@
 
   document.addEventListener("DOMContentLoaded", () => {
     apply(preferred());
-    const btn = document.getElementById("theme-toggle");
-    if (btn) {
+    document.querySelectorAll("[data-theme-toggle]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const next = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
         try { localStorage.setItem(KEY, next); } catch (err) { /* ignore */ }
         apply(next);
       });
-    }
+    });
     const toggle = document.getElementById("safety-toggle");
     if (toggle) {
       toggle.addEventListener("click", () => {

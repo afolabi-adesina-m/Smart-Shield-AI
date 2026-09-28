@@ -240,6 +240,7 @@
   }
 
   function openTools(which) {
+    document.body.classList.add("nav-tools-open");
     const panel = document.getElementById("side-panel");
     if (panel) {
       panel.classList.remove("is-collapsed");
@@ -862,6 +863,7 @@
       state.following = false;
       state.spokenTurn = "";
       document.body.classList.remove("is-navigating");
+      document.body.classList.remove("nav-tools-open");
       const panel = document.getElementById("side-panel");
       const sheet = document.getElementById("bottom-sheet");
       if (panel) panel.classList.remove("is-collapsed");
@@ -888,7 +890,10 @@
       document.body.classList.add("is-navigating");
       const panel = document.getElementById("side-panel");
       const sheet = document.getElementById("bottom-sheet");
-      if (panel) panel.classList.add("is-collapsed");
+      if (panel) {
+        panel.classList.add("is-collapsed");
+        panel.classList.remove("is-open");
+      }
       if (sheet) sheet.classList.add("is-hidden");
       const line = toLatLon(state.route.geometry);
       if (line[0] && window.SmartShieldSetLocation) {
@@ -922,6 +927,7 @@
       state.route = null;
       state.navigating = false;
       document.body.classList.remove("is-navigating");
+      document.body.classList.remove("nav-tools-open");
       renderEta();
     });
     document.addEventListener("smartshield:road", (event) => {
@@ -960,7 +966,13 @@
     }
     const collapse = document.getElementById("panel-collapse");
     if (collapse) {
-      collapse.addEventListener("click", () => setTimeout(syncDock, 40));
+      collapse.addEventListener("click", () => setTimeout(() => {
+        syncDock();
+        const panel = document.getElementById("side-panel");
+        if (panel && panel.classList.contains("is-collapsed")) {
+          document.body.classList.remove("nav-tools-open");
+        }
+      }, 40));
     }
     window.addEventListener("resize", syncDock);
     document.addEventListener("DOMContentLoaded", () => {

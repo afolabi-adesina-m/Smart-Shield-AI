@@ -415,6 +415,10 @@ function renderRoutePreview(scored) {
     card.appendChild(start);
     box.appendChild(card);
   });
+  const firstStart = box.querySelector(".route-start");
+  if (firstStart && window.matchMedia("(max-width: 860px)").matches) {
+    requestAnimationFrame(() => firstStart.scrollIntoView({ block: "center", inline: "nearest" }));
+  }
 }
 
 function clearDirectionPreview() {

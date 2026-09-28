@@ -124,6 +124,7 @@ function speedPanelHtml() {
       <div id="speed-alert" class="speed-alert ok" role="status" aria-live="assertive">Within the safe speed</div>
       <details id="speed-details" class="speed-controls">
         <summary>Simulate</summary>
+        <button type="button" id="speed-drive" class="speed-drive">Simulate</button>
         <p id="speed-road" class="speed-road">Looking up the posted limit…</p>
         <p id="speed-safe-note" class="speed-safe-note"></p>
         <div id="hazard-lines" class="hazard-lines" hidden></div>
@@ -141,7 +142,6 @@ function speedPanelHtml() {
           <button type="button" data-preset="amber">Above safe</button>
           <button type="button" data-preset="red">Over limit</button>
         </div>
-        <button type="button" id="speed-drive" class="speed-drive">Simulate</button>
         <p id="speed-gps-note" class="speed-gps-note"></p>
         <details class="speed-rule">
           <summary>How safe speed is calculated</summary>

@@ -84,7 +84,9 @@ function initBottomSheet() {
 
   handle.addEventListener("click", () => {
     const i = states.indexOf(sheet.dataset.state);
-    setSheetState(states[Math.min(i + 1, states.length - 1)]);
+    const next = i >= states.length - 1 ? "peek" : states[i + 1];
+    setSheetState(next);
+    if (next === "peek") document.body.classList.remove("nav-tools-open");
   });
 
   handle.addEventListener("touchstart", (e) => {
@@ -328,6 +330,10 @@ function renderRoutePreview(scored) {
     card.appendChild(start);
     box.appendChild(card);
   });
+  const firstStart = box.querySelector(".route-start");
+  if (firstStart && window.matchMedia("(max-width: 860px)").matches) {
+    requestAnimationFrame(() => firstStart.scrollIntoView({ block: "center", inline: "nearest" }));
+  }
 }
 
 function renderRouteCards(scored) {
