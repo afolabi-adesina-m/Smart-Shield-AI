@@ -72,7 +72,13 @@ export type TravelPlan = {
   itineraries?: TransitItinerary[];
 };
 
-export type ModeSummary = { durationS: number | null; distanceM: number | null; failed?: boolean };
+export type ModeSummary = {
+  durationS: number | null;
+  distanceM: number | null;
+  failed?: boolean;
+  /** Motorcycle reuses the car route and says so on the chip. */
+  via?: "car";
+};
 
 export type OsrmRoute = {
   distance: number | null;

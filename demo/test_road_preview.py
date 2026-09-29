@@ -181,6 +181,45 @@ class TravelModeTests(unittest.TestCase):
         self.assertEqual(len(calls), 2)
         self.assertEqual(response.get_json()["routes"][0]["steps"][1]["name"], "Hwy 401")
 
+    def test_cycle_rewrites_a_driving_duration(self):
+        from travel_modes import clear_cache, realistic_duration
+
+        kept, estimated = realistic_duration("cycle", 37000, 148 * 60)
+        self.assertFalse(estimated)
+        self.assertEqual(kept, 148 * 60)
+        seconds, replaced = realistic_duration("cycle", 40000, 35 * 60)
+        self.assertTrue(replaced)
+        self.assertAlmostEqual(seconds, 40000 / (16.5 * 1000 / 3600), places=1)
+        walk_kept, walk_estimated = realistic_duration("walk", 35000, 471 * 60)
+        self.assertFalse(walk_estimated)
+        self.assertEqual(walk_kept, 471 * 60)
+        walk_seconds, walk_replaced = realistic_duration("walk", 35000, 30 * 60)
+        self.assertTrue(walk_replaced)
+        self.assertAlmostEqual(walk_seconds, 35000 / (4.8 * 1000 / 3600), places=1)
+
+        clear_cache()
+        app = Flask(__name__)
+        register_api_routes(app)
+        fast = _fixture_route()
+        fast["routes"][0]["distance"] = 40000
+        fast["routes"][0]["duration"] = 2100
+
+        class Ok:
+            status_code = 200
+
+            def json(self):
+                return fast
+
+        with patch("travel_modes.requests.get", return_value=Ok()):
+            response = app.test_client().get(
+                "/api/directions?from_lat=43.64&from_lon=-79.38&to_lat=43.65&to_lon=-79.74&mode=cycle"
+            )
+        self.assertEqual(response.status_code, 200)
+        body = response.get_json()
+        self.assertEqual(body["mode"], "cycle")
+        self.assertIn("16.5 km/h", body["note"])
+        self.assertAlmostEqual(body["routes"][0]["duration"], 40000 / (16.5 * 1000 / 3600), places=1)
+
     def test_transit_keeps_scheduled_times_and_missing_colours(self):
         from travel_modes import clear_cache
 

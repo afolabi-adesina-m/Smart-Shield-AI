@@ -389,7 +389,7 @@ function ModeChips(props: {
           >
             <MaterialCommunityIcons name={item.icon} size={16} color={on ? "#fff" : props.night ? "#f2f2f7" : "#1c1c1e"} />
             <Text style={[styles.modeLabel, on && styles.modeLabelOn, props.night && !on && styles.modeLabelNight]}>{item.label}</Text>
-            <Text style={[styles.modeEta, on && styles.modeLabelOn]}>{summaryText(summary)}</Text>
+            <Text testID={`mode-eta-${item.id}`} style={[styles.modeEta, on && styles.modeLabelOn]}>{summaryText(summary)}</Text>
           </Pressable>
         );
       })}
@@ -398,9 +398,10 @@ function ModeChips(props: {
 }
 
 function summaryText(summary?: ModeSummary): string {
-  if (!summary || summary.durationS == null) return summary?.failed ? "—" : "";
+  if (!summary || summary.durationS == null) return summary?.failed ? "Unavailable" : "";
   const minutes = Math.max(1, Math.round(summary.durationS / 60));
   const time = minutes < 60 ? `${minutes} min` : `${Math.floor(minutes / 60)} hr ${minutes % 60 || ""}`.trim();
+  if (summary.via === "car") return `${time}\ncar route`;
   if (summary.distanceM == null) return time;
   const distance = summary.distanceM < 950 ? `${Math.max(1, Math.round(summary.distanceM))} m` : `${(summary.distanceM / 1000).toFixed(1)} km`;
   return `${time} · ${distance}`;

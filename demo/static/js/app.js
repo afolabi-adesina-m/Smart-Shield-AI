@@ -125,10 +125,11 @@ async function findRoutes() {
     const head = (osrmData.itineraries && osrmData.itineraries[0]) || lastOsrmRoutes[0] || {};
     if (travel) {
       travel.remember(o, d);
+      const echoed = travelMode === "drive" || travelMode === "motorcycle" || travel.modeEchoed(osrmData, travelMode);
       travel.rememberSummary(
         travelMode,
-        head.duration_s != null ? head.duration_s : head.duration,
-        head.distance_m != null ? head.distance_m : head.distance,
+        echoed ? (head.duration_s != null ? head.duration_s : head.duration) : null,
+        echoed ? (head.distance_m != null ? head.distance_m : head.distance) : null,
       );
       travel.refreshSummaries(o, d);
     }

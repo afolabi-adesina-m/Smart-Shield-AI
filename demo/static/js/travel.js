@@ -100,12 +100,12 @@
       const dist = button.querySelector(".travel-mode-dist");
       const item = summaries[id];
       if (!item || item.duration == null) {
-        if (eta) eta.textContent = item && item.failed ? "—" : "";
+        if (eta) eta.textContent = item && item.failed ? "Unavailable" : "";
         if (dist) dist.textContent = "";
         return;
       }
       if (eta) eta.textContent = durationText(item.duration);
-      if (dist) dist.textContent = item.distance == null ? "" : distanceText(item.distance);
+      if (dist) dist.textContent = item.via === "car" ? "car route" : (item.distance == null ? "" : distanceText(item.distance));
     });
   }
 
@@ -114,10 +114,11 @@
   }
 
   function rememberSummary(id, duration, distance) {
-    summaries[id] = { duration, distance, failed: duration == null };
-    if (id === "drive") summaries.motorcycle = summaries.motorcycle && summaries.motorcycle.duration != null
-      ? summaries.motorcycle
-      : { duration, distance, failed: duration == null };
+    summaries[id] = { duration, distance, failed: duration == null, via: id === "motorcycle" ? "car" : undefined };
+    if (id === "drive" || id === "motorcycle") {
+      summaries.drive = { duration, distance, failed: duration == null };
+      summaries.motorcycle = { duration, distance, failed: duration == null, via: "car" };
+    }
     paint();
   }
 
@@ -127,17 +128,40 @@
     await Promise.all(jobs.map(async (id) => {
       try {
         const data = await fetchMode(origin, dest, id, true);
-        const head = (data.itineraries && data.itineraries[0]) || (data.routes && data.routes[0]) || {};
-        const duration = head.duration_s != null ? head.duration_s : head.duration;
-        const distance = head.distance_m != null ? head.distance_m : head.distance;
-        summaries[id] = { duration: duration == null ? null : duration, distance: distance == null ? null : distance };
-        if (id === "drive") summaries.motorcycle = { duration: summaries[id].duration, distance: summaries[id].distance };
+        if (!modeEchoed(data, id)) {
+          summaries[id] = { duration: null, distance: null, failed: true };
+        } else if (id === "transit") {
+          const item = (data.itineraries && data.itineraries[0]) || {};
+          summaries[id] = {
+            duration: item.duration_s == null ? null : item.duration_s,
+            distance: item.distance_m == null ? null : item.distance_m,
+            failed: item.duration_s == null,
+          };
+        } else {
+          const head = (data.routes && data.routes[0]) || {};
+          summaries[id] = {
+            duration: head.duration == null ? null : head.duration,
+            distance: head.distance == null ? null : head.distance,
+            failed: head.duration == null,
+          };
+        }
+        if (id === "drive") {
+          summaries.motorcycle = summaries.drive && summaries.drive.duration != null
+            ? { duration: summaries.drive.duration, distance: summaries.drive.distance, via: "car" }
+            : { duration: null, distance: null, failed: true };
+        }
       } catch (err) {
         summaries[id] = { duration: null, distance: null, failed: true };
-        if (id === "drive") summaries.motorcycle = summaries[id];
+        if (id === "drive") summaries.motorcycle = { duration: null, distance: null, failed: true };
       }
     }));
     paint();
+  }
+
+  function modeEchoed(data, id) {
+    if (id === "drive") return !data.mode || data.mode === "drive";
+    if (id === "transit") return data.mode === "transit" && data.itineraries && data.itineraries[0] && data.itineraries[0].duration_s != null;
+    return data.mode === id;
   }
 
   async function fetchMode(origin, dest, id, summary) {
@@ -395,6 +419,7 @@
     rememberSummary,
     refreshSummaries,
     fetchMode,
+    modeEchoed,
     durationText,
     distanceText,
     fillPreview,

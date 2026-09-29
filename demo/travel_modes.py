@@ -37,6 +37,13 @@ MODE_LABELS = {
 
 NEUTRAL_COLOUR = "#5f6368"
 
+# Keep these in step with mobile/src/modeRoute.ts. A public OSRM bike or
+# foot profile sometimes returns a driving-like duration; those are replaced.
+CYCLE_KMH = 16.5
+WALK_KMH = 4.8
+CYCLE_FAST_KMH = 25
+WALK_FAST_KMH = 7
+
 _CACHE: dict[str, tuple[float, dict | None]] = {}
 
 
@@ -163,6 +170,21 @@ def _present(payload: dict, summary: bool) -> dict:
     return body
 
 
+def realistic_duration(mode: str, distance_m, duration_s):
+    """Return (seconds, estimated). Driving-like bike and walk times are replaced."""
+    if mode not in ("cycle", "walk"):
+        return duration_s, False
+    if not isinstance(distance_m, (int, float)) or distance_m <= 0:
+        return duration_s, False
+    limit = CYCLE_FAST_KMH if mode == "cycle" else WALK_FAST_KMH
+    pace = CYCLE_KMH if mode == "cycle" else WALK_KMH
+    if isinstance(duration_s, (int, float)) and duration_s > 0:
+        speed = (distance_m / duration_s) * 3.6
+        if speed <= limit:
+            return duration_s, False
+    return round(distance_m / (pace * 1000 / 3600), 1), True
+
+
 def _unavailable(mode: str) -> str:
     if mode == "cycle":
         return "Bicycle routing is unavailable right now."
@@ -189,11 +211,31 @@ def _profile(mode: str, from_lat: float, from_lon: float, to_lat: float, to_lon:
         if data.get("code") != "Ok" or not data.get("routes"):
             last_error = data.get("message") or last_error
             continue
-        return {
+        estimated = False
+        built = []
+        for index, route in enumerate(data["routes"][:3]):
+            duration, changed = realistic_duration(mode, route.get("distance"), route.get("duration"))
+            if changed:
+                route = dict(route)
+                route["duration"] = duration
+                estimated = True
+            built.append(_osrm_route(index, route))
+        note = None
+        if estimated:
+            pace = CYCLE_KMH if mode == "cycle" else WALK_KMH
+            kind = "Bicycle" if mode == "cycle" else "Walking"
+            note = (
+                f"{kind} time is estimated at {pace} km/h from the route distance. "
+                "The router returned a driving-like duration."
+            )
+        body = {
             "mode": mode,
             "router": base,
-            "routes": [_osrm_route(index, route) for index, route in enumerate(data["routes"][:3])],
+            "routes": built,
         }
+        if note:
+            body["note"] = note
+        return body
     raise LookupError(last_error if last_error else _unavailable(mode))
 
 
@@ -255,6 +297,11 @@ def _itinerary(raw: dict) -> dict | None:
     if not legs or raw.get("duration") is None:
         return None
     distances = [leg["distance_m"] for leg in legs if isinstance(leg.get("distance_m"), (int, float))]
+    # A bus or train leg often omits distance. Summing the walks alone would
+    # look like a tiny trip, so the distance stays blank instead of a guess.
+    distance_known = all(
+        leg["mode"] == "WALK" or isinstance(leg.get("distance_m"), (int, float)) for leg in legs
+    )
     walk_seconds = [
         leg["duration_s"] for leg in legs
         if leg["mode"] == "WALK" and isinstance(leg.get("duration_s"), (int, float))
@@ -266,7 +313,7 @@ def _itinerary(raw: dict) -> dict | None:
         "end": raw.get("endTime"),
         "transfers": raw.get("transfers"),
         "walk_min": round(sum(walk_seconds) / 60) if walk_seconds else None,
-        "distance_m": sum(distances) if distances else None,
+        "distance_m": sum(distances) if distance_known and distances else None,
         "summary": _summary(legs),
         "scheduled": scheduled,
         "legs": legs,

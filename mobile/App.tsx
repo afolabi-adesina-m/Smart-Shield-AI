@@ -739,10 +739,14 @@ export default function App() {
       const head = trips[0] || drawn[0];
       const durationS = head && "duration_s" in head && head.duration_s != null ? head.duration_s : drawn[0]?.duration ?? null;
       const distanceM = head && "distance_m" in head && head.distance_m != null ? head.distance_m : drawn[0]?.distance ?? null;
+      const chip = { durationS, distanceM };
       setSummaries((prev) => ({
         ...prev,
-        [mode]: { durationS, distanceM },
-        ...(mode === "drive" || mode === "motorcycle" ? { drive: { durationS, distanceM }, motorcycle: { durationS, distanceM } } : {}),
+        [mode]: mode === "motorcycle" ? { ...chip, via: "car" as const } : chip,
+        ...(mode === "drive" || mode === "motorcycle" ? {
+          drive: chip,
+          motorcycle: { ...chip, via: "car" as const },
+        } : {}),
       }));
       fetchModeSummaries(from, to, mode).then((extra) => {
         setSummaries((prev) => ({ ...prev, ...extra }));
