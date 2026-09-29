@@ -38,6 +38,8 @@ type Props = {
   arrival?: string;
   minutesLabel?: string;
   distanceLabel?: string;
+  distanceUnit?: string;
+  roadName?: string;
 };
 
 export function NavChrome(props: Props) {
@@ -60,7 +62,7 @@ export function NavChrome(props: Props) {
       ) : null}
       <View style={styles.side} pointerEvents="box-none">
         <View style={styles.sideStack}>
-          {driving ? null : (
+          {driving && props.showRecenter ? null : (
             <RoundButton label="Compass" night={props.night} onPress={props.onCompass}>
               <View style={{ transform: [{ rotate: `${-props.heading}deg` }] }}>
                 <NorthNeedle south={ink} />
@@ -80,6 +82,11 @@ export function NavChrome(props: Props) {
           <RoundButton label={props.muted ? "Unmute voice" : "Mute voice"} night={props.night} onPress={props.onMute}>
             <SpeakerIcon muted={props.muted} color={ink} />
           </RoundButton>
+          {driving ? (
+            <RoundButton label="Report" night={props.night} onPress={props.onReport}>
+              <WarningIcon />
+            </RoundButton>
+          ) : null}
           {driving ? null : (
             <RoundButton label="Route options" night={props.night} onPress={props.onRoutes}>
               <ForkIcon color={ink} />
@@ -91,29 +98,29 @@ export function NavChrome(props: Props) {
             </RoundButton>
           )}
         </View>
-        <Pressable style={[styles.report, !props.night && styles.reportDay]} accessibilityLabel="Report" onPress={props.onReport}>
-          <WarningIcon />
-          <Text style={[styles.reportText, !props.night && styles.reportTextDay]}>Report</Text>
-        </Pressable>
+        {driving ? null : (
+          <Pressable style={[styles.report, !props.night && styles.reportDay]} accessibilityLabel="Report" onPress={props.onReport}>
+            <WarningIcon />
+            <Text style={[styles.reportText, !props.night && styles.reportTextDay]}>Report</Text>
+          </Pressable>
+        )}
       </View>
       <View style={styles.speedRow} pointerEvents="none">
         <View style={styles.maxSign} testID="limit-sign">
           <Text style={styles.maxWord}>MAXIMUM</Text>
           <Text style={styles.maxNum}>{props.posted == null ? "—" : String(props.posted)}</Text>
         </View>
-        {over && props.current != null ? (
-          <View
-            style={[styles.overSpeed, props.level === "red" ? styles.tileRed : styles.tileAmber]}
-            testID="speed-tile"
-            accessibilityLabel={speedLabel}
-          >
-            <Text style={[styles.overNum, props.level === "amber" && styles.tileNumDark]}>{props.current}</Text>
-            <Text style={[styles.overUnit, props.level === "amber" && styles.tileNumDark]}>km/h</Text>
-          </View>
-        ) : (
-          <View testID="speed-tile" accessibilityLabel={speedLabel} style={styles.speedHidden} />
-        )}
+        <View style={[styles.speedTile, props.night && styles.speedTileNight]} testID="speed-tile" accessibilityLabel={speedLabel}>
+          <Text style={[styles.speedNum, props.night && styles.speedNumNight, props.level === "red" && styles.speedHot, props.level === "amber" && styles.speedWarm]}>
+            {props.current == null ? "—" : String(props.current)}
+          </Text>
+        </View>
       </View>
+      {driving && props.roadName ? (
+        <View style={styles.roadPill} pointerEvents="none">
+          <Text style={styles.roadPillText} numberOfLines={1}>{props.roadName}</Text>
+        </View>
+      ) : null}
       {props.showExit && driving ? (
         <View style={styles.etaPill} testID="eta-card">
           <View style={styles.etaCol}>
@@ -122,11 +129,11 @@ export function NavChrome(props: Props) {
           </View>
           <View style={styles.etaCol}>
             <Text style={styles.etaStrong}>{props.minutesLabel || "—"}</Text>
-            <Text style={styles.etaHint}>left</Text>
+            <Text style={styles.etaHint}>min</Text>
           </View>
           <View style={styles.etaCol}>
             <Text style={styles.etaStrong}>{props.distanceLabel || "—"}</Text>
-            <Text style={styles.etaHint}>left</Text>
+            <Text style={styles.etaHint}>{props.distanceUnit || "km"}</Text>
           </View>
           {props.risk ? <Text style={styles.riskChip}>Risk {props.risk}</Text> : null}
           <Pressable style={styles.exitQuiet} testID="exit-nav" onPress={props.onExit}>
@@ -434,9 +441,9 @@ const styles = StyleSheet.create({
   },
   sideStack: { gap: 12 },
   round: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: "rgba(28,31,36,0.94)",
     alignItems: "center",
     justifyContent: "center",
@@ -580,7 +587,40 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   maxWord: { color: "#111", fontSize: 8, fontWeight: "800", letterSpacing: 0.4 },
-  maxNum: { color: "#111", fontSize: 26, fontWeight: "800", lineHeight: 28 },
+  maxNum: { color: "#111", fontSize: 22, fontWeight: "800", lineHeight: 24 },
+  speedTile: {
+    width: 54,
+    height: 66,
+    borderRadius: 14,
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "rgba(22,25,31,0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  speedTileNight: { backgroundColor: "#1c2128", borderColor: "rgba(255,255,255,0.12)" },
+  speedNum: { color: "#16191f", fontSize: 22, fontWeight: "800" },
+  speedNumNight: { color: "#f4f7fb" },
+  speedHot: { color: "#d93025" },
+  speedWarm: { color: "#c47b00" },
+  roadPill: {
+    position: "absolute",
+    left: 72,
+    right: 72,
+    bottom: 78,
+    alignItems: "center",
+  },
+  roadPillText: {
+    backgroundColor: "rgba(16,20,26,0.78)",
+    color: "#fff",
+    overflow: "hidden",
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    fontSize: 13,
+    fontWeight: "700",
+    maxWidth: "100%",
+  },
   overSpeed: {
     minWidth: 48,
     borderRadius: 8,

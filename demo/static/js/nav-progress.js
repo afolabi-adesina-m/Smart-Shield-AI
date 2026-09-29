@@ -59,7 +59,7 @@
 
   function projectAlong(line, lat, lon) {
     if (!line || !line.length) return { alongM: 0, offM: Infinity };
-    if (line.length === 1) return { alongM: 0, offM: haversineM(lat, lon, line[0][0], line[0][1]) };
+    if (line.length === 1) return { alongM: 0, offM: haversineM(lat, lon, line[0][0], line[0][1]), lat: line[0][0], lon: line[0][1] };
     var along = 0;
     var best = { alongM: 0, offM: Infinity };
     for (var index = 1; index < line.length; index += 1) {
@@ -70,7 +70,7 @@
       var latP = start[0] + (end[0] - start[0]) * t;
       var lonP = start[1] + (end[1] - start[1]) * t;
       var off = haversineM(lat, lon, latP, lonP);
-      if (off < best.offM) best = { alongM: along + length * t, offM: off };
+      if (off < best.offM) best = { alongM: along + length * t, offM: off, lat: latP, lon: lonP };
       along += length;
     }
     return best;
@@ -237,7 +237,12 @@
     }
     var thenManeuver = thenItem ? toManeuver(thenItem, user.alongM) : null;
     if (thenManeuver && thenManeuver.distanceM > THEN_M) thenManeuver = null;
-    return { current: current, then: thenManeuver, match: user };
+    var onRoad = "";
+    placed.forEach(function (item) {
+      if (maneuverKind(item.step) === "arrive") return;
+      if (item.alongM <= user.alongM + PASSED_M) onRoad = streetFromStep(item.step);
+    });
+    return { current: current, then: thenManeuver, match: user, road: onRoad };
   }
 
   function cutLine(line, alongM) {
@@ -268,6 +273,15 @@
       if (projected.offM > corridor) return false;
       var ahead = projected.alongM - user.alongM;
       return ahead >= -PASSED_M && ahead <= windowMeters;
+    }).map(function (feature) {
+      var projected = projectAlong(line, feature.lat, feature.lon);
+      var copy = {};
+      Object.keys(feature).forEach(function (key) { copy[key] = feature[key]; });
+      if (projected.lat != null && projected.lon != null) {
+        copy.lat = projected.lat;
+        copy.lon = projected.lon;
+      }
+      return copy;
     });
   }
 
@@ -278,6 +292,122 @@
       if (feature == null || feature.lat == null || feature.lon == null) return false;
       return projectAlong(line, feature.lat, feature.lon).offM <= corridor;
     });
+  }
+
+  var CITY_CUES = [
+    { id: "far", metres: 400 },
+    { id: "near", metres: 100 },
+    { id: "now", metres: 35 },
+  ];
+  var HIGHWAY_CUES = [
+    { id: "far", metres: 2000 },
+    { id: "near", metres: 500 },
+    { id: "now", metres: 70 },
+  ];
+  var SPEED_COOLDOWN_MS = 20000;
+
+  function highwayMode(roadMode) {
+    var mode = String(roadMode || "").toLowerCase();
+    return mode === "highway" || mode === "motorway" || mode.indexOf("highway") !== -1;
+  }
+
+  function cueStepKey(maneuver) {
+    var lat = maneuver.atLat == null ? 0 : Math.round(maneuver.atLat * 1000) / 1000;
+    var lon = maneuver.atLon == null ? 0 : Math.round(maneuver.atLon * 1000) / 1000;
+    return [maneuver.kind || "", lat, lon].join("|");
+  }
+
+  function verbFor(kind) {
+    return {
+      left: "turn left",
+      right: "turn right",
+      "slight-left": "bear left",
+      "slight-right": "bear right",
+      uturn: "make a U-turn",
+      merge: "merge",
+      roundabout: "enter the roundabout",
+      exit: "take the exit",
+      arrive: "arrive",
+    }[kind] || "continue";
+  }
+
+  function metresWords(metres) {
+    if (metres >= 1000 && metres % 1000 === 0) return (metres / 1000) + " kilometres";
+    return metres + " metres";
+  }
+
+  function cuePhrase(maneuver, cue) {
+    var street = maneuver.street && maneuver.street !== "Unnamed road" ? maneuver.street : "";
+    var kind = maneuver.kind;
+    if (cue.id === "now") {
+      if (kind === "arrive") return street ? "You are arriving at " + street : "You are arriving";
+      if (kind === "exit") return "Take the exit now";
+      var spokenVerb = verbFor(kind);
+      return spokenVerb.charAt(0).toUpperCase() + spokenVerb.slice(1) + " now";
+    }
+    var lead = "In " + metresWords(cue.metres) + ", ";
+    if (kind === "arrive") return lead + "you will arrive" + (street ? " at " + street : "");
+    if (kind === "exit") return lead + "take the exit" + (street ? " onto " + street : "");
+    return lead + verbFor(kind) + (street ? " onto " + street : "");
+  }
+
+  function voiceCue(maneuver, roadMode, spoken) {
+    if (!maneuver || !maneuver.kind || maneuver.kind === "straight") return null;
+    var cues = highwayMode(roadMode) ? HIGHWAY_CUES : CITY_CUES;
+    var chosen = null;
+    cues.forEach(function (cue) {
+      if (maneuver.distanceM <= cue.metres && (!chosen || cue.metres < chosen.metres)) chosen = cue;
+    });
+    if (!chosen) return null;
+    var step = cueStepKey(maneuver);
+    var flags = spoken || {};
+    var tighter = false;
+    cues.forEach(function (cue) {
+      if (cue.metres < chosen.metres && flags[step + "|" + cue.id]) tighter = true;
+    });
+    if (tighter || flags[step + "|" + chosen.id]) return null;
+    var mark = [];
+    cues.forEach(function (cue) {
+      if (cue.metres >= chosen.metres) mark.push(step + "|" + cue.id);
+    });
+    return { key: step + "|" + chosen.id, phrase: cuePhrase(maneuver, chosen), mark: mark };
+  }
+
+  function signAlert(signs, spoken, nowMs, lastAt, cooldownMs) {
+    var wait = cooldownMs == null ? 8000 : cooldownMs;
+    if (lastAt && nowMs - lastAt < wait) return null;
+    var flags = spoken || {};
+    var found = null;
+    (signs || []).some(function (sign) {
+      if (!sign || sign.lat == null || sign.lon == null) return false;
+      if (sign.kind !== "stop" && sign.kind !== "stop-all" && sign.kind !== "signal") return false;
+      var key = sign.kind + "|" + Number(sign.lat).toFixed(4) + "|" + Number(sign.lon).toFixed(4);
+      if (flags[key]) return false;
+      var phrase = sign.kind === "signal"
+        ? "Traffic light ahead"
+        : sign.kind === "stop-all"
+          ? "All-way stop ahead"
+          : "Stop sign ahead";
+      found = { key: key, phrase: phrase };
+      return true;
+    });
+    return found;
+  }
+
+  function speedAlert(warning, state, nowMs) {
+    var current = state || { spoken: false, at: 0 };
+    var spokenFlag = !!current.spoken;
+    var at = current.at || 0;
+    if (warning === "red") {
+      if (spokenFlag || (at && nowMs - at < SPEED_COOLDOWN_MS)) {
+        return { speak: false, state: { spoken: true, at: at || nowMs } };
+      }
+      return { speak: true, phrase: "You are over the speed limit.", state: { spoken: true, at: nowMs } };
+    }
+    if (spokenFlag && nowMs - at < SPEED_COOLDOWN_MS) {
+      return { speak: false, state: { spoken: true, at: at } };
+    }
+    return { speak: false, state: { spoken: false, at: at } };
   }
 
   return {
@@ -299,5 +429,8 @@
     upcomingManeuvers: upcomingManeuvers,
     featuresAhead: featuresAhead,
     featuresAlongRoute: featuresAlongRoute,
+    voiceCue: voiceCue,
+    signAlert: signAlert,
+    speedAlert: speedAlert,
   };
 });

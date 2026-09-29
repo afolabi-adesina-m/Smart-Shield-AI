@@ -168,6 +168,127 @@ export function nextManeuver(ahead: LatLon[], streetHint: string, destLabel: str
   };
 }
 
+const CITY_CUES = [
+  { id: "far", metres: 400 },
+  { id: "near", metres: 100 },
+  { id: "now", metres: 35 },
+] as const;
+const HIGHWAY_CUES = [
+  { id: "far", metres: 2000 },
+  { id: "near", metres: 500 },
+  { id: "now", metres: 70 },
+] as const;
+const SPEED_COOLDOWN_MS = 20000;
+
+export type VoiceCue = { key: string; phrase: string; mark: string[] };
+export type SpeedSpeech = { spoken: boolean; at: number };
+
+function highwayMode(roadMode?: string | null): boolean {
+  const mode = (roadMode || "").toLowerCase();
+  return mode === "highway" || mode === "motorway" || mode.includes("highway");
+}
+
+function cueStepKey(maneuver: Maneuver): string {
+  const lat = Math.round(maneuver.atLat * 1000) / 1000;
+  const lon = Math.round(maneuver.atLon * 1000) / 1000;
+  return [maneuver.kind, lat, lon].join("|");
+}
+
+function verbFor(kind: ManeuverKind): string {
+  return {
+    left: "turn left",
+    right: "turn right",
+    "slight-left": "bear left",
+    "slight-right": "bear right",
+    uturn: "make a U-turn",
+    merge: "merge",
+    roundabout: "enter the roundabout",
+    exit: "take the exit",
+    arrive: "arrive",
+    straight: "continue",
+  }[kind];
+}
+
+function metresWords(metres: number): string {
+  if (metres >= 1000 && metres % 1000 === 0) return `${metres / 1000} kilometres`;
+  return `${metres} metres`;
+}
+
+function cuePhrase(maneuver: Maneuver, cue: { id: string; metres: number }): string {
+  const street = maneuver.street && maneuver.street !== "Unnamed road" ? maneuver.street : "";
+  if (cue.id === "now") {
+    if (maneuver.kind === "arrive") return street ? `You are arriving at ${street}` : "You are arriving";
+    if (maneuver.kind === "exit") return "Take the exit now";
+    const spokenVerb = verbFor(maneuver.kind);
+    return `${spokenVerb.charAt(0).toUpperCase()}${spokenVerb.slice(1)} now`;
+  }
+  const lead = `In ${metresWords(cue.metres)}, `;
+  if (maneuver.kind === "arrive") return `${lead}you will arrive${street ? ` at ${street}` : ""}`;
+  if (maneuver.kind === "exit") return `${lead}take the exit${street ? ` onto ${street}` : ""}`;
+  return `${lead}${verbFor(maneuver.kind)}${street ? ` onto ${street}` : ""}`;
+}
+
+/** One announcement per maneuver threshold. Spoken flags block GPS jitter. */
+export function voiceCue(
+  maneuver: Maneuver | null,
+  roadMode: string | null | undefined,
+  spoken: Record<string, boolean>,
+): VoiceCue | null {
+  if (!maneuver || maneuver.kind === "straight") return null;
+  const cues = highwayMode(roadMode) ? HIGHWAY_CUES : CITY_CUES;
+  let chosen: { id: string; metres: number } | null = null;
+  cues.forEach((cue) => {
+    if (maneuver.distanceM <= cue.metres && (!chosen || cue.metres < chosen.metres)) chosen = cue;
+  });
+  if (!chosen) return null;
+  const picked: { id: string; metres: number } = chosen;
+  const step = cueStepKey(maneuver);
+  const tighter = cues.some((cue) => cue.metres < picked.metres && spoken[`${step}|${cue.id}`]);
+  if (tighter || spoken[`${step}|${picked.id}`]) return null;
+  const mark = cues.filter((cue) => cue.metres >= picked.metres).map((cue) => `${step}|${cue.id}`);
+  return { key: `${step}|${picked.id}`, phrase: cuePhrase(maneuver, picked), mark };
+}
+
+export function signAlert(
+  signs: { kind: string; lat: number; lon: number }[],
+  spoken: Record<string, boolean>,
+  nowMs: number,
+  lastAt: number,
+  cooldownMs = 8000,
+): { key: string; phrase: string } | null {
+  if (lastAt && nowMs - lastAt < cooldownMs) return null;
+  for (const sign of signs) {
+    if (sign.kind !== "stop" && sign.kind !== "stop-all" && sign.kind !== "signal") continue;
+    const key = `${sign.kind}|${sign.lat.toFixed(4)}|${sign.lon.toFixed(4)}`;
+    if (spoken[key]) continue;
+    const phrase = sign.kind === "signal"
+      ? "Traffic light ahead"
+      : sign.kind === "stop-all"
+        ? "All-way stop ahead"
+        : "Stop sign ahead";
+    return { key, phrase };
+  }
+  return null;
+}
+
+export function speedAlert(
+  warning: string,
+  state: SpeedSpeech | null,
+  nowMs: number,
+): { speak: boolean; phrase?: string; state: SpeedSpeech } {
+  const current = state || { spoken: false, at: 0 };
+  if (warning === "red") {
+    if (current.spoken || (current.at && nowMs - current.at < SPEED_COOLDOWN_MS)) {
+      return { speak: false, state: { spoken: true, at: current.at || nowMs } };
+    }
+    return { speak: true, phrase: "You are over the speed limit.", state: { spoken: true, at: nowMs } };
+  }
+  if (current.spoken && nowMs - current.at < SPEED_COOLDOWN_MS) {
+    return { speak: false, state: { spoken: true, at: current.at } };
+  }
+  return { speak: false, state: { spoken: false, at: current.at } };
+}
+
 export function instructionSpeech(maneuver: Maneuver): string {
   const lead = maneuver.distanceM < 40 ? "" : `In ${formatDistance(maneuver.distanceM)}, `;
   if (maneuver.kind === "arrive") return `${lead}you will arrive at ${maneuver.street}`.trim();
@@ -255,11 +376,11 @@ function segmentT(a: LatLon, b: LatLon, lat: number, lon: number): number {
   return Math.max(0, Math.min(1, (px * dx + py * dy) / len2));
 }
 
-export function projectAlong(line: LatLon[], lat: number, lon: number): { alongM: number; offM: number } {
+export function projectAlong(line: LatLon[], lat: number, lon: number): { alongM: number; offM: number; lat?: number; lon?: number } {
   if (!line.length) return { alongM: 0, offM: Infinity };
-  if (line.length === 1) return { alongM: 0, offM: haversineM(lat, lon, line[0][0], line[0][1]) };
+  if (line.length === 1) return { alongM: 0, offM: haversineM(lat, lon, line[0][0], line[0][1]), lat: line[0][0], lon: line[0][1] };
   let along = 0;
-  let best = { alongM: 0, offM: Infinity };
+  let best: { alongM: number; offM: number; lat?: number; lon?: number } = { alongM: 0, offM: Infinity };
   for (let index = 1; index < line.length; index += 1) {
     const start = line[index - 1];
     const end = line[index];
@@ -268,7 +389,7 @@ export function projectAlong(line: LatLon[], lat: number, lon: number): { alongM
     const latP = start[0] + (end[0] - start[0]) * t;
     const lonP = start[1] + (end[1] - start[1]) * t;
     const off = haversineM(lat, lon, latP, lonP);
-    if (off < best.offM) best = { alongM: along + length * t, offM: off };
+    if (off < best.offM) best = { alongM: along + length * t, offM: off, lat: latP, lon: lonP };
     along += length;
   }
   return best;
@@ -371,7 +492,7 @@ export function upcomingManeuvers(
   lat: number,
   lon: number,
   previous?: { alongM: number } | null,
-): { current: Maneuver | null; then: Maneuver | null; match: AlongMatch } {
+): { current: Maneuver | null; then: Maneuver | null; match: AlongMatch; road: string } {
   const user = matchAlong(line, lat, lon, previous);
   const placed = steps.map((step) => {
     const point = stepPoint(step);
@@ -404,7 +525,12 @@ export function upcomingManeuvers(
   }
   let thenManeuver = thenItem ? toManeuver(thenItem, user.alongM) : null;
   if (thenManeuver && thenManeuver.distanceM > THEN_M) thenManeuver = null;
-  return { current, then: thenManeuver, match: user };
+  let onRoad = "";
+  placed.forEach((item) => {
+    if (maneuverKindFromStep(item.step) === "arrive") return;
+    if (item.alongM <= user.alongM + PASSED_M) onRoad = streetFromStep(item.step);
+  });
+  return { current, then: thenManeuver, match: user, road: onRoad };
 }
 
 export function featuresAhead<T extends { lat: number; lon: number }>(
@@ -422,6 +548,10 @@ export function featuresAhead<T extends { lat: number; lon: number }>(
     if (projected.offM > corridorM) return false;
     const ahead = projected.alongM - user.alongM;
     return ahead >= -PASSED_M && ahead <= windowM;
+  }).map((feature) => {
+    const projected = projectAlong(line, feature.lat, feature.lon);
+    if (projected.lat == null || projected.lon == null) return feature;
+    return { ...feature, lat: projected.lat, lon: projected.lon };
   });
 }
 
@@ -486,6 +616,9 @@ export function etaCard(remainingM: number, totalM: number, totalS: number, dest
   arrival: string;
   minutesLabel: string;
   distanceLabel: string;
+  minuteValue: string;
+  distanceValue: string;
+  distanceUnit: "km" | "m";
 } {
   const fraction = totalM > 1 ? Math.min(1, Math.max(0, remainingM / totalM)) : 1;
   const seconds = Math.max(0, totalS * fraction);
@@ -501,8 +634,13 @@ export function etaCard(remainingM: number, totalM: number, totalS: number, dest
     : `${(remainingM / 1000).toFixed(remainingM < 10000 ? 1 : 0)} km`;
   const arrival = formatClock(new Date(Date.now() + seconds * 1000));
   const minutesLabel = arriving ? "Now" : title;
+  const minuteValue = arriving ? "0" : minutes < 60 ? String(minutes) : `${Math.floor(minutes / 60)} hr ${minutes % 60 ? minutes % 60 : ""}`.trim();
+  const distanceValue = remainingM >= 950
+    ? (remainingM / 1000).toFixed(remainingM < 10000 ? 1 : 0)
+    : String(Math.max(1, Math.round(remainingM)));
+  const distanceUnit = remainingM >= 950 ? "km" : "m";
   const subtitle = arriving
     ? shortPlace(destination)
     : `${minutesLabel} · ${distanceLabel}`;
-  return { title, subtitle, arriving, arrival, minutesLabel, distanceLabel };
+  return { title, subtitle, arriving, arrival, minutesLabel, distanceLabel, minuteValue, distanceValue, distanceUnit };
 }

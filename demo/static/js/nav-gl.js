@@ -57,8 +57,53 @@
     });
   }
 
+  function signImage(draw) {
+    const canvas = document.createElement("canvas");
+    canvas.width = 32;
+    canvas.height = 32;
+    draw(canvas.getContext("2d"));
+    return canvas.getContext("2d").getImageData(0, 0, 32, 32);
+  }
+
+  function addSignImages() {
+    if (!map || map.hasImage("sign-stop")) return;
+    map.addImage("sign-stop", signImage((ctx) => {
+      ctx.translate(16, 16);
+      ctx.beginPath();
+      for (let i = 0; i < 8; i += 1) {
+        const angle = -Math.PI / 2 - Math.PI / 8 + i * (Math.PI / 4);
+        const x = Math.cos(angle) * 13;
+        const y = Math.sin(angle) * 13;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.fillStyle = "#d93025";
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "#ffffff";
+      ctx.stroke();
+    }), { pixelRatio: 2 });
+    map.addImage("sign-signal", signImage((ctx) => {
+      ctx.fillStyle = "#111111";
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(11, 2, 10, 28, 3);
+      ctx.fill();
+      ctx.stroke();
+      [[8, "#3a3a3a"], [16, "#3ddc6a"], [24, "#3a3a3a"]].forEach(([y, color]) => {
+        ctx.beginPath();
+        ctx.fillStyle = color;
+        ctx.arc(16, y, 3, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }), { pixelRatio: 2 });
+  }
+
   function ensureLayers() {
     if (map.getSource("route-ahead")) return;
+    addSignImages();
     map.addSource("route-ahead", { type: "geojson", data: emptyCollection() });
     map.addSource("route-travel", { type: "geojson", data: emptyCollection() });
     map.addSource("nav-signs", { type: "geojson", data: emptyCollection() });
@@ -82,13 +127,13 @@
     });
     map.addLayer({
       id: "nav-signs",
-      type: "circle",
+      type: "symbol",
       source: "nav-signs",
-      paint: {
-        "circle-radius": 5,
-        "circle-color": ["match", ["get", "kind"], "stop", "#d93025", "stop-all", "#d93025", "#f5c542"],
-        "circle-stroke-width": 2,
-        "circle-stroke-color": "#ffffff",
+      layout: {
+        "icon-image": ["match", ["get", "kind"], "stop", "sign-stop", "stop-all", "sign-stop", "sign-signal"],
+        "icon-size": 0.7,
+        "icon-allow-overlap": true,
+        "icon-ignore-placement": true,
       },
     });
     ensureBuildings();

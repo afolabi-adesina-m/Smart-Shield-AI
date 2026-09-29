@@ -107,6 +107,39 @@ html[data-theme="light"] body.is-navigating .nav-distance { color: #fff; }
 }
 .nav-eta-col strong { display: block; font-size: 18px; font-weight: 800; letter-spacing: -0.02em; }
 .nav-eta-col span { display: block; font-size: 11px; color: #c5ced8; }
+.nav-road {
+  position: absolute;
+  left: 150px;
+  right: 72px;
+  bottom: 100px;
+  width: max-content;
+  margin-left: auto;
+  margin-right: auto;
+  transform: none;
+  max-width: min(280px, calc(100vw - 230px));
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(16, 20, 26, 0.78);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+}
+.nav-road[hidden] { display: none !important; }
+body.is-navigating.nav-panned #nav-compass { display: none !important; }
+body.is-navigating #nav-report {
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  padding: 0;
+  border-radius: 21px;
+  font-size: 0;
+  justify-content: center;
+}
+body.is-navigating .nav-round { width: 42px; height: 42px; }
 .nav-street-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .nav-street {
   font-size: 22px;

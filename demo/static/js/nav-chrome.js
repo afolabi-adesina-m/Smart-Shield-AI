@@ -21,6 +21,10 @@
     position: null,
     roadName: "",
     spokenTurn: "",
+    spokenCues: {},
+    spokenSigns: {},
+    lastSignSpeech: 0,
+    speedSpeech: { spoken: false, at: 0 },
     spokenRed: false,
     signCell: "",
     cameraCell: "",
@@ -317,6 +321,7 @@
             </button>
           </div>
         </div>
+        <div id="nav-road" class="nav-road" hidden></div>
         <section id="nav-card" class="nav-card" aria-label="Trip">
           <button type="button" id="nav-where" class="nav-card-main">
             <strong>Where to?</strong>
@@ -324,8 +329,8 @@
           </button>
           <div id="nav-eta" class="nav-eta" hidden>
             <div class="nav-eta-col"><strong id="nav-eta-title">—</strong><span>arrival</span></div>
-            <div class="nav-eta-col"><strong id="nav-eta-mins">—</strong><span>left</span></div>
-            <div class="nav-eta-col"><strong id="nav-eta-km">—</strong><span>left</span></div>
+            <div class="nav-eta-col"><strong id="nav-eta-mins">—</strong><span>min</span></div>
+            <div class="nav-eta-col"><strong id="nav-eta-km">—</strong><span id="nav-eta-unit">km</span></div>
             <span id="nav-score" class="nav-score" hidden></span>
           </div>
           <button type="button" id="nav-exit" class="nav-exit" hidden>Exit</button>
@@ -463,14 +468,11 @@
     const seconds = Math.max(0, (route.durationS || 0) * fraction);
     const arriving = aheadM <= 150;
     const minutes = Math.max(arriving ? 0 : 1, Math.round(seconds / 60));
-    const title = arriving
-      ? "Now"
-      : minutes < 60
-        ? `${minutes} min`
-        : `${Math.floor(minutes / 60)} hr ${minutes % 60 ? `${minutes % 60} min` : ""}`.trim();
-    const distance = aheadM < 950
-      ? `${Math.max(1, Math.round(aheadM))} m`
-      : `${(aheadM / 1000).toFixed(aheadM < 10000 ? 1 : 0)} km`;
+    const minuteValue = arriving ? "0" : minutes < 60 ? String(minutes) : `${Math.floor(minutes / 60)} hr ${minutes % 60 ? minutes % 60 : ""}`.trim();
+    const distanceValue = aheadM < 950
+      ? String(Math.max(1, Math.round(aheadM)))
+      : (aheadM / 1000).toFixed(aheadM < 10000 ? 1 : 0);
+    const distanceUnit = aheadM < 950 ? "m" : "km";
     const clock = new Date(Date.now() + seconds * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
     if (!state.navigating) {
       where.hidden = true;
@@ -487,8 +489,17 @@
     document.getElementById("nav-eta-title").textContent = clock;
     const mins = document.getElementById("nav-eta-mins");
     const km = document.getElementById("nav-eta-km");
-    if (mins) mins.textContent = title;
-    if (km) km.textContent = distance;
+    if (mins) mins.textContent = minuteValue;
+    if (km) km.textContent = distanceValue;
+    const unit = document.getElementById("nav-eta-unit");
+    if (unit) unit.textContent = distanceUnit;
+    const road = document.getElementById("nav-road");
+    const roadName = (guide.road && guide.road !== "Unnamed road" ? guide.road : "") || state.roadName || "";
+    if (road) {
+      road.hidden = !roadName;
+      road.textContent = roadName;
+    }
+    maybeSpeakSigns();
     paintRouteProgress(line);
     publishNavFrame(line);
     const score = document.getElementById("nav-score");
@@ -502,14 +513,26 @@
   }
 
   function maybeSpeakTurn(maneuver) {
-    if (!maneuver || maneuver.kind === "straight") return;
-    const bucket = maneuver.distanceM < 80 ? "now" : maneuver.distanceM < 300 ? "near" : maneuver.distanceM < 800 ? "mid" : "far";
-    if (bucket === "far") return;
-    const phrase = instructionSpeech(maneuver);
-    const key = `${phrase}|${bucket}`;
-    if (state.spokenTurn === key) return;
-    state.spokenTurn = key;
-    speak(phrase);
+    const api = window.NavProgress;
+    if (!api || !maneuver) return;
+    const cue = api.voiceCue(maneuver, state.roadMode, state.spokenCues);
+    if (!cue) return;
+    cue.mark.forEach((flag) => { state.spokenCues[flag] = true; });
+    state.spokenTurn = cue.key;
+    speak(cue.phrase);
+  }
+
+  function maybeSpeakSigns() {
+    const api = window.NavProgress;
+    if (!state.navigating || !api || state.muted || !state.position) return;
+    const line = routeLine();
+    if (line.length < 2) return;
+    const ahead = api.featuresAhead(state.signs || [], line, state.position.lat, state.position.lon);
+    const cue = api.signAlert(ahead, state.spokenSigns, Date.now(), state.lastSignSpeech, 8000);
+    if (!cue) return;
+    state.spokenSigns[cue.key] = true;
+    state.lastSignSpeech = Date.now();
+    speak(cue.phrase);
   }
 
   let progressLayer = null;
@@ -740,7 +763,7 @@
       postedKmh: state.posted,
       spoken: state.spokenCameras,
     });
-    if (!alerts.length) return;
+    if (!alerts.length || Date.now() - state.lastCameraSpeech < 8000) return;
     state.spokenCameras[alerts[0].id] = true;
     state.lastCameraSpeech = Date.now();
     speak(alerts[0].phrase);
@@ -750,18 +773,21 @@
     if (kind === "signal") {
       return window.L.divIcon({
         className: "plain-sign",
-        html: '<div class="nav-signal"><i></i><i class="on"></i><i></i></div>',
-        iconSize: [12, 26],
-        iconAnchor: [6, 13],
+        html: '<div class="nav-signal" style="transform:scale(0.8)"><i></i><i class="on"></i><i></i></div>',
+        iconSize: [10, 20],
+        iconAnchor: [5, 10],
       });
     }
     const allWay = kind === "stop-all";
     const box = window.SmartShieldStop.layout(allWay);
+    const scale = 0.62;
+    const width = Math.round(box.width * scale);
+    const height = Math.round(box.height * scale);
     return window.L.divIcon({
       className: "plain-sign",
-      html: window.SmartShieldStop.svg(allWay),
-      iconSize: [box.width, box.height],
-      iconAnchor: [box.cx, box.cy],
+      html: `<div style="width:${box.width}px;height:${box.height}px;transform:scale(${scale});transform-origin:top left">${window.SmartShieldStop.svg(allWay)}</div>`,
+      iconSize: [width, height],
+      iconAnchor: [Math.round(box.cx * scale), Math.round(box.cy * scale)],
     });
   }
 
@@ -907,6 +933,7 @@
       recenterBtn.addEventListener("click", () => {
         state.following = true;
         recenterBtn.hidden = true;
+        document.body.classList.remove("nav-panned");
         recenter();
       });
     }
@@ -992,7 +1019,10 @@
       state.navigating = false;
       state.following = false;
       state.spokenTurn = "";
+      state.spokenCues = {};
+      state.spokenSigns = {};
       state.match = null;
+      document.body.classList.remove("nav-panned");
       state.bearingSmooth = null;
       state.jumpCamera = true;
       document.dispatchEvent(new CustomEvent("smartshield:nav-frame", { detail: { navigating: false } }));
@@ -1022,7 +1052,10 @@
       state.following = true;
       state.headingUp = true;
       state.spokenTurn = "";
+      state.spokenCues = {};
+      state.spokenSigns = {};
       state.match = null;
+      document.body.classList.remove("nav-panned");
       state.bearingSmooth = null;
       state.jumpCamera = true;
       document.body.classList.add("is-navigating");
@@ -1059,6 +1092,7 @@
     document.addEventListener("smartshield:nav-route", (event) => {
       state.route = event.detail || null;
       state.spokenTurn = "";
+      state.spokenCues = {};
       renderEta();
     });
     document.addEventListener("smartshield:clear-nav", () => {
@@ -1081,13 +1115,10 @@
       if (detail.posted_kmh != null) state.posted = detail.posted_kmh;
       if (detail.road_mode) state.roadMode = detail.road_mode;
       maybeSpeakCameras();
-      if (detail.warning === "red") {
-        if (!state.spokenRed) {
-          state.spokenRed = true;
-          speak("You are over the speed limit.");
-        }
-      } else {
-        state.spokenRed = false;
+      if (window.NavProgress) {
+        const speedCue = window.NavProgress.speedAlert(detail.warning, state.speedSpeech, Date.now());
+        state.speedSpeech = speedCue.state;
+        if (speedCue.speak) speak(speedCue.phrase);
       }
       renderEta();
     });
@@ -1096,6 +1127,7 @@
       state.following = false;
       const button = document.getElementById("nav-recenter");
       if (button && state.navigating) button.hidden = false;
+      document.body.classList.toggle("nav-panned", !!state.navigating);
     });
 
     const panel = document.getElementById("side-panel");

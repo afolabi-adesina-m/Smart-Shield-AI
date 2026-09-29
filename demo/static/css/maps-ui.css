@@ -271,17 +271,17 @@ body.is-navigating .nav-banner {
   right: 72px;
 }
 body.is-navigating .nav-card {
-  left: 84px;
+  left: 12px;
   right: 16px;
-  bottom: 16px;
+  bottom: 12px;
   width: auto;
   min-height: 0;
-  padding: 8px 10px;
+  padding: 8px 14px;
   background: rgba(16, 20, 26, 0.78);
+  color: #fff;
   backdrop-filter: blur(16px);
   border-radius: 18px;
 }
-body.is-navigating #nav-compass,
 body.is-navigating #nav-search,
 body.is-navigating #nav-routes,
 body.is-navigating #nav-layers,
@@ -306,16 +306,42 @@ body.is-navigating .speed-panel {
   border: 0 !important;
   box-shadow: none !important;
 }
-body.is-navigating .speed-panel #speed-now:not(.amber):not(.red) {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
+body.is-navigating .speed-panel .speed-signs { align-items: stretch; gap: 6px; }
+body.is-navigating .speed-panel .speed-controls { display: none !important; }
+body.is-navigating .speed-panel #posted-sign.limit-sign,
+body.is-navigating .speed-panel #speed-now {
+  height: 66px;
+  min-height: 66px;
+  max-height: 66px;
+  box-sizing: border-box;
+}
+body.is-navigating .speed-panel #speed-now {
+  width: 66px;
+  min-width: 66px;
+  padding: 0;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+body.is-navigating .speed-panel #speed-now .now-num,
+body.is-navigating .speed-panel #speed-now .now-unit { color: #16191f; }
+html[data-theme="dark"] body.is-navigating .speed-panel #speed-now .now-num,
+html[data-theme="dark"] body.is-navigating .speed-panel #speed-now .now-unit { color: #f4f7fb; }
+body.is-navigating .speed-panel #speed-now.amber .now-num,
+body.is-navigating .speed-panel #speed-now.amber .now-unit { color: #c47b00; }
+body.is-navigating .speed-panel #speed-now.red .now-num,
+body.is-navigating .speed-panel #speed-now.red .now-unit { color: #d93025; }
+body.is-navigating .speed-panel #speed-now.red,
+body.is-navigating .speed-panel #speed-now.amber {
+  background: #fff;
+}
+html[data-theme="dark"] body.is-navigating .speed-panel #speed-now.red,
+html[data-theme="dark"] body.is-navigating .speed-panel #speed-now.amber {
+  background: #1c2128;
 }
 body.is-navigating .speed-panel #posted-sign.limit-sign {
   width: 54px;
-  height: 66px;
   border-radius: 3px;
   border: 3px solid #111;
   flex-direction: column;
@@ -332,15 +358,9 @@ body.is-navigating .speed-panel #posted-sign .sign-caption::after {
   letter-spacing: 0.06em;
   color: #111;
 }
-body.is-navigating .speed-panel #posted-num { font-size: 24px; }
-body.is-navigating .speed-panel #speed-now.amber,
-body.is-navigating .speed-panel #speed-now.red {
-  min-width: 0;
-  height: auto;
-  padding: 4px 8px;
-  border-radius: 8px;
-}
-body.is-navigating .speed-panel .now-num { font-size: 16px; }
+body.is-navigating .speed-panel #posted-num { font-size: 24px; line-height: 1; }
+body.is-navigating .speed-panel .now-num { font-size: 22px; line-height: 1; }
+body.is-navigating .speed-panel .now-unit { font-size: 10px; line-height: 1; }
 #nav-gl {
   position: absolute;
   inset: 0;
@@ -349,26 +369,21 @@ body.is-navigating .speed-panel .now-num { font-size: 16px; }
 #nav-gl[hidden] { display: none !important; }
 body.nav-gl-live #map { visibility: hidden; }
 .nav-gl-puck {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #1a73e8;
-  border: 3px solid #fff;
-  box-shadow: 0 0 0 7px rgba(26, 115, 232, 0.35);
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-bottom: 24px solid #1a73e8;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
 }
-.nav-gl-puck::before {
-  content: "";
-  position: absolute;
-  left: 1px;
-  top: -14px;
-  border-left: 8px solid transparent;
-  border-right: 8px solid transparent;
-  border-bottom: 14px solid #1a73e8;
-}
+.nav-gl-puck::before,
+.nav-gl-puck::after { content: none; }
 body.is-navigating .speed-panel {
-  left: 16px !important;
+  left: 12px !important;
   right: auto !important;
-  bottom: 16px !important;
+  bottom: 88px !important;
+  width: max-content !important;
+  z-index: 790;
 }
 
 body[data-speed-layout="desktop"] .speed-panel {
@@ -417,8 +432,8 @@ body.is-navigating .leaflet-bottom.leaflet-right {
   body.is-navigating .speed-panel {
     left: 12px !important;
     right: auto !important;
-    bottom: 148px !important;
-    width: max-content;
+    bottom: 88px !important;
+    width: max-content !important;
     max-width: calc(100vw - 88px);
   }
   body.is-navigating .nav-card {

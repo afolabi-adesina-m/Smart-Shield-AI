@@ -136,4 +136,97 @@ assert.strictEqual(progress.navZoom(30, 800), 17);
 assert.strictEqual(progress.navZoom(90, 800), 15);
 assert.strictEqual(progress.navZoom(40, 100), 18);
 
+function maneuver(distanceM, kind, street, atLat, atLon) {
+  return {
+    kind: kind || "right",
+    street: street || "Queen Street",
+    distanceM,
+    atLat: atLat == null ? 43.65 : atLat,
+    atLon: atLon == null ? -79.38 : atLon,
+  };
+}
+
+function remember(cue, flags) {
+  cue.mark.forEach((flag) => { flags[flag] = true; });
+}
+
+const city = {};
+const cityFar = progress.voiceCue(maneuver(400), "city", city);
+assert.strictEqual(cityFar.phrase, "In 400 metres, turn right onto Queen Street");
+remember(cityFar, city);
+assert.strictEqual(progress.voiceCue(maneuver(390), "city", city), null);
+assert.strictEqual(progress.voiceCue(maneuver(450), "city", city), null);
+assert.strictEqual(progress.voiceCue(maneuver(500), "residential", {}), null);
+const cityNear = progress.voiceCue(maneuver(100), "city", city);
+assert.strictEqual(cityNear.phrase, "In 100 metres, turn right onto Queen Street");
+remember(cityNear, city);
+assert.strictEqual(progress.voiceCue(maneuver(90), "city", city), null);
+const cityNow = progress.voiceCue(maneuver(30), "city", city);
+assert.strictEqual(cityNow.phrase, "Turn right now");
+remember(cityNow, city);
+assert.strictEqual(progress.voiceCue(maneuver(20), "city", city), null);
+assert.strictEqual(progress.voiceCue(maneuver(80), "city", city), null);
+
+const jumped = {};
+const jumpedNow = progress.voiceCue(maneuver(20), "city", jumped);
+assert.strictEqual(jumpedNow.phrase, "Turn right now");
+remember(jumpedNow, jumped);
+assert.strictEqual(progress.voiceCue(maneuver(90), "city", jumped), null);
+assert.strictEqual(progress.voiceCue(maneuver(40, "straight", "Bay Street"), "city", {}), null);
+
+const nextStep = progress.voiceCue(maneuver(80, "left", "King Street", 43.66, -79.39), "city", city);
+assert.strictEqual(nextStep.phrase, "In 100 metres, turn left onto King Street");
+
+const highway = {};
+const exitFar = progress.voiceCue(maneuver(1800, "exit", "Highway 401", 43.7, -79.4), "highway", highway);
+assert.strictEqual(exitFar.phrase, "In 2 kilometres, take the exit onto Highway 401");
+remember(exitFar, highway);
+assert.strictEqual(progress.voiceCue(maneuver(1900, "exit", "Highway 401", 43.7, -79.4), "motorway", highway), null);
+const exitNear = progress.voiceCue(maneuver(500, "exit", "Highway 401", 43.7, -79.4), "highway", highway);
+assert.strictEqual(exitNear.phrase, "In 500 metres, take the exit onto Highway 401");
+remember(exitNear, highway);
+const exitNow = progress.voiceCue(maneuver(40, "exit", "Highway 401", 43.7, -79.4), "highway", highway);
+assert.strictEqual(exitNow.phrase, "Take the exit now");
+remember(exitNow, highway);
+assert.strictEqual(progress.voiceCue(maneuver(60, "exit", "Highway 401", 43.7, -79.4), "highway", highway), null);
+
+const snappedSign = progress.featuresAhead([
+  { id: "off", kind: "stop", lat: 43.003, lon: -79.0004 },
+], line, 43.001, -79, 1500, 80);
+assert.strictEqual(snappedSign.length, 1);
+assert.ok(Math.abs(snappedSign[0].lon + 79) < 0.00001, snappedSign[0].lon);
+assert.ok(Math.abs(snappedSign[0].lat - 43.003) < 0.0002, snappedSign[0].lat);
+
+const signFlags = {};
+const stopCue = progress.signAlert([{ kind: "stop", lat: 43.65, lon: -79.38 }], signFlags, 10000, 0, 8000);
+assert.strictEqual(stopCue.phrase, "Stop sign ahead");
+signFlags[stopCue.key] = true;
+assert.strictEqual(progress.signAlert([{ kind: "stop", lat: 43.65, lon: -79.38 }], signFlags, 20000, 10000, 8000), null);
+assert.strictEqual(progress.signAlert([{ kind: "signal", lat: 43.651, lon: -79.381 }], signFlags, 12000, 10000, 8000), null);
+const lightCue = progress.signAlert([{ kind: "signal", lat: 43.651, lon: -79.381 }], signFlags, 19000, 10000, 8000);
+assert.strictEqual(lightCue.phrase, "Traffic light ahead");
+assert.strictEqual(progress.signAlert([{ kind: "stop-all", lat: 43.66, lon: -79.4 }], {}, 30000, 0, 8000).phrase, "All-way stop ahead");
+
+let speedState = { spoken: false, at: 0 };
+let speedCue = progress.speedAlert("red", speedState, 1000);
+assert.strictEqual(speedCue.speak, true);
+assert.strictEqual(speedCue.phrase, "You are over the speed limit.");
+speedState = speedCue.state;
+speedCue = progress.speedAlert("red", speedState, 2000);
+assert.strictEqual(speedCue.speak, false);
+speedState = speedCue.state;
+speedCue = progress.speedAlert("ok", speedState, 3000);
+assert.strictEqual(speedCue.speak, false);
+assert.strictEqual(speedCue.state.spoken, true);
+speedState = speedCue.state;
+speedCue = progress.speedAlert("red", speedState, 4000);
+assert.strictEqual(speedCue.speak, false);
+speedState = speedCue.state;
+speedCue = progress.speedAlert("ok", speedState, 21000);
+assert.strictEqual(speedCue.state.spoken, false);
+speedState = speedCue.state;
+speedCue = progress.speedAlert("red", speedState, 22000);
+assert.strictEqual(speedCue.speak, true);
+assert.strictEqual(speedCue.phrase, "You are over the speed limit.");
+
 console.log("nav progress tests passed");

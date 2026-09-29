@@ -27,14 +27,16 @@ import {
   etaCard,
   featuresAhead,
   featuresAlongRoute,
-  instructionSpeech,
   navZoom,
   nextManeuver,
   pointAlong,
   progressAlong,
   shieldFrom,
+  signAlert,
   smoothBearing,
+  speedAlert,
   upcomingManeuvers,
+  voiceCue,
   type LatLon,
   type Maneuver,
 } from "./src/navCue";
@@ -125,7 +127,10 @@ export default function App() {
   const [cameras, setCameras] = useState<CameraFeature[]>([]);
   const [cameraAlerts, setCameraAlerts] = useState(true);
   const [turnStreet, setTurnStreet] = useState<string | null>(null);
-  const spoken = useRef("");
+  const spokenCues = useRef<Record<string, boolean>>({});
+  const spokenSigns = useRef<Record<string, boolean>>({});
+  const lastSignSpeech = useRef(0);
+  const speedSpeech = useRef<{ spoken: boolean; at: number }>({ spoken: false, at: 0 });
 
   useEffect(() => {
     let cancelled = false;
@@ -331,7 +336,7 @@ export default function App() {
   const streetHint = turnStreet || speed?.road_name || "";
   const stepGuide = useMemo(() => {
     if (focus !== "nav" || activeLine.length < 2) {
-      return { current: null as Maneuver | null, then: null as Maneuver | null, match: null };
+      return { current: null as Maneuver | null, then: null as Maneuver | null, match: null, road: "" };
     }
     const steps = routeSteps[selected] || [];
     if (steps.length) return upcomingManeuvers(steps, activeLine, userLat, userLon, matchRef.current);
@@ -339,7 +344,7 @@ export default function App() {
     const named = next.street === "Unnamed road" && streetHint && streetHint !== "Unnamed road"
       ? { ...next, street: streetHint, shield: shieldFrom(streetHint) }
       : next;
-    return { current: named, then: null as Maneuver | null, match: null };
+    return { current: named, then: null as Maneuver | null, match: null, road: named.kind === "straight" ? named.street : "" };
   }, [focus, activeLine, routeSteps, selected, userLat, userLon, progress.ahead, streetHint, destination.label]);
   const maneuver = stepGuide.current;
   const signKey = `${userLat.toFixed(2)},${userLon.toFixed(2)},${driving ? "1" : "0"},${Math.round((stepGuide.match?.alongM || 0) / 500)},${activeLine.length}`;
@@ -400,14 +405,21 @@ export default function App() {
 
   useEffect(() => {
     if (!driving || !maneuver || focus !== "nav") return;
-    const bucket = maneuver.distanceM < 80 ? "now" : maneuver.distanceM < 300 ? "near" : maneuver.distanceM < 800 ? "mid" : "far";
-    if (bucket === "far") return;
-    const phrase = instructionSpeech(maneuver);
-    const key = `${phrase}|${bucket}`;
-    if (spoken.current === key) return;
-    spoken.current = key;
-    speakNav(phrase, muted);
-  }, [maneuver, muted, focus, driving]);
+    const cue = voiceCue(maneuver, speed?.road_mode, spokenCues.current);
+    if (!cue) return;
+    cue.mark.forEach((flag) => { spokenCues.current[flag] = true; });
+    speakNav(cue.phrase, muted);
+  }, [maneuver, muted, focus, driving, speed?.road_mode]);
+
+  useEffect(() => {
+    if (!driving || focus !== "nav" || !signs.length || activeLine.length < 2) return;
+    const ahead = featuresAhead(signs, activeLine, userLat, userLon);
+    const cue = signAlert(ahead, spokenSigns.current, Date.now(), lastSignSpeech.current, 8000);
+    if (!cue) return;
+    spokenSigns.current[cue.key] = true;
+    lastSignSpeech.current = Date.now();
+    speakNav(cue.phrase, muted);
+  }, [driving, focus, signs, activeLine, userLat, userLon, muted]);
 
   const shownKmh = speedMode === "simulate" ? demoKmh : fix?.speedKmh ?? null;
   const posted = speed?.posted_kmh ?? null;
@@ -416,9 +428,11 @@ export default function App() {
   const warnRef = useRef<WarningLevel>("unknown");
 
   useEffect(() => {
-    if (speedLevel === "red" && warnRef.current !== "red") {
+    const cue = speedAlert(speedLevel, speedSpeech.current, Date.now());
+    speedSpeech.current = cue.state;
+    if (cue.speak) {
       alertOverLimit();
-      speakNav("You are over the speed limit.", muted);
+      speakNav(cue.phrase || "You are over the speed limit.", muted);
     }
     warnRef.current = speedLevel;
   }, [speedLevel, muted]);
@@ -504,7 +518,7 @@ export default function App() {
       postedKmh: posted,
       spoken: spokenCameras.current,
     });
-    if (!next.length || Date.now() - lastCameraSpeech.current < 4000) return;
+    if (!next.length || Date.now() - lastCameraSpeech.current < 8000) return;
     spokenCameras.current[next[0].id] = true;
     lastCameraSpeech.current = Date.now();
     speakNav(next[0].phrase, muted);
@@ -663,7 +677,8 @@ export default function App() {
       const best = scored.best_route_index ?? ordered[0]?.route_index ?? 0;
       setSelected(best);
       setTurnStreet(null);
-      spoken.current = "";
+      spokenCues.current = {};
+      spokenSigns.current = {};
       setDriving(false);
       setSimCursor(null);
       setFocus("nav");
@@ -726,7 +741,8 @@ export default function App() {
     setHeadingUp(true);
     setMapHeld(false);
     setFollowToken((value) => value + 1);
-    spoken.current = "";
+    spokenCues.current = {};
+    spokenSigns.current = {};
   }
 
   function askExit() {
@@ -739,7 +755,8 @@ export default function App() {
   function exitDrive() {
     if (fleet.running) stopTrip().catch(() => undefined);
     stopSpeech();
-    spoken.current = "";
+    spokenCues.current = {};
+    spokenSigns.current = {};
     setDriving(false);
     setSimCursor(null);
     setMapHeld(false);
@@ -828,9 +845,11 @@ export default function App() {
         onCloseReport={() => setReportOpen(false)}
         onSaveReport={(kind) => { storeReport(kind).catch(() => setReportNote("Could not save the report.")); }}
         driving={driving}
+        roadName={(stepGuide.road && stepGuide.road !== "Unnamed road" ? stepGuide.road : "") || (speed?.road_name && speed.road_name !== "Unnamed road" ? speed.road_name : "")}
         arrival={eta?.arrival || ""}
-        minutesLabel={eta?.minutesLabel || ""}
-        distanceLabel={eta?.distanceLabel || ""}
+        minutesLabel={eta?.minuteValue || ""}
+        distanceLabel={eta?.distanceValue || ""}
+        distanceUnit={eta?.distanceUnit || "km"}
         onExit={driving ? askExit : exitDrive}
         onWhereTo={() => { setTab("trip"); setSheetOpen(true); }}
         night={night}

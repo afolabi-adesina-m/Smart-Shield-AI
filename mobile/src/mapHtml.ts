@@ -25,12 +25,8 @@ export const MAP_HTML = `<!DOCTYPE html>
       border-bottom: 16px solid #1a73e8;
       filter: drop-shadow(0 0 1px #fff);
     }
-    .puck .dot {
-      position: absolute; left: 6px; top: 14px;
-      width: 22px; height: 22px; border-radius: 50%;
-      background: #1a73e8; border: 3px solid #fff;
-      box-shadow: 0 0 0 7px rgba(26,115,232,0.28);
-    }
+    .puck .arrow { filter: drop-shadow(0 0 1px #fff); border-left-width: 10px; border-right-width: 10px; border-bottom-width: 22px; left: 8px; }
+    .puck .dot { display: none; }
     .signal {
       width: 12px; height: 26px; border-radius: 3px; background: #111;
       border: 1px solid #fff; display: flex; flex-direction: column;

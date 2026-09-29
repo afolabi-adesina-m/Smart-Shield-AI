@@ -94,6 +94,7 @@ function NativeMap({ scene, onRoutePoint, onPan, onNativeError }: Props & { onNa
         followsUserLocation={false}
         showsCompass={false}
         showsBuildings
+        showsPointsOfInterests
         toolbarEnabled={false}
         rotateEnabled
         pitchEnabled={driving}
@@ -200,7 +201,9 @@ function NativeMap({ scene, onRoutePoint, onPan, onNativeError }: Props & { onNa
               anchor={{ x: stop ? stop.anchorX : 0.5, y: stop ? stop.anchorY : 0.5 }}
               tracksViewChanges={stop != null}
             >
-              <SignView sign={sign} />
+              <View style={styles.signScale}>
+                <SignView sign={sign} />
+              </View>
             </Marker>
           );
         })}
@@ -209,7 +212,7 @@ function NativeMap({ scene, onRoutePoint, onPan, onNativeError }: Props & { onNa
             coordinate={{ latitude: user.lat, longitude: user.lon }}
             anchor={{ x: 0.5, y: 0.5 }}
             flat
-            rotation={0}
+            rotation={scene.headingUp ? 0 : user.heading}
             zIndex={8}
           >
             <Puck />
@@ -266,7 +269,6 @@ function Puck() {
   return (
     <View style={styles.puck}>
       <View style={styles.arrow} />
-      <View style={styles.dot} />
     </View>
   );
 }
@@ -310,26 +312,18 @@ function SignView({ sign }: { sign: MapSign }) {
 const styles = StyleSheet.create({
   wrap: { flex: 1 },
   map: { flex: 1 },
-  puck: { width: 36, height: 36, alignItems: "center" },
+  puck: { width: 28, height: 28, alignItems: "center", justifyContent: "flex-start" },
   arrow: {
     width: 0,
     height: 0,
-    borderLeftWidth: 8,
-    borderRightWidth: 8,
-    borderBottomWidth: 14,
+    borderLeftWidth: 10,
+    borderRightWidth: 10,
+    borderBottomWidth: 22,
     borderLeftColor: "transparent",
     borderRightColor: "transparent",
     borderBottomColor: "#1a73e8",
   },
-  dot: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: "#1a73e8",
-    borderWidth: 3,
-    borderColor: "#fff",
-    marginTop: -4,
-  },
+  signScale: { transform: [{ scale: 0.72 }] },
   subtleDot: {
     width: 8,
     height: 8,
