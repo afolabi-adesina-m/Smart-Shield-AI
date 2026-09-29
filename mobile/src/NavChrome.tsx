@@ -43,6 +43,7 @@ type Props = {
   showRecenter?: boolean;
   onRecenter?: () => void;
   driving?: boolean;
+  travelMode?: "drive" | "motorcycle" | "cycle" | "walk" | "transit";
   arrival?: string;
   minutesLabel?: string;
   distanceLabel?: string;
@@ -63,6 +64,7 @@ export function NavChrome(props: Props) {
   const ink = props.night ? "#f2f2f7" : "#1c1c1e";
   const speedLabel = `speed ${props.current ?? "none"} posted ${props.posted ?? "none"} safe ${props.safe ?? "none"} ${props.level}`;
   const driving = !!props.driving;
+  const vehicle = props.travelMode == null || props.travelMode === "drive" || props.travelMode === "motorcycle";
   const speedText = props.current == null ? "—" : String(Math.round(props.current));
   return (
     <View style={styles.overlay} pointerEvents="box-none">
@@ -117,7 +119,7 @@ export function NavChrome(props: Props) {
           </Glass>
         </Pressable>
       )}
-      <View style={[styles.speedRow, { bottom: Math.max(insets.bottom, 8) + (driving ? 78 : 86) }]} pointerEvents="none">
+      {vehicle ? <View style={[styles.speedRow, { bottom: Math.max(insets.bottom, 8) + (driving ? 78 : 86) }]} pointerEvents="none">
         <View style={styles.maxSign} testID="limit-sign">
           <Text style={styles.maxWord} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>MAX</Text>
           <Text style={styles.maxNum} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{props.posted == null ? "—" : String(props.posted)}</Text>
@@ -128,7 +130,7 @@ export function NavChrome(props: Props) {
           </Text>
           <Text style={[styles.speedUnit, props.night && styles.speedNumNight, props.level === "red" && styles.speedHot, props.level === "amber" && styles.speedWarm]}>km/h</Text>
         </View>
-      </View>
+      </View> : null}
       {driving && props.roadName ? (
         <View style={styles.roadPill} pointerEvents="none">
           <Text style={styles.roadPillText} numberOfLines={1}>{props.roadName}</Text>
@@ -148,7 +150,8 @@ export function NavChrome(props: Props) {
             <Text style={[styles.etaStrong, { color: ink }]}>{props.distanceLabel || "—"}</Text>
             <Text style={styles.etaHint}>{props.distanceUnit || "km"}</Text>
           </View>
-          {props.risk ? <Text style={styles.riskChip}>Risk {props.risk}</Text> : null}
+          {vehicle && props.risk ? <Text style={styles.riskChip}>Risk {props.risk}</Text> : null}
+          {!vehicle && driving ? <Text style={styles.riskChip}>Driving only</Text> : null}
           <Pressable style={styles.exitQuiet} testID="exit-nav" onPress={props.onExit}>
             <Text style={[styles.exitQuietText, { color: ink }]}>Exit</Text>
           </Pressable>

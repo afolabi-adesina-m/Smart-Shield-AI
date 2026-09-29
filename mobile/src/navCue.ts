@@ -1,4 +1,5 @@
 import { haversineM } from "./fleetLogic";
+import type { TransitLeg } from "./types";
 
 export type LatLon = [number, number];
 
@@ -178,6 +179,10 @@ const HIGHWAY_CUES = [
   { id: "near", metres: 500 },
   { id: "now", metres: 70 },
 ] as const;
+const SLOW_CUES = [
+  { id: "near", metres: 50 },
+  { id: "now", metres: 15 },
+] as const;
 const SPEED_COOLDOWN_MS = 20000;
 
 export type VoiceCue = { key: string; phrase: string; mark: string[] };
@@ -233,9 +238,11 @@ export function voiceCue(
   maneuver: Maneuver | null,
   roadMode: string | null | undefined,
   spoken: Record<string, boolean>,
+  travelMode?: string | null,
 ): VoiceCue | null {
   if (!maneuver || maneuver.kind === "straight") return null;
-  const cues = highwayMode(roadMode) ? HIGHWAY_CUES : CITY_CUES;
+  const slow = travelMode === "walk" || travelMode === "cycle";
+  const cues = slow ? SLOW_CUES : (highwayMode(roadMode) ? HIGHWAY_CUES : CITY_CUES);
   let chosen: { id: string; metres: number } | null = null;
   cues.forEach((cue) => {
     if (maneuver.distanceM <= cue.metres && (!chosen || cue.metres < chosen.metres)) chosen = cue;
@@ -451,11 +458,77 @@ export function smoothBearing(previous: number | null, target: number, maxStep =
   return (previous + step + 360) % 360;
 }
 
-export function navZoom(speedKmh: number | null, maneuverM: number | null): number {
+export function navZoom(speedKmh: number | null, maneuverM: number | null, travelMode?: string | null): number {
+  if (travelMode === "walk" || travelMode === "cycle") return 18;
   const speed = speedKmh == null ? 40 : speedKmh;
   let zoom = speed >= 80 ? 15 : speed >= 50 ? 16 : 17;
   if (maneuverM != null && maneuverM < 200) zoom = Math.max(zoom, 18);
   return zoom;
+}
+
+function lineMetres(geometry: [number, number][] | undefined): number {
+  const line = geometry || [];
+  let total = 0;
+  for (let i = 1; i < line.length; i += 1) {
+    total += haversineM(line[i - 1][1], line[i - 1][0], line[i][1], line[i][0]);
+  }
+  return total;
+}
+
+export function legTitle(leg: TransitLeg): string {
+  if (leg.mode === "WALK") return leg.walk_min != null ? `Walk ${leg.walk_min} min` : "Walk";
+  const kind = ({
+    BUS: "Bus",
+    TRAM: "Streetcar",
+    SUBWAY: "Subway",
+    RAIL: "Train",
+    REGIONAL_RAIL: "Train",
+    FERRY: "Ferry",
+  } as Record<string, string>)[leg.mode] || leg.mode.replace(/_/g, " ");
+  return leg.line ? `${kind} ${leg.line}` : kind;
+}
+
+/** Banner copy for the transit leg under the puck. Stop counts come only from the feed. */
+export function transitManeuver(legs: TransitLeg[], alongM: number): Maneuver | null {
+  if (!legs.length) return null;
+  let cursor = 0;
+  let current = legs[0];
+  let start = 0;
+  legs.forEach((leg) => {
+    const length = lineMetres(leg.geometry);
+    if (alongM + 8 >= cursor) {
+      current = leg;
+      start = cursor;
+    }
+    cursor += length;
+  });
+  const into = Math.max(0, alongM - start);
+  const remain = Math.max(0, lineMetres(current.geometry) - into);
+  const line = (current.geometry || []).map(([lon, lat]) => [lat, lon] as [number, number]);
+  let remainingStops: number | null = null;
+  if (current.mode !== "WALK" && current.stops && current.stops.length && line.length >= 2) {
+    const ahead = current.stops.filter((stop) => {
+      if (stop.lat == null || stop.lon == null) return false;
+      return projectAlong(line, stop.lat, stop.lon).alongM >= into - 20;
+    }).length;
+    remainingStops = ahead + 1;
+  }
+  const title = legTitle(current);
+  let street = title;
+  if (current.mode !== "WALK" && remainingStops != null) street = `${title} · get off in ${remainingStops} stops`;
+  else if (current.mode !== "WALK" && current.stop_count) street = `${title} · ${current.stop_count} stops`;
+  const next = (current.stops || []).find((stop) => stop.name && stop.lat != null && stop.lon != null && line.length >= 2 && projectAlong(line, stop.lat as number, stop.lon as number).alongM >= into - 20);
+  if (next?.name) street = `${street} · next ${next.name}`;
+  else if (current.to_name) street = `${street} · next ${current.to_name}`;
+  const last = legs[legs.length - 1] === current;
+  return {
+    kind: last && remain < 40 ? "arrive" : "straight",
+    distanceM: remain,
+    street,
+    shield: null,
+    atLat: line.length ? line[0][0] : 0,
+    atLon: line.length ? line[0][1] : 0,
+  };
 }
 
 type PlacedStep = { step: RoadStepLike; point: { lat: number; lon: number }; alongM: number };

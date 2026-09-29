@@ -3,6 +3,7 @@ import type { StreetRules } from "./fleetLogic";
 import type { PlayableRoute } from "./samplePlayback";
 import type {
   Health,
+  ModeSummary,
   OsrmRoute,
   Place,
   PracticeLoop,
@@ -10,6 +11,8 @@ import type {
   SpeedReading,
   Suggestion,
   TestCentre,
+  TravelMode,
+  TravelPlan,
 } from "./types";
 
 const ATTEMPTS = 3;
@@ -108,16 +111,45 @@ export function geocodePlace(query: string): Promise<Place> {
   );
 }
 
-export function fetchDirections(from: Place, to: Place): Promise<OsrmRoute[]> {
+export function fetchDirections(from: Place, to: Place, mode: TravelMode = "drive", summary = false): Promise<TravelPlan> {
   const params = new URLSearchParams({
     from_lat: String(from.lat),
     from_lon: String(from.lon),
     to_lat: String(to.lat),
     to_lon: String(to.lon),
+    mode,
   });
+  if (summary) params.set("summary", "1");
   return apiFetch(`/api/directions?${params.toString()}`).then((response) =>
-    readJson<{ routes?: OsrmRoute[] }>(response).then((data) => data.routes || []),
+    readJson<TravelPlan>(response).then((data) => ({
+      ...data,
+      routes: data.routes || [],
+      itineraries: data.itineraries || [],
+    })),
   );
+}
+
+export async function fetchModeSummaries(from: Place, to: Place, skip: TravelMode): Promise<Record<string, ModeSummary>> {
+  const modes: TravelMode[] = ["drive", "cycle", "walk", "transit"];
+  const out: Record<string, ModeSummary> = {};
+  await Promise.all(modes.filter((mode) => mode !== skip).map(async (mode) => {
+    try {
+      const plan = await fetchDirections(from, to, mode, true);
+      const head = plan.itineraries?.[0] || plan.routes[0];
+      const durationS = head && "duration_s" in head && head.duration_s != null
+        ? head.duration_s
+        : head && "duration" in head ? head.duration : null;
+      const distanceM = head && "distance_m" in head && head.distance_m != null
+        ? head.distance_m
+        : head && "distance" in head ? head.distance : null;
+      out[mode] = { durationS: durationS ?? null, distanceM: distanceM ?? null };
+      if (mode === "drive") out.motorcycle = out[mode];
+    } catch {
+      out[mode] = { durationS: null, distanceM: null, failed: true };
+      if (mode === "drive") out.motorcycle = out[mode];
+    }
+  }));
+  return out;
 }
 
 export function scoreRoutes(

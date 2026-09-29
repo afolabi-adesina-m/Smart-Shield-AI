@@ -26,14 +26,63 @@ export type RoadStep = {
   lanes?: { valid?: boolean; indications?: string[] }[];
 };
 
+export type TravelMode = "drive" | "motorcycle" | "cycle" | "walk" | "transit";
+
+export type TransitStop = { name: string; lat: number | null; lon: number | null };
+
+export type TransitLeg = {
+  mode: string;
+  line: string | null;
+  long_name?: string | null;
+  color: string | null;
+  color_missing?: boolean;
+  draw_color?: string | null;
+  headsign?: string | null;
+  agency?: string | null;
+  from_name?: string | null;
+  to_name?: string | null;
+  departure?: string | null;
+  arrival?: string | null;
+  stop_count?: number | null;
+  stops?: TransitStop[];
+  duration_s?: number | null;
+  distance_m?: number | null;
+  walk_min?: number | null;
+  realtime?: boolean;
+  geometry?: [number, number][];
+};
+
+export type TransitItinerary = {
+  duration_s: number | null;
+  start?: string | null;
+  end?: string | null;
+  transfers?: number | null;
+  walk_min?: number | null;
+  distance_m?: number | null;
+  summary?: string;
+  scheduled?: boolean;
+  legs: TransitLeg[];
+};
+
+export type TravelPlan = {
+  mode?: TravelMode;
+  note?: string | null;
+  scheduled?: boolean;
+  routes: OsrmRoute[];
+  itineraries?: TransitItinerary[];
+};
+
+export type ModeSummary = { durationS: number | null; distanceM: number | null; failed?: boolean };
+
 export type OsrmRoute = {
-  distance: number;
-  duration: number;
+  distance: number | null;
+  duration: number | null;
   summary: string;
   geometry: [number, number][];
   mid_lat: number | null;
   mid_lon: number | null;
   steps?: RoadStep[];
+  legs?: TransitLeg[];
 };
 
 export type StageA = {
@@ -125,6 +174,7 @@ export type MapRoute = {
   coords: [number, number][];
   color: string;
   active: boolean;
+  dashed?: boolean;
 };
 
 export type MapMarker = {
@@ -176,6 +226,7 @@ export type MapScene = {
   zoom?: number;
   pitch?: number;
   driving?: boolean;
+  travelMode?: TravelMode;
   mapType?: "standard" | "mutedStandard" | "hybrid";
   northToken?: number;
   steps: MapStep[];

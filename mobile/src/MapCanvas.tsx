@@ -175,6 +175,7 @@ function NativeMap({ scene, onRoutePoint, onPan, onHeading, onNativeError }: Pro
           />
         ))}
         {scene.routes.map((route, index) => {
+          if (route.dashed) return null;
           const coords = route.coords.map(([lat, lon]) => ({ latitude: lat, longitude: lon }));
           const traveled = !route.active && route.color === "#9bb0c9";
           if (!route.active) {
@@ -201,7 +202,8 @@ function NativeMap({ scene, onRoutePoint, onPan, onHeading, onNativeError }: Pro
             key={`route-core-${index}`}
             coordinates={route.coords.map(([lat, lon]) => ({ latitude: lat, longitude: lon }))}
             strokeColor={route.color || "#4da3ff"}
-            strokeWidth={8}
+            strokeWidth={route.dashed ? 5 : 8}
+            lineDashPattern={route.dashed ? [2, 8] : undefined}
           />
         ) : null)}
         {scene.routes.map((route, index) => route.active ? (
@@ -267,7 +269,7 @@ function NativeMap({ scene, onRoutePoint, onPan, onHeading, onNativeError }: Pro
             rotation={scene.headingUp ? 0 : user.heading}
             zIndex={8}
           >
-            <Puck />
+            <Puck mode={scene.travelMode} />
           </Marker>
         ) : null}
       </MapView>
@@ -317,7 +319,10 @@ function WebMapFallback({ scene, onRoutePoint, onPan }: Props) {
   );
 }
 
-function Puck() {
+function Puck({ mode }: { mode?: string }) {
+  if (mode === "walk" || mode === "cycle") {
+    return <View style={[styles.person, mode === "cycle" && styles.cyclePuck]} />;
+  }
   return (
     <View style={styles.puck}>
       <View style={styles.arrow} />
@@ -365,6 +370,15 @@ const styles = StyleSheet.create({
   wrap: { flex: 1 },
   map: { flex: 1 },
   puck: { width: 28, height: 28, alignItems: "center", justifyContent: "flex-start" },
+  person: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: "#1a73e8",
+    borderWidth: 3,
+    borderColor: "#fff",
+  },
+  cyclePuck: { borderRadius: 4, backgroundColor: "#188038" },
   arrow: {
     width: 0,
     height: 0,

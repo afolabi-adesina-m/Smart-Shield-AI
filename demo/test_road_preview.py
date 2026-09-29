@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import json
 import sys
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+
+import requests
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -120,6 +123,131 @@ class DirectionsPayloadTests(unittest.TestCase):
         self.assertEqual(route["mid_lat"], 43.66)
         self.assertEqual(route["steps"][1]["name"], "Hwy 401")
         self.assertNotIn("legs", route)
+
+
+class TravelModeTests(unittest.TestCase):
+    def test_transit_polyline_precision_is_detected(self):
+        from travel_modes import decode_polyline_auto
+
+        points = decode_polyline_auto("oprm_Ynqw`in@nyw_@nha`D")
+        self.assertEqual(points[0], [-79.3801, 43.6447])
+        self.assertEqual(points[1], [-79.644, 43.591])
+
+    def test_motorcycle_reuses_the_car_route(self):
+        app = Flask(__name__)
+        register_api_routes(app)
+        with patch("flask_common._osm_get", return_value=_fixture_route()) as mocked:
+            response = app.test_client().get(
+                "/api/directions?from_lat=43.65&from_lon=-79.38&to_lat=43.66&to_lon=-79.37&mode=motorcycle"
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(mocked.call_args[0][1]["steps"], "true")
+        body = response.get_json()
+        self.assertEqual(body["mode"], "motorcycle")
+        self.assertIn("Motorways are allowed in Ontario", body["note"])
+        self.assertEqual(body["routes"][0]["geometry"], [[-79.38, 43.65], [-79.37, 43.66]])
+
+    def test_cycle_falls_back_when_the_first_host_is_busy(self):
+        from travel_modes import clear_cache
+
+        clear_cache()
+        app = Flask(__name__)
+        register_api_routes(app)
+        calls = []
+
+        def fake_get(url, params=None, headers=None, timeout=None):
+            calls.append(url)
+            if "routed-bike" in url:
+                busy = requests.Response()
+                busy.status_code = 429
+                return busy
+            ok = requests.Response()
+            ok.status_code = 200
+            ok._content = json.dumps(_fixture_route()).encode()
+            return ok
+
+        with patch("travel_modes.requests.get", side_effect=fake_get):
+            response = app.test_client().get(
+                "/api/directions?from_lat=43.65&from_lon=-79.38&to_lat=43.66&to_lon=-79.37&mode=cycle"
+            )
+            again = app.test_client().get(
+                "/api/directions?from_lat=43.65&from_lon=-79.38&to_lat=43.66&to_lon=-79.37&mode=cycle"
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(calls), 2)
+        self.assertIn("routed-bike", calls[0])
+        self.assertIn("/bike/", calls[1])
+        self.assertEqual(again.status_code, 200)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(response.get_json()["routes"][0]["steps"][1]["name"], "Hwy 401")
+
+    def test_transit_keeps_scheduled_times_and_missing_colours(self):
+        from travel_modes import clear_cache
+
+        clear_cache()
+        app = Flask(__name__)
+        register_api_routes(app)
+        payload = {
+            "itineraries": [{
+                "duration": 1800,
+                "startTime": "2026-09-29T14:00:00Z",
+                "endTime": "2026-09-29T14:30:00Z",
+                "transfers": 1,
+                "legs": [
+                    {
+                        "mode": "WALK",
+                        "duration": 300,
+                        "distance": 400,
+                        "startTime": "2026-09-29T14:00:00Z",
+                        "endTime": "2026-09-29T14:05:00Z",
+                        "realTime": False,
+                        "from": {"name": "Union Station", "departure": "2026-09-29T14:00:00Z"},
+                        "to": {"name": "Union Station Bus Terminal", "arrival": "2026-09-29T14:05:00Z"},
+                        "legGeometry": {"points": "_p~iF~ps|U_ulLnnqC"},
+                    },
+                    {
+                        "mode": "BUS",
+                        "routeShortName": "29",
+                        "routeLongName": "Dufferin",
+                        "agencyName": "TTC",
+                        "headsign": "29 Dufferin",
+                        "duration": 1200,
+                        "realTime": False,
+                        "from": {"name": "Union Station Bus Terminal", "departure": "2026-09-29T14:06:00Z"},
+                        "to": {"name": "Bloor", "arrival": "2026-09-29T14:26:00Z"},
+                        "intermediateStops": [
+                            {"name": "King", "lat": 43.65, "lon": -79.39},
+                            {"name": "Queen", "lat": 43.65, "lon": -79.39},
+                        ],
+                        "legGeometry": {"points": "_p~iF~ps|U_ulLnnqC"},
+                    },
+                ],
+            }],
+        }
+
+        class Ok:
+            status_code = 200
+
+            def json(self):
+                return payload
+
+        with patch("travel_modes.requests.get", return_value=Ok()):
+            response = app.test_client().get(
+                "/api/directions?from_lat=43.64&from_lon=-79.38&to_lat=43.59&to_lon=-79.64&mode=transit"
+            )
+        self.assertEqual(response.status_code, 200)
+        body = response.get_json()
+        self.assertTrue(body["scheduled"])
+        self.assertIn("Scheduled times", body["note"])
+        bus = body["itineraries"][0]["legs"][1]
+        self.assertEqual(bus["line"], "29")
+        self.assertIsNone(bus["color"])
+        self.assertTrue(bus["color_missing"])
+        self.assertEqual(bus["stop_count"], 2)
+        self.assertEqual(bus["draw_color"], "#5f6368")
+        self.assertGreaterEqual(len(bus["geometry"]), 2)
+        self.assertEqual(body["itineraries"][0]["walk_min"], 5)
+        self.assertTrue(all(-180 <= point[0] <= 180 and -90 <= point[1] <= 90 for point in bus["geometry"]))
 
 
 if __name__ == "__main__":

@@ -140,12 +140,15 @@
   }
 
   function movePuck(lon, lat) {
+    const travel = (pending && pending.travelMode) || "drive";
+    const puckClass = travel === "walk" ? "nav-gl-puck is-walk" : travel === "cycle" ? "nav-gl-puck is-cycle" : "nav-gl-puck";
     if (!puck) {
       const el = document.createElement("div");
-      el.className = "nav-gl-puck";
+      el.className = puckClass;
       puck = new window.maplibregl.Marker({ element: el, anchor: "center" }).setLngLat([lon, lat]).addTo(map);
       return;
     }
+    puck.getElement().className = puckClass;
     puck.setLngLat([lon, lat]);
   }
 

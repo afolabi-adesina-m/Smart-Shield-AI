@@ -1,10 +1,19 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Glass } from "./glass";
 import { FleetPanel } from "./FleetPanel";
-import type { Place, PracticeLoop, RoadStep, ScoredRoute, SpeedReading, Suggestion, TestCentre } from "./types";
+import type { ModeSummary, Place, PracticeLoop, RoadStep, ScoredRoute, SpeedReading, Suggestion, TestCentre, TransitItinerary, TravelMode } from "./types";
+import { legTitle } from "./navCue";
+
+const TRAVEL: { id: TravelMode; label: string; icon: "car" | "motorbike" | "bicycle" | "walk" | "bus" }[] = [
+  { id: "drive", label: "Drive", icon: "car" },
+  { id: "motorcycle", label: "Motorcycle", icon: "motorbike" },
+  { id: "cycle", label: "Cycle", icon: "bicycle" },
+  { id: "walk", label: "Walk", icon: "walk" },
+  { id: "transit", label: "Transit", icon: "bus" },
+];
 
 const WEATHER = [
   { id: "auto", label: "Auto" },
@@ -240,6 +249,11 @@ export function SearchCard(props: {
   selected: number;
   onSelect: (index: number) => void;
   onStart?: () => void;
+  travelMode: TravelMode;
+  onTravelMode: (mode: TravelMode) => void;
+  summaries: Record<string, ModeSummary>;
+  itineraries: TransitItinerary[];
+  travelNote: string;
 }) {
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(props.routes.length > 0);
@@ -255,6 +269,7 @@ export function SearchCard(props: {
         <Ionicons name="search" size={18} color={hint} />
         <Text style={[styles.searchPlaceholder, { color: hint }]} numberOfLines={1}>Where to?</Text>
       </Pressable>
+      <ModeChips mode={props.travelMode} summaries={props.summaries} night={props.night} onSelect={props.onTravelMode} />
       {open ? (
         <ScrollView keyboardShouldPersistTaps="handled" style={styles.searchScroll} contentContainerStyle={styles.searchBody}>
           <Field label="From" value={props.origin.label} onChangeText={props.onOrigin} onFocus={() => props.onFocusField("origin")} />
@@ -265,9 +280,13 @@ export function SearchCard(props: {
             <Text style={styles.link}>Use my location as start</Text>
           </Pressable>
           <Pressable style={[styles.primary, props.busy && styles.disabled]} disabled={props.busy} onPress={props.onFind}>
-            {props.busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryText}>Find safest route</Text>}
+            {props.busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryText}>{props.travelMode === "drive" || props.travelMode === "motorcycle" ? "Find safest route" : "Find route"}</Text>}
           </Pressable>
-          {props.routes.map((route) => (
+          {props.travelNote ? <Text style={styles.note}>{props.travelNote}</Text> : null}
+          {props.itineraries.map((item, index) => (
+            <ItineraryCard key={`${item.start || "trip"}-${index}`} item={item} onStart={index === 0 ? props.onStart : undefined} />
+          ))}
+          {props.itineraries.length ? null : props.routes.map((route) => (
             <RouteCard
               key={route.route_index}
               route={route}
@@ -282,6 +301,70 @@ export function SearchCard(props: {
         </ScrollView>
       ) : null}
     </Glass>
+  );
+}
+
+function ModeChips(props: {
+  mode: TravelMode;
+  summaries: Record<string, ModeSummary>;
+  night: boolean;
+  onSelect: (mode: TravelMode) => void;
+}) {
+  return (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.modeRow}>
+      {TRAVEL.map((item) => {
+        const on = item.id === props.mode;
+        const summary = props.summaries[item.id];
+        return (
+          <Pressable
+            key={item.id}
+            testID={`mode-${item.id}`}
+            style={[styles.modeChip, on && styles.modeChipOn, props.night && !on && styles.modeChipNight]}
+            onPress={() => props.onSelect(item.id)}
+          >
+            <MaterialCommunityIcons name={item.icon} size={16} color={on ? "#fff" : props.night ? "#f2f2f7" : "#1c1c1e"} />
+            <Text style={[styles.modeLabel, on && styles.modeLabelOn, props.night && !on && styles.modeLabelNight]}>{item.label}</Text>
+            <Text style={[styles.modeEta, on && styles.modeLabelOn]}>{summaryText(summary)}</Text>
+          </Pressable>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
+function summaryText(summary?: ModeSummary): string {
+  if (!summary || summary.durationS == null) return summary?.failed ? "—" : "";
+  const minutes = Math.max(1, Math.round(summary.durationS / 60));
+  const time = minutes < 60 ? `${minutes} min` : `${Math.floor(minutes / 60)} hr ${minutes % 60 || ""}`.trim();
+  if (summary.distanceM == null) return time;
+  const distance = summary.distanceM < 950 ? `${Math.max(1, Math.round(summary.distanceM))} m` : `${(summary.distanceM / 1000).toFixed(1)} km`;
+  return `${time} · ${distance}`;
+}
+
+function ItineraryCard(props: { item: TransitItinerary; onStart?: () => void }) {
+  const item = props.item;
+  const minutes = item.duration_s == null ? "" : `${Math.max(1, Math.round(item.duration_s / 60))} min`;
+  return (
+    <View style={styles.card} testID="transit-card">
+      <Text style={styles.cardTitle}>{minutes || "Transit"}</Text>
+      <Text style={styles.note}>{item.scheduled === false ? "Live times" : "Scheduled"}{item.walk_min != null ? ` · ${item.walk_min} min walk` : ""}</Text>
+      {item.legs.map((leg, index) => (
+        <View key={`${leg.mode}-${index}`} style={styles.legRow}>
+          <View style={[styles.swatch, { backgroundColor: leg.draw_color || leg.color || "#5f6368" }]} />
+          <Text style={styles.note}>
+            {legTitle(leg)}
+            {leg.mode !== "WALK" && leg.stop_count ? ` · ${leg.stop_count} stops` : ""}
+            {leg.from_name && leg.to_name ? ` · ${leg.from_name} → ${leg.to_name}` : ""}
+          </Text>
+        </View>
+      ))}
+      {item.legs.some((leg) => leg.color_missing) ? <Text style={styles.fine}>Line colour was not provided by the agency.</Text> : null}
+      {props.onStart ? (
+        <Pressable style={styles.start} testID="route-start" onPress={props.onStart}>
+          <Text style={styles.startText}>Start</Text>
+        </Pressable>
+      ) : null}
+    </View>
   );
 }
 
@@ -395,6 +478,22 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   searchField: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 36 },
+  modeRow: { gap: 4, paddingVertical: 8 },
+  modeChip: {
+    width: 66,
+    borderRadius: 16,
+    paddingHorizontal: 6,
+    paddingVertical: 8,
+    backgroundColor: "rgba(255,255,255,0.72)",
+  },
+  modeChipNight: { backgroundColor: "rgba(44,44,46,0.9)" },
+  modeChipOn: { backgroundColor: "#1a73e8" },
+  modeLabel: { fontSize: 11, fontWeight: "700", color: "#1c1c1e", marginTop: 2, lineHeight: 13 },
+  modeLabelNight: { color: "#f2f2f7" },
+  modeLabelOn: { color: "#fff" },
+  modeEta: { fontSize: 11, color: "#526072" },
+  legRow: { flexDirection: "row", gap: 8, alignItems: "flex-start" },
+  swatch: { width: 8, height: 8, borderRadius: 4, marginTop: 5 },
   searchPlaceholder: { flex: 1, fontSize: 17, fontWeight: "600" },
   searchScroll: { maxHeight: 320 },
   searchBody: { gap: 8, paddingTop: 8 },

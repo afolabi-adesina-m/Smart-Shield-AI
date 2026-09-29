@@ -12,6 +12,15 @@
     { kind: "camera", label: "Speed camera" },
   ];
 
+  function travelMode() {
+    return (document.body && document.body.dataset.travel) || (state.route && state.route.travelMode) || "drive";
+  }
+
+  function vehicleTravel() {
+    const mode = travelMode();
+    return mode === "drive" || mode === "motorcycle";
+  }
+
   const state = {
     headingUp: false,
     following: false,
@@ -40,6 +49,7 @@
     match: null,
     bearingSmooth: null,
     speedKmh: null,
+    spokenTransit: "",
   };
 
   function haversineM(lat1, lon1, lat2, lon2) {
@@ -450,15 +460,27 @@
       ? progressApi.upcomingManeuvers(route.steps, line, pos.lat, pos.lon, previous)
       : { current: nextManeuver(matched && progressApi ? progressApi.cutLine(line, matched.alongM).ahead : progress.ahead, state.roadName, dest), then: null, match: matched };
     state.match = guide.match || matched;
-    const maneuver = guide.current;
+    let maneuver = guide.current;
     if (maneuver) {
       maneuver.then = guide.then;
       if (!maneuver.shield) maneuver.shield = shieldFrom(maneuver.street);
     }
+    if (state.navigating && route.itinerary && window.TravelModes && state.match) {
+      const legCue = window.TravelModes.legAt(route.itinerary, state.match.alongM || 0);
+      if (legCue) maneuver = legCue;
+    }
     state.maneuver = maneuver;
     if (state.navigating) {
       renderManeuver(maneuver);
-      maybeSpeakTurn(maneuver);
+      if (travelMode() === "transit" && maneuver && maneuver.street) {
+        const legKey = maneuver.street.split(" · ")[0];
+        if (legKey && legKey !== state.spokenTransit && !state.muted) {
+          state.spokenTransit = legKey;
+          speak(maneuver.street);
+        }
+      } else if (vehicleTravel() || travelMode() === "walk" || travelMode() === "cycle") {
+        maybeSpeakTurn(maneuver);
+      }
     } else {
       renderManeuver(null);
     }
@@ -505,8 +527,13 @@
     const score = document.getElementById("nav-score");
     if (score) {
       const value = route.safetyScore;
-      score.hidden = value == null || value === "";
-      score.textContent = value == null || value === "" ? "" : `Risk ${value}`;
+      if (!vehicleTravel()) {
+        score.hidden = false;
+        score.textContent = "Driving only";
+      } else {
+        score.hidden = value == null || value === "";
+        score.textContent = value == null || value === "" ? "" : `Risk ${value}`;
+      }
     }
     paintFeatures();
     if (state.following) followCamera();
@@ -515,7 +542,7 @@
   function maybeSpeakTurn(maneuver) {
     const api = window.NavProgress;
     if (!api || !maneuver) return;
-    const cue = api.voiceCue(maneuver, state.roadMode, state.spokenCues);
+    const cue = api.voiceCue(maneuver, state.roadMode, state.spokenCues, travelMode());
     if (!cue) return;
     cue.mark.forEach((flag) => { state.spokenCues[flag] = true; });
     state.spokenTurn = cue.key;
@@ -564,8 +591,9 @@
         lon: target.lon,
         bearing: state.headingUp ? (state.aim == null ? state.bearing : state.aim) : 0,
         jump: !!state.jumpCamera,
-        zoom: window.NavProgress.navZoom(state.speedKmh, state.maneuver && state.maneuver.distanceM),
-        pitch: 52,
+        zoom: window.NavProgress.navZoom(state.speedKmh, state.maneuver && state.maneuver.distanceM, travelMode()),
+        pitch: vehicleTravel() ? 52 : 0,
+        travelMode: travelMode(),
         night: document.documentElement.getAttribute("data-theme") === "dark",
         traveled: parts.traveled,
         ahead: parts.ahead,
@@ -582,7 +610,7 @@
       : state.position;
     if (!leaflet || !pos) return;
     const zoom = window.NavProgress
-      ? window.NavProgress.navZoom(state.speedKmh, state.maneuver && state.maneuver.distanceM)
+      ? window.NavProgress.navZoom(state.speedKmh, state.maneuver && state.maneuver.distanceM, travelMode())
       : 17;
     if (state.headingUp && typeof leaflet.setBearing === "function") {
       leaflet.setBearing(state.bearing || 0);
@@ -651,14 +679,14 @@
     if (state.navigating) {
       drawDots([]);
       drawSigns(progressApi.featuresAhead(state.signs, line, pos.lat, pos.lon));
-      drawCameras(cameraAlertsOn()
+      drawCameras(vehicleTravel() && cameraAlertsOn()
         ? progressApi.featuresAhead(state.cameras, line, pos.lat, pos.lon)
         : []);
       setFeatureCount(0);
       return;
     }
     const along = progressApi.featuresAlongRoute(
-      (state.signs || []).concat(cameraAlertsOn() ? state.cameras || [] : []),
+      (state.signs || []).concat(vehicleTravel() && cameraAlertsOn() ? state.cameras || [] : []),
       line,
     );
     drawSigns([]);
@@ -747,7 +775,7 @@
 
   function maybeSpeakCameras() {
     const api = window.SmartShieldCameras;
-    if (!state.navigating || !api || !state.position || !state.cameras.length) return;
+    if (!vehicleTravel() || !state.navigating || !api || !state.position || !state.cameras.length) return;
     if (state.muted || !cameraAlertsOn()) return;
     if (Date.now() - state.lastCameraSpeech < 4000) return;
     const lat = state.position.lat;
@@ -1115,7 +1143,7 @@
       if (detail.posted_kmh != null) state.posted = detail.posted_kmh;
       if (detail.road_mode) state.roadMode = detail.road_mode;
       maybeSpeakCameras();
-      if (window.NavProgress) {
+      if (vehicleTravel() && window.NavProgress) {
         const speedCue = window.NavProgress.speedAlert(detail.warning, state.speedSpeech, Date.now());
         state.speedSpeech = speedCue.state;
         if (speedCue.speak) speak(speedCue.phrase);

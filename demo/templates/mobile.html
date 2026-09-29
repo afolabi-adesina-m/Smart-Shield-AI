@@ -26,7 +26,7 @@
   <link rel="stylesheet" href="/static/css/fleet.css?v=20260927p" />
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.css" />
   <link rel="stylesheet" href="/static/css/nav-chrome.css?v=20260929b" />
-  <link rel="stylesheet" href="/static/css/maps-ui.css?v=20260929b" />
+  <link rel="stylesheet" href="/static/css/maps-ui.css?v=20260929d" />
   <link rel="stylesheet" href="/static/css/delivery.css?v=20260928r" />
   <script src="/static/js/theme.js?v=20260928z"></script>
 </head>
@@ -66,6 +66,8 @@
             <label for="destination">To</label>
             <input id="destination" type="text" inputmode="text" autocomplete="street-address" placeholder="Barrie, Ontario" value="Barrie, Ontario" />
             <p id="feature-count" class="feature-count" hidden></p>
+            <div id="travel-modes" class="travel-modes" aria-label="Travel mode"></div>
+            <p id="travel-note" class="fine-print" hidden></p>
             <div id="route-preview" class="route-preview" hidden></div>
             <p id="direction-steps-label" class="direction-label" hidden>Turn-by-turn</p>
             <ol id="direction-steps" class="direction-steps" hidden></ol>
@@ -181,9 +183,10 @@
   <script src="/static/js/stop-sign.js?v=20260928o"></script>
   <script src="/static/js/cameras.js?v=20260928c"></script>
   <script src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js"></script>
-  <script src="/static/js/nav-progress.js?v=20260929b"></script>
-  <script src="/static/js/nav-chrome.js?v=20260929b"></script>
-  <script src="/static/js/nav-gl.js?v=20260929b"></script>
+  <script src="/static/js/nav-progress.js?v=20260929c"></script>
+  <script src="/static/js/nav-chrome.js?v=20260929c"></script>
+  <script src="/static/js/travel.js?v=20260929d"></script>
+  <script src="/static/js/nav-gl.js?v=20260929c"></script>
   <script src="/static/js/weather-picker.js?v=20260927p"></script>
   <script src="/static/js/speed-panel.js?v=20260928z"></script>
   <script src="/static/js/address-search.js?v=20260928z"></script>
@@ -193,6 +196,6 @@
   <script src="/static/js/panel.js?v=20260928z"></script>
   <script src="/static/js/pwa.js?v=20260928q"></script>
   <script src="/static/js/road-preview.js?v=20260928t"></script>
-  <script src="/static/js/mobile.js?v=20260929b" defer></script>
+  <script src="/static/js/mobile.js?v=20260929c" defer></script>
 </body>
 </html>

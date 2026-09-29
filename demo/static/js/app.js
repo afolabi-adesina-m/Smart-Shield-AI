@@ -5,6 +5,8 @@ let routeLayers = [];
 let markerGroup;
 let lastScoredRoutes = [];
 let lastOsrmRoutes = [];
+let lastTravelPayload = null;
+let selectedItinerary = 0;
 let selectedIndex = 0;
 
 const ROUTE_COLORS = ["#1a73e8", "#e8710a", "#9334e6"];
@@ -106,51 +108,87 @@ async function findRoutes() {
       endpointPoint("destination"),
     ]);
 
-    status.textContent = "Drawing the drive…";
-    const osrmData = await fetchRoutes(o, d);
+    const travel = window.TravelModes;
+    const travelMode = travel ? travel.current() : "drive";
+    status.textContent = travelMode === "transit" ? "Looking up transit…" : "Drawing the route…";
+    const osrmData = travel
+      ? await travel.fetchMode(o, d, travelMode, false)
+      : await fetchRoutes(o, d);
+    lastTravelPayload = osrmData;
+    selectedItinerary = 0;
 
     if (!osrmData.routes || osrmData.routes.length === 0) {
-      throw new Error("No driving routes found between these points.");
+      throw new Error(osrmData.error || "No route found between these points.");
     }
 
     lastOsrmRoutes = osrmData.routes.slice(0, 3);
+    const head = (osrmData.itineraries && osrmData.itineraries[0]) || lastOsrmRoutes[0] || {};
+    if (travel) {
+      travel.remember(o, d);
+      travel.rememberSummary(
+        travelMode,
+        head.duration_s != null ? head.duration_s : head.duration,
+        head.distance_m != null ? head.distance_m : head.distance,
+      );
+      travel.refreshSummaries(o, d);
+    }
 
-    const routes = lastOsrmRoutes.map((route, i) => ({
-      route_index: i,
-      distance_m: route.distance,
-      duration_s: route.duration,
-      summary: route.summary || `Route ${i + 1}`,
-      // Fix 2/3: midpoint from /api/directions lets the backend look up
-      // real nearby 511 alerts + real weather for this route.
-      mid_lat: route.mid_lat,
-      mid_lon: route.mid_lon,
-    }));
+    if (!travel || travel.isVehicle(travelMode)) {
+      const routes = lastOsrmRoutes.map((route, i) => ({
+        route_index: i,
+        distance_m: route.distance,
+        duration_s: route.duration,
+        summary: route.summary || `Route ${i + 1}`,
+        // Fix 2/3: midpoint from /api/directions lets the backend look up
+        // real nearby 511 alerts + real weather for this route.
+        mid_lat: route.mid_lat,
+        mid_lon: route.mid_lon,
+      }));
 
-    status.textContent = "Checking safety for this drive…";
+      status.textContent = "Checking safety for this drive…";
 
-    const resp = await fetch("/api/score-routes", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ routes, weather, vision_mode: visionMode }),
-    });
-    const data = await resp.json();
-    if (!resp.ok) throw new Error(data.error || "API error");
+      const resp = await fetch("/api/score-routes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ routes, weather, vision_mode: visionMode }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || "API error");
 
-    lastScoredRoutes = data.routes;
-    selectedIndex = data.best_route_index ?? 0;
+      lastScoredRoutes = data.routes;
+      selectedIndex = data.best_route_index ?? 0;
 
-    renderHighRiskBanner(lastScoredRoutes);
-    renderRouteCards(lastScoredRoutes);
-    renderRoutePreview(lastScoredRoutes);
-    drawRoutesOnMap(lastOsrmRoutes, selectedIndex, o, d);
-    const safetyCard = document.getElementById("safety-card");
-    if (safetyCard) safetyCard.hidden = false;
-    const worstTier = lastScoredRoutes.some((route) => route.tier === "HIGH");
-    document.getElementById("routes-section").hidden = !worstTier;
-    const safetyToggle = document.getElementById("safety-toggle");
-    if (safetyToggle) safetyToggle.setAttribute("aria-expanded", worstTier ? "true" : "false");
-    publishSpeedContext(true);
-    status.textContent = routes.length === 1 ? "1 route scored." : `${routes.length} routes scored.`;
+      renderHighRiskBanner(lastScoredRoutes);
+      renderRouteCards(lastScoredRoutes);
+      renderRoutePreview(lastScoredRoutes);
+      drawRoutesOnMap(lastOsrmRoutes, selectedIndex, o, d);
+      const safetyCard = document.getElementById("safety-card");
+      if (safetyCard) safetyCard.hidden = false;
+      const worstTier = lastScoredRoutes.some((route) => route.tier === "HIGH");
+      document.getElementById("routes-section").hidden = !worstTier;
+      const safetyToggle = document.getElementById("safety-toggle");
+      if (safetyToggle) safetyToggle.setAttribute("aria-expanded", worstTier ? "true" : "false");
+      publishSpeedContext(true);
+      status.textContent = routes.length === 1 ? "1 route scored." : `${routes.length} routes scored.`;
+    } else {
+      lastScoredRoutes = [];
+      selectedIndex = 0;
+      const highRisk = document.getElementById("high-risk-banner");
+      if (highRisk) {
+        highRisk.hidden = true;
+        highRisk.innerHTML = "";
+      }
+      const cards = document.getElementById("route-cards");
+      if (cards) cards.innerHTML = "";
+      const safetyCard = document.getElementById("safety-card");
+      if (safetyCard) safetyCard.hidden = true;
+      const routesSection = document.getElementById("routes-section");
+      if (routesSection) routesSection.hidden = true;
+      if (travel) travel.fillPreview(document.getElementById("route-preview"), osrmData);
+      drawRoutesOnMap(shownRoutes(), selectedIndex, o, d);
+      publishSpeedContext(false);
+      status.textContent = osrmData.note || "Route ready. Road risk is for driving only.";
+    }
   } catch (err) {
     status.textContent = err.message ? `Could not score the route. ${err.message}` : "Could not score the route.";
   }
@@ -317,7 +355,15 @@ function drawRoutesOnMap(routes, activeIndex, origin = null, dest = null) {
   const bounds = L.latLngBounds([]);
 
   routes.forEach((route, i) => {
-    const latlngs = route.geometry.map(([lon, lat]) => [lat, lon]);
+    const shapes = window.TravelModes && window.TravelModes.shapesFor(route, i === activeIndex);
+    if (shapes && shapes.length) {
+      shapes.forEach((shape) => {
+        shape.latlngs.forEach((ll) => bounds.extend(ll));
+        routeLayers.push(L.polyline(shape.latlngs, shape.options).addTo(map));
+      });
+      return;
+    }
+    const latlngs = (route.geometry || []).map(([lon, lat]) => [lat, lon]);
     latlngs.forEach((ll) => bounds.extend(ll));
 
     const isActive = i === activeIndex;
@@ -368,9 +414,28 @@ function publishNavRoute(routes, activeIndex, dest) {
       destination: (dest && dest.display_name) || (destInput && destInput.value) || "Destination",
       steps: route.steps || [],
       safetyScore: (lastScoredRoutes.find((item) => item.route_index === activeIndex) || {}).safety_score,
+      travelMode: window.TravelModes ? window.TravelModes.current() : "drive",
+      itinerary: lastTravelPayload && lastTravelPayload.itineraries
+        ? lastTravelPayload.itineraries[selectedItinerary] || null
+        : null,
     },
   }));
 }
+
+function shownRoutes() {
+  if (!lastTravelPayload || !lastTravelPayload.itineraries || !lastTravelPayload.itineraries.length) {
+    return lastOsrmRoutes;
+  }
+  const item = lastTravelPayload.itineraries[selectedItinerary] || lastTravelPayload.itineraries[0];
+  const route = (lastOsrmRoutes || [])[selectedItinerary] || lastOsrmRoutes[0];
+  if (!route) return lastOsrmRoutes;
+  return [{ ...route, legs: item.legs || route.legs || [] }];
+}
+
+document.addEventListener("smartshield:select-itinerary", (event) => {
+  selectedItinerary = (event.detail && event.detail.index) || 0;
+  if (lastOsrmRoutes.length) drawRoutesOnMap(shownRoutes(), 0);
+});
 
 function renderRoutePreview(scored) {
   const box = document.getElementById("route-preview");

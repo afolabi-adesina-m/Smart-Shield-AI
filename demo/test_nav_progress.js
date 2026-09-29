@@ -190,6 +190,18 @@ assert.strictEqual(exitNow.phrase, "Take the exit now");
 remember(exitNow, highway);
 assert.strictEqual(progress.voiceCue(maneuver(60, "exit", "Highway 401", 43.7, -79.4), "highway", highway), null);
 
+const walkFar = progress.voiceCue(maneuver(80), "city", {}, "walk");
+assert.strictEqual(walkFar, null);
+const walkNear = progress.voiceCue(maneuver(50), "city", {}, "walk");
+assert.strictEqual(walkNear.phrase, "In 50 metres, turn right onto Queen Street");
+const walkSpoken = {};
+remember(walkNear, walkSpoken);
+assert.strictEqual(progress.voiceCue(maneuver(40), "city", walkSpoken, "cycle"), null);
+const walkNow = progress.voiceCue(maneuver(10), "city", walkSpoken, "walk");
+assert.strictEqual(walkNow.phrase, "Turn right now");
+assert.strictEqual(progress.navZoom(30, 400, "walk"), 18);
+assert.strictEqual(progress.navZoom(90, 800), 15);
+
 const snappedSign = progress.featuresAhead([
   { id: "off", kind: "stop", lat: 43.003, lon: -79.0004 },
 ], line, 43.001, -79, 1500, 80);

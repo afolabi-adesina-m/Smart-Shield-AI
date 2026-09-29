@@ -182,7 +182,8 @@
     return (previous + step + 360) % 360;
   }
 
-  function navZoom(speedKmh, maneuverM) {
+  function navZoom(speedKmh, maneuverM, travelMode) {
+    if (travelMode === "walk" || travelMode === "cycle") return 18;
     var speed = speedKmh == null ? 40 : speedKmh;
     var zoom = speed >= 80 ? 15 : speed >= 50 ? 16 : 17;
     if (maneuverM != null && maneuverM < 200) zoom = Math.max(zoom, 18);
@@ -304,6 +305,10 @@
     { id: "near", metres: 500 },
     { id: "now", metres: 70 },
   ];
+  var SLOW_CUES = [
+    { id: "near", metres: 50 },
+    { id: "now", metres: 15 },
+  ];
   var SPEED_COOLDOWN_MS = 20000;
 
   function highwayMode(roadMode) {
@@ -351,9 +356,10 @@
     return lead + verbFor(kind) + (street ? " onto " + street : "");
   }
 
-  function voiceCue(maneuver, roadMode, spoken) {
+  function voiceCue(maneuver, roadMode, spoken, travelMode) {
     if (!maneuver || !maneuver.kind || maneuver.kind === "straight") return null;
-    var cues = highwayMode(roadMode) ? HIGHWAY_CUES : CITY_CUES;
+    var slow = travelMode === "walk" || travelMode === "cycle";
+    var cues = slow ? SLOW_CUES : (highwayMode(roadMode) ? HIGHWAY_CUES : CITY_CUES);
     var chosen = null;
     cues.forEach(function (cue) {
       if (maneuver.distanceM <= cue.metres && (!chosen || cue.metres < chosen.metres)) chosen = cue;
