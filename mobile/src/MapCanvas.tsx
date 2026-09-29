@@ -12,14 +12,26 @@ type Props = {
   scene: MapScene;
   onRoutePoint?: (lat: number, lon: number) => void;
   onPan?: () => void;
+  onHeading?: (heading: number) => void;
 };
+
+/** MapKit ignores `zoom`. Altitude is the distance that keeps a street in view. */
+export function altitudeForZoom(zoom: number, latitude: number): number {
+  const spanM = 800 * Math.pow(2, 16 - zoom);
+  const fov = (30 * Math.PI) / 180;
+  const altitude = (spanM / 2) / Math.tan(fov / 2);
+  const latScale = Math.max(0.35, Math.cos((latitude * Math.PI) / 180));
+  return Math.max(120, altitude * latScale);
+}
+
+const STREET_DELTA = 0.008;
 
 /**
  * Phone map inside Expo Go. iPhone uses Apple MapKit (no API key). Android uses
  * Google Maps with Expo Go's development key. The OpenStreetMap page in mapHtml
  * is only used if the native map fails to mount. The browser uses MapCanvas.web.tsx.
  */
-export function MapCanvas({ scene, onRoutePoint, onPan }: Props) {
+export function MapCanvas({ scene, onRoutePoint, onPan, onHeading }: Props) {
   const [nativeFailed, setNativeFailed] = useState(false);
   if (nativeFailed) {
     return <WebMapFallback scene={scene} onRoutePoint={onRoutePoint} onPan={onPan} />;
@@ -29,21 +41,27 @@ export function MapCanvas({ scene, onRoutePoint, onPan }: Props) {
       scene={scene}
       onRoutePoint={onRoutePoint}
       onPan={onPan}
+      onHeading={onHeading}
       onNativeError={() => setNativeFailed(true)}
     />
   );
 }
 
-function NativeMap({ scene, onRoutePoint, onPan, onNativeError }: Props & { onNativeError: () => void }) {
+function NativeMap({ scene, onRoutePoint, onPan, onHeading, onNativeError }: Props & { onNativeError: () => void }) {
   const mapRef = useRef<MapView>(null);
   const latest = useRef(scene);
   latest.current = scene;
   const held = useRef(false);
   const token = useRef(scene.followToken || 0);
+  const northToken = useRef(scene.northToken || 0);
+  const centered = useRef(false);
+  const [tracking, setTracking] = useState(true);
   const user = scene.user;
   const driving = !!scene.driving;
   const failRef = useRef(onNativeError);
   failRef.current = onNativeError;
+  const headingRef = useRef(onHeading);
+  headingRef.current = onHeading;
 
   useEffect(() => {
     const next = latest.current;
@@ -51,9 +69,14 @@ function NativeMap({ scene, onRoutePoint, onPan, onNativeError }: Props & { onNa
     if ((next.followToken || 0) !== token.current) {
       token.current = next.followToken || 0;
       held.current = false;
+      centered.current = false;
+      setTracking(true);
+    }
+    if ((next.northToken || 0) !== northToken.current) {
+      northToken.current = next.northToken || 0;
+      map?.animateCamera({ heading: 0, pitch: next.driving ? (next.pitch ?? 52) : 0 }, { duration: 280 });
     }
     if (!map || !next.user) return;
-    if (next.camera === "follow" && held.current) return;
     if (next.camera === "fit") {
       const points = next.routes.flatMap((route) => route.coords.map(([lat, lon]) => ({
         latitude: lat,
@@ -62,20 +85,34 @@ function NativeMap({ scene, onRoutePoint, onPan, onNativeError }: Props & { onNa
       if (next.user) points.push({ latitude: next.user.lat, longitude: next.user.lon });
       if (points.length > 1) {
         map.fitToCoordinates(points, {
-          edgePadding: { top: 140, right: 72, bottom: 160, left: 40 },
+          edgePadding: { top: 140, right: 72, bottom: 180, left: 40 },
           animated: false,
         });
       }
       return;
     }
+    if (held.current && !next.driving) return;
     const drivingNow = !!next.driving;
+    if (!drivingNow) {
+      if (centered.current) return;
+      centered.current = true;
+      map.animateToRegion({
+        latitude: next.user.lat,
+        longitude: next.user.lon,
+        latitudeDelta: STREET_DELTA,
+        longitudeDelta: STREET_DELTA,
+      }, 280);
+      return;
+    }
+    const zoom = next.zoom ?? 17;
     try {
       map.animateCamera({
         center: { latitude: next.user.lat, longitude: next.user.lon },
         heading: next.headingUp ? next.user.heading : 0,
-        pitch: drivingNow ? (next.pitch ?? 52) : 0,
-        zoom: drivingNow ? (next.zoom ?? 17) : (next.zoom ?? 14),
-      }, { duration: drivingNow ? 700 : 280 });
+        pitch: next.pitch ?? 52,
+        zoom,
+        altitude: altitudeForZoom(zoom, next.user.lat),
+      }, { duration: 700 });
     } catch {
       failRef.current();
     }
@@ -88,27 +125,42 @@ function NativeMap({ scene, onRoutePoint, onPan, onNativeError }: Props & { onNa
         style={styles.map}
         provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
         userInterfaceStyle={scene.night ? "dark" : "light"}
-        mapType="standard"
         customMapStyle={Platform.OS === "android" ? (scene.night ? DARK_MAP_STYLE : []) : undefined}
+        mapType={scene.mapType || "standard"}
         showsUserLocation={!driving}
-        followsUserLocation={false}
+        followsUserLocation={!driving && tracking}
         showsCompass={false}
         showsBuildings
         showsPointsOfInterests
         toolbarEnabled={false}
         rotateEnabled
-        pitchEnabled={driving}
-        onMapReady={() => undefined}
+        pitchEnabled
+        onMapReady={() => {
+          const here = latest.current.user;
+          if (!here || latest.current.driving) return;
+          mapRef.current?.animateToRegion({
+            latitude: here.lat,
+            longitude: here.lon,
+            latitudeDelta: STREET_DELTA,
+            longitudeDelta: STREET_DELTA,
+          }, 0);
+        }}
         onPanDrag={() => {
           held.current = true;
+          setTracking(false);
           onPan?.();
         }}
-        mapPadding={{ top: 108, right: 64, bottom: 120, left: 12 }}
+        onRegionChangeComplete={() => {
+          mapRef.current?.getCamera().then((camera) => {
+            if (camera && typeof camera.heading === "number") headingRef.current?.(camera.heading);
+          }).catch(() => undefined);
+        }}
+        mapPadding={{ top: 108, right: 64, bottom: 140, left: 12 }}
         initialRegion={{
           latitude: user?.lat ?? 43.6532,
           longitude: user?.lon ?? -79.3832,
-          latitudeDelta: 0.02,
-          longitudeDelta: 0.02,
+          latitudeDelta: STREET_DELTA,
+          longitudeDelta: STREET_DELTA,
         }}
       >
         {scene.heat.map((spot, index) => (

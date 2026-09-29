@@ -1,5 +1,8 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Glass } from "./glass";
 import { FleetPanel } from "./FleetPanel";
 import type { Place, PracticeLoop, RoadStep, ScoredRoute, SpeedReading, Suggestion, TestCentre } from "./types";
 
@@ -13,10 +16,14 @@ const WEATHER = [
 
 const SPEEDS = [30, 40, 50, 60, 80, 100, 120];
 
-type SheetTab = "trip" | "practice" | "fleet" | "delivery";
+type SheetTab = "trip" | "practice" | "fleet" | "delivery" | "settings";
 
 type Props = {
   tab: SheetTab;
+  night: boolean;
+  topInset: number;
+  muted: boolean;
+  onMute: () => void;
   onTab: (tab: SheetTab) => void;
   delivery: ReactNode;
   origin: Place;
@@ -64,38 +71,51 @@ type Props = {
   onStart?: () => void;
 };
 
+const PANEL_TITLE: Record<SheetTab, string> = {
+  trip: "Trip",
+  fleet: "Fleet",
+  practice: "Practice",
+  delivery: "Delivery",
+  settings: "Settings",
+};
+
 export function FeatureSheet(props: Props) {
+  const [developer, setDeveloper] = useState(false);
+  const night = props.night;
+  const ink = night ? styles.inkNight : null;
+  const card = [styles.sheet, night && styles.sheetNight, { marginTop: props.topInset }];
   return (
-    <View style={styles.layer}>
+    <View style={styles.layer} pointerEvents="box-none">
       <Pressable style={styles.backdrop} testID="sheet-backdrop" onPress={props.onClose} />
-      <View style={styles.sheet}>
+      <View style={card}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>{props.tab === "delivery" ? "Delivery" : "Trip tools"}</Text>
+          <Text style={[styles.headerTitle, ink]}>{PANEL_TITLE[props.tab]}</Text>
           <Pressable onPress={props.onClose} testID="sheet-close">
             <Text style={styles.close}>Close</Text>
           </Pressable>
-        </View>
-        <View style={styles.tabs}>
-          <Tab label="Trip" active={props.tab === "trip"} onPress={() => props.onTab("trip")} />
-          <Tab label="Fleet" active={props.tab === "fleet"} onPress={() => props.onTab("fleet")} />
-          <Tab label="Practice" active={props.tab === "practice"} onPress={() => props.onTab("practice")} />
-          <Tab label="Delivery" active={props.tab === "delivery"} onPress={() => props.onTab("delivery")} />
         </View>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.body}>
           {props.tab === "delivery" ? (
             props.delivery
           ) : props.tab === "fleet" ? (
             <FleetPanel speedMode={props.speedMode} />
+          ) : props.tab === "settings" ? (
+            <>
+              <Pressable onPress={props.onMute}>
+                <Text style={styles.link}>{props.muted ? "Unmute voice" : "Mute voice"}</Text>
+              </Pressable>
+              <CameraToggle {...props} />
+              <Pressable testID="developer-toggle" onPress={() => setDeveloper((value) => !value)}>
+                <Text style={[styles.kicker, ink]}>{developer ? "Developer ▾" : "Developer ▸"}</Text>
+              </Pressable>
+              {developer ? <DeveloperBlock {...props} /> : null}
+            </>
           ) : props.tab === "trip" ? (
             <>
-              <Field label="From" value={props.origin.label} onChangeText={props.onOrigin} onFocus={() => props.onFocusField("origin")} />
-              {props.activeField === "origin" ? <SuggestList items={props.suggestions} onPick={props.onPick} /> : null}
-              <Field label="To" value={props.destination.label} onChangeText={props.onDestination} onFocus={() => props.onFocusField("destination")} />
-              {props.activeField === "destination" ? <SuggestList items={props.suggestions} onPick={props.onPick} /> : null}
               <Pressable onPress={props.onUseLocation}>
                 <Text style={styles.link}>Use my location as start</Text>
               </Pressable>
-              <Text style={styles.kicker}>Road conditions</Text>
+              <Text style={[styles.kicker, ink]}>Road conditions</Text>
               <View style={styles.chips}>
                 {WEATHER.map((item) => (
                   <Pressable
@@ -119,41 +139,6 @@ export function FeatureSheet(props: Props) {
                 <Text style={styles.cameraLabel}>Camera alerts</Text>
               </Pressable>
               <Text style={styles.cameraFine}>{props.cameraNote}</Text>
-              <Pressable style={[styles.primary, props.busy && styles.disabled]} disabled={props.busy} onPress={props.onFind}>
-                {props.busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryText}>Find safest route</Text>}
-              </Pressable>
-              {props.routeAlertCount ? (
-                <Text style={styles.note}>
-                  {props.routeAlertCount === 1 ? "1 alert on this route" : `${props.routeAlertCount} alerts on this route`}
-                </Text>
-              ) : null}
-              {props.routes.map((route) => (
-                <RouteCard
-                  key={route.route_index}
-                  route={route}
-                  selected={route.route_index === props.selected}
-                  onPress={() => props.onSelect(route.route_index)}
-                  onStart={route.route_index === props.selected ? props.onStart : undefined}
-                />
-              ))}
-              {props.steps.length ? (
-                <>
-                  <Text style={styles.kicker}>Turn-by-turn</Text>
-                  {props.steps.map((step, index) => (
-                    <Pressable
-                      key={`${step.name}-${index}`}
-                      onPress={() => props.onPreviewStep(index)}
-                      onLongPress={() => props.onPreviewStep(index)}
-                      onHoverIn={() => props.onPreviewStep(index)}
-                      onHoverOut={props.onClearPreview}
-                      style={styles.step}
-                    >
-                      <Text style={styles.point}>{step.instruction}</Text>
-                      <Text style={styles.note}>{step.name}</Text>
-                    </Pressable>
-                  ))}
-                </>
-              ) : null}
             </>
           ) : (
             <>
@@ -185,35 +170,118 @@ export function FeatureSheet(props: Props) {
               ))}
             </>
           )}
-          <Text style={styles.status}>{props.status}</Text>
-          <Text style={styles.kicker}>{props.speedMode === "gps" ? "GPS speed" : `Simulate ${props.demoKmh} km/h`}</Text>
-          <Text style={styles.note}>{props.gpsNote}</Text>
-          {props.speedMode === "gps" ? (
-            <Pressable onPress={props.onSimulate}><Text style={styles.link}>Simulate a speed</Text></Pressable>
-          ) : (
-            <Pressable onPress={props.onGps}><Text style={styles.link}>Use GPS speed</Text></Pressable>
-          )}
-          {props.speedMode === "simulate" ? (
-            <View style={styles.chips}>
-              {SPEEDS.map((value) => (
-                <Pressable
-                  key={value}
-                  testID={`sim-${value}`}
-                  style={[styles.chip, props.demoKmh === value && styles.chipOn]}
-                  onPress={() => props.onSpeed(value)}
-                >
-                  <Text style={[styles.chipText, props.demoKmh === value && styles.chipTextOn]}>{value}</Text>
-                </Pressable>
-              ))}
-            </View>
-          ) : null}
-          {props.speed?.road_name ? <Text style={styles.note}>{props.speed.road_name}{props.speed.road_mode ? ` · ${props.speed.road_mode}` : ""}{props.speed.estimated ? " · estimated" : ""}</Text> : null}
-          {props.speed?.summary ? <Text style={styles.note}>{props.speed.summary}</Text> : null}
-          {props.recommended != null ? <Text style={styles.note}>Route recommendation {props.recommended} km/h, folded into the safe speed.</Text> : null}
-          <Text style={styles.fine}>API {props.apiBase}</Text>
         </ScrollView>
       </View>
     </View>
+  );
+}
+
+function CameraToggle(props: Props) {
+  return (
+    <Pressable
+      accessibilityRole="switch"
+      accessibilityLabel="Camera alerts"
+      accessibilityState={{ checked: props.cameraAlerts }}
+      onPress={() => props.onCameraAlerts(!props.cameraAlerts)}
+      style={styles.cameraRow}
+    >
+      <View style={[styles.cameraBox, props.cameraAlerts && styles.cameraBoxOn]} />
+      <Text style={styles.cameraLabel}>Camera alerts</Text>
+    </Pressable>
+  );
+}
+
+function DeveloperBlock(props: Props) {
+  return (
+    <View style={styles.dev}>
+      <Text style={styles.note}>{props.status}</Text>
+      <Text style={styles.note}>{props.gpsNote}</Text>
+      <Text style={styles.kicker}>{props.speedMode === "gps" ? "GPS speed" : `Simulate ${props.demoKmh} km/h`}</Text>
+      {props.speedMode === "gps" ? (
+        <Pressable onPress={props.onSimulate}><Text style={styles.link}>Simulate a speed</Text></Pressable>
+      ) : (
+        <Pressable onPress={props.onGps}><Text style={styles.link}>Use GPS speed</Text></Pressable>
+      )}
+      {props.speedMode === "simulate" ? (
+        <View style={styles.chips}>
+          {SPEEDS.map((value) => (
+            <Pressable
+              key={value}
+              testID={`sim-${value}`}
+              style={[styles.chip, props.demoKmh === value && styles.chipOn]}
+              onPress={() => props.onSpeed(value)}
+            >
+              <Text style={[styles.chipText, props.demoKmh === value && styles.chipTextOn]}>{value}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+      {props.speed?.summary ? <Text style={styles.note}>{props.speed.summary}</Text> : null}
+      {props.recommended != null ? <Text style={styles.note}>Route recommendation {props.recommended} km/h, folded into the safe speed.</Text> : null}
+      <Text style={styles.fine}>API {props.apiBase}</Text>
+    </View>
+  );
+}
+
+export function SearchCard(props: {
+  night: boolean;
+  origin: Place;
+  destination: Place;
+  onOrigin: (label: string) => void;
+  onDestination: (label: string) => void;
+  onFocusField: (field: "origin" | "destination") => void;
+  activeField: "origin" | "destination" | null;
+  suggestions: Suggestion[];
+  onPick: (item: Suggestion) => void;
+  onUseLocation: () => void;
+  busy: boolean;
+  onFind: () => void;
+  routes: ScoredRoute[];
+  selected: number;
+  onSelect: (index: number) => void;
+  onStart?: () => void;
+}) {
+  const insets = useSafeAreaInsets();
+  const [open, setOpen] = useState(props.routes.length > 0);
+  useEffect(() => {
+    if (props.routes.length) setOpen(true);
+  }, [props.routes.length]);
+  const ink = props.night ? "#f2f2f7" : "#1c1c1e";
+  const hint = props.night ? "#aeaeb2" : "#636366";
+  return (
+    <Glass night={props.night} style={[styles.searchCard, { bottom: Math.max(12, insets.bottom + 8) }]}>
+      <View style={styles.grabber} />
+      <Pressable testID="where-to" style={styles.searchField} onPress={() => setOpen(true)}>
+        <Ionicons name="search" size={18} color={hint} />
+        <Text style={[styles.searchPlaceholder, { color: hint }]} numberOfLines={1}>Where to?</Text>
+      </Pressable>
+      {open ? (
+        <ScrollView keyboardShouldPersistTaps="handled" style={styles.searchScroll} contentContainerStyle={styles.searchBody}>
+          <Field label="From" value={props.origin.label} onChangeText={props.onOrigin} onFocus={() => props.onFocusField("origin")} />
+          {props.activeField === "origin" ? <SuggestList items={props.suggestions} onPick={props.onPick} /> : null}
+          <Field label="To" value={props.destination.label} onChangeText={props.onDestination} onFocus={() => props.onFocusField("destination")} />
+          {props.activeField === "destination" ? <SuggestList items={props.suggestions} onPick={props.onPick} /> : null}
+          <Pressable onPress={props.onUseLocation}>
+            <Text style={styles.link}>Use my location as start</Text>
+          </Pressable>
+          <Pressable style={[styles.primary, props.busy && styles.disabled]} disabled={props.busy} onPress={props.onFind}>
+            {props.busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryText}>Find safest route</Text>}
+          </Pressable>
+          {props.routes.map((route) => (
+            <RouteCard
+              key={route.route_index}
+              route={route}
+              selected={route.route_index === props.selected}
+              onPress={() => props.onSelect(route.route_index)}
+              onStart={route.route_index === props.selected ? props.onStart : undefined}
+            />
+          ))}
+          <Pressable onPress={() => setOpen(false)}>
+            <Text style={styles.link}>Close</Text>
+          </Pressable>
+        </ScrollView>
+      ) : null}
+    </Glass>
   );
 }
 
@@ -293,14 +361,43 @@ function RouteCard(props: { route: ScoredRoute; selected: boolean; onPress: () =
 }
 
 const styles = StyleSheet.create({
-  layer: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, justifyContent: "flex-end" },
-  backdrop: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, backgroundColor: "rgba(0,0,0,0.35)" },
+  layer: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, alignItems: "flex-end" },
+  backdrop: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0 },
   sheet: {
-    maxHeight: "78%",
-    backgroundColor: "#ffffff",
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
+    width: 300,
+    maxWidth: "86%",
+    maxHeight: "58%",
+    marginRight: 12,
+    backgroundColor: "rgba(255,255,255,0.96)",
+    borderRadius: 16,
+    overflow: "hidden",
   },
+  sheetNight: { backgroundColor: "rgba(28,28,30,0.94)" },
+  inkNight: { color: "#f2f2f7" },
+  dev: { gap: 6, paddingTop: 4 },
+  searchCard: {
+    position: "absolute",
+    left: 12,
+    right: 12,
+    borderRadius: 16,
+    overflow: "hidden",
+    paddingHorizontal: 14,
+    paddingTop: 8,
+    paddingBottom: 12,
+    zIndex: 20,
+  },
+  grabber: {
+    alignSelf: "center",
+    width: 36,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: "rgba(120,120,128,0.45)",
+    marginBottom: 8,
+  },
+  searchField: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 36 },
+  searchPlaceholder: { flex: 1, fontSize: 17, fontWeight: "600" },
+  searchScroll: { maxHeight: 320 },
+  searchBody: { gap: 8, paddingTop: 8 },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",

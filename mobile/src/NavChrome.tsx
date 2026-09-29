@@ -1,8 +1,13 @@
 import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { LaneHint, Maneuver, ManeuverKind } from "./navCue";
 import { REPORT_LABELS, type ReportKind } from "./reports";
 import type { WarningLevel } from "./fleetLogic";
+import { Glass } from "./glass";
+
+export type ToolId = "trip" | "fleet" | "practice" | "delivery" | "settings";
 
 type Props = {
   maneuver: Maneuver | null;
@@ -19,12 +24,15 @@ type Props = {
   reportOpen: boolean;
   reportNote: string;
   onCompass: () => void;
-  onSearch: () => void;
   onMute: () => void;
-  onRoutes: () => void;
-  onDelivery: () => void;
-  estimateNote: string;
   onReport: () => void;
+  onGear: () => void;
+  menuOpen: boolean;
+  onMenu: (id: ToolId) => void;
+  onLocate: () => void;
+  onLayers: () => void;
+  onNorth: () => void;
+  mapRotated: boolean;
   onCloseReport: () => void;
   onSaveReport: (kind: ReportKind) => void;
   onExit: () => void;
@@ -42,78 +50,83 @@ type Props = {
   roadName?: string;
 };
 
+const TOOLS: { id: ToolId; label: string }[] = [
+  { id: "trip", label: "Trip" },
+  { id: "fleet", label: "Fleet" },
+  { id: "practice", label: "Practice" },
+  { id: "delivery", label: "Delivery" },
+  { id: "settings", label: "Settings" },
+];
+
 export function NavChrome(props: Props) {
-  const ink = props.night ? "#ffffff" : "#16191f";
-  const over = props.level === "red" || props.level === "amber";
+  const insets = useSafeAreaInsets();
+  const ink = props.night ? "#f2f2f7" : "#1c1c1e";
   const speedLabel = `speed ${props.current ?? "none"} posted ${props.posted ?? "none"} safe ${props.safe ?? "none"} ${props.level}`;
   const driving = !!props.driving;
+  const speedText = props.current == null ? "—" : String(Math.round(props.current));
   return (
     <View style={styles.overlay} pointerEvents="box-none">
-      {props.maneuver ? <Banner maneuver={props.maneuver} thenManeuver={props.thenManeuver} night={props.night} /> : null}
+      {props.maneuver ? (
+        <View style={{ top: insets.top + 8, position: "absolute", left: 12, right: 72 }}>
+          <Banner maneuver={props.maneuver} thenManeuver={props.thenManeuver} night={props.night} />
+        </View>
+      ) : null}
       {props.cameraNote ? (
-        <View style={styles.cameraNote} pointerEvents="none">
+        <View style={[styles.cameraNote, { top: insets.top + 8 }]} pointerEvents="none">
           <Text style={styles.cameraNoteText}>{props.cameraNote}</Text>
         </View>
       ) : null}
-      {props.estimateNote ? (
-        <View style={[styles.estimate, props.maneuver ? styles.estimateBelow : null, !props.night && styles.estimateDay]} testID="delivery-map-label">
-          <Text style={[styles.estimateText, !props.night && styles.ink]}>{props.estimateNote}</Text>
-        </View>
-      ) : null}
-      <View style={styles.side} pointerEvents="box-none">
-        <View style={styles.sideStack}>
-          {driving && props.showRecenter ? null : (
-            <RoundButton label="Compass" night={props.night} onPress={props.onCompass}>
-              <View style={{ transform: [{ rotate: `${-props.heading}deg` }] }}>
-                <NorthNeedle south={ink} />
-              </View>
-            </RoundButton>
-          )}
-          {props.showRecenter ? (
-            <RoundButton label="Recenter" night={props.night} onPress={props.onRecenter || props.onCompass}>
-              <Text style={[styles.recenterMark, { color: ink }]}>◎</Text>
-            </RoundButton>
-          ) : null}
-          {driving ? null : (
-            <RoundButton label="Search" night={props.night} onPress={props.onSearch}>
-              <SearchIcon color={ink} />
-            </RoundButton>
-          )}
-          <RoundButton label={props.muted ? "Unmute voice" : "Mute voice"} night={props.night} onPress={props.onMute}>
-            <SpeakerIcon muted={props.muted} color={ink} />
-          </RoundButton>
-          {driving ? (
-            <RoundButton label="Report" night={props.night} onPress={props.onReport}>
-              <WarningIcon />
-            </RoundButton>
-          ) : null}
-          {driving ? null : (
-            <RoundButton label="Route options" night={props.night} onPress={props.onRoutes}>
-              <ForkIcon color={ink} />
-            </RoundButton>
-          )}
-          {driving ? null : (
-            <RoundButton label="Delivery" night={props.night} onPress={props.onDelivery}>
-              <BagIcon color={ink} />
-            </RoundButton>
-          )}
-        </View>
+      <View style={[styles.side, { top: insets.top + 8 }]} pointerEvents="box-none">
         {driving ? null : (
-          <Pressable style={[styles.report, !props.night && styles.reportDay]} accessibilityLabel="Report" onPress={props.onReport}>
-            <WarningIcon />
-            <Text style={[styles.reportText, !props.night && styles.reportTextDay]}>Report</Text>
+          <Pressable style={styles.gear} accessibilityLabel="Trip tools" testID="tool-gear" onPress={props.onGear}>
+            <Ionicons name="settings-sharp" size={20} color="#ffffff" />
           </Pressable>
         )}
+        <Glass night={props.night} style={styles.controlGroup}>
+          {driving ? (
+            <IconButton label={props.muted ? "Unmute voice" : "Mute voice"} name={props.muted ? "volume-mute" : "volume-high"} color={ink} onPress={props.onMute} />
+          ) : null}
+          <IconButton label="Locate" name="locate" color="#0a84ff" onPress={props.onLocate} />
+          {props.mapRotated ? (
+            <IconButton label="Compass" name="compass" color={ink} onPress={props.onNorth} />
+          ) : null}
+          <IconButton label="Map layers" name="layers" color={ink} onPress={props.onLayers} />
+          {driving ? <IconButton label="Report" name="warning" color="#f5c542" onPress={props.onReport} /> : null}
+        </Glass>
+        {props.menuOpen ? (
+          <Glass night={props.night} style={styles.menu}>
+            <View testID="tool-menu">
+              {TOOLS.map((item) => (
+                <Pressable key={item.id} testID={`tool-${item.id}`} style={styles.menuRow} onPress={() => props.onMenu(item.id)}>
+                  <Text style={[styles.menuText, { color: ink }]}>{item.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </Glass>
+        ) : null}
       </View>
-      <View style={styles.speedRow} pointerEvents="none">
+      {driving ? null : (
+        <Pressable
+          accessibilityLabel="Report"
+          onPress={props.onReport}
+          style={[styles.reportFloat, { bottom: Math.max(insets.bottom, 8) + 78, right: 12 }]}
+        >
+          <Glass night={props.night} style={styles.report}>
+            <Ionicons name="warning" size={16} color="#f5c542" />
+            <Text style={[styles.reportText, { color: ink }]}>Report</Text>
+          </Glass>
+        </Pressable>
+      )}
+      <View style={[styles.speedRow, { bottom: Math.max(insets.bottom, 8) + (driving ? 78 : 86) }]} pointerEvents="none">
         <View style={styles.maxSign} testID="limit-sign">
-          <Text style={styles.maxWord}>MAXIMUM</Text>
-          <Text style={styles.maxNum}>{props.posted == null ? "—" : String(props.posted)}</Text>
+          <Text style={styles.maxWord} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>MAX</Text>
+          <Text style={styles.maxNum} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{props.posted == null ? "—" : String(props.posted)}</Text>
         </View>
         <View style={[styles.speedTile, props.night && styles.speedTileNight]} testID="speed-tile" accessibilityLabel={speedLabel}>
-          <Text style={[styles.speedNum, props.night && styles.speedNumNight, props.level === "red" && styles.speedHot, props.level === "amber" && styles.speedWarm]}>
-            {props.current == null ? "—" : String(props.current)}
+          <Text style={[styles.speedNum, props.night && styles.speedNumNight, props.level === "red" && styles.speedHot, props.level === "amber" && styles.speedWarm]} numberOfLines={1}>
+            {speedText}
           </Text>
+          <Text style={[styles.speedUnit, props.night && styles.speedNumNight, props.level === "red" && styles.speedHot, props.level === "amber" && styles.speedWarm]}>km/h</Text>
         </View>
       </View>
       {driving && props.roadName ? (
@@ -122,43 +135,35 @@ export function NavChrome(props: Props) {
         </View>
       ) : null}
       {props.showExit && driving ? (
-        <View style={styles.etaPill} testID="eta-card">
+        <Glass night={props.night} style={[styles.etaPill, { bottom: Math.max(12, insets.bottom + 8) }]} testID="eta-card">
           <View style={styles.etaCol}>
-            <Text style={styles.etaStrong}>{props.arrival || "—"}</Text>
+            <Text style={[styles.etaStrong, { color: ink }]}>{props.arrival || "—"}</Text>
             <Text style={styles.etaHint}>arrival</Text>
           </View>
           <View style={styles.etaCol}>
-            <Text style={styles.etaStrong}>{props.minutesLabel || "—"}</Text>
+            <Text style={[styles.etaStrong, { color: ink }]}>{props.minutesLabel || "—"}</Text>
             <Text style={styles.etaHint}>min</Text>
           </View>
           <View style={styles.etaCol}>
-            <Text style={styles.etaStrong}>{props.distanceLabel || "—"}</Text>
+            <Text style={[styles.etaStrong, { color: ink }]}>{props.distanceLabel || "—"}</Text>
             <Text style={styles.etaHint}>{props.distanceUnit || "km"}</Text>
           </View>
           {props.risk ? <Text style={styles.riskChip}>Risk {props.risk}</Text> : null}
           <Pressable style={styles.exitQuiet} testID="exit-nav" onPress={props.onExit}>
-            <Text style={styles.exitQuietText}>Exit</Text>
+            <Text style={[styles.exitQuietText, { color: ink }]}>Exit</Text>
           </Pressable>
-        </View>
+        </Glass>
       ) : props.showExit ? (
-        <View style={[styles.card, !props.night && styles.cardDay]} testID="eta-card">
+        <Glass night={props.night} style={[styles.card, { bottom: Math.max(12, insets.bottom + 8) }]} testID="eta-card">
           <View style={styles.cardText}>
-            <Text style={[styles.cardTitle, !props.night && styles.ink]}>{props.etaTitle}</Text>
-            <Text style={[styles.cardSub, !props.night && styles.subDay]}>{props.etaSubtitle}</Text>
-            {props.risk ? <Text style={[styles.riskChip, !props.night && styles.riskChipDay]}>Risk {props.risk}</Text> : null}
+            <Text style={[styles.cardTitle, { color: ink }]}>{props.etaTitle}</Text>
+            <Text style={styles.cardSub}>{props.etaSubtitle}</Text>
           </View>
           <Pressable style={styles.exit} testID="exit-nav" onPress={props.onExit}>
             <Text style={styles.exitText}>Exit</Text>
           </Pressable>
-        </View>
-      ) : (
-        <Pressable style={[styles.card, !props.night && styles.cardDay]} testID="where-to" onPress={props.onWhereTo}>
-          <View style={styles.cardText}>
-            <Text style={[styles.cardTitle, !props.night && styles.ink]}>Where to?</Text>
-            <Text style={[styles.cardSub, !props.night && styles.subDay]}>Search a destination</Text>
-          </View>
-        </Pressable>
-      )}
+        </Glass>
+      ) : null}
       {props.reportOpen ? (
         <View style={styles.reportLayer} pointerEvents="box-none">
           <Pressable style={styles.backdrop} onPress={props.onCloseReport} />
@@ -178,6 +183,14 @@ export function NavChrome(props: Props) {
   );
 }
 
+function IconButton(props: { name: keyof typeof Ionicons.glyphMap; label: string; color: string; onPress: () => void }) {
+  return (
+    <Pressable accessibilityLabel={props.label} onPress={props.onPress} style={styles.iconButton}>
+      <Ionicons name={props.name} size={22} color={props.color} />
+    </Pressable>
+  );
+}
+
 function BagIcon({ color }: { color: string }) {
   return (
     <View style={styles.bag}>
@@ -188,12 +201,12 @@ function BagIcon({ color }: { color: string }) {
 }
 
 function Banner({ maneuver, thenManeuver, night }: { maneuver: Maneuver; thenManeuver?: Maneuver | null; night: boolean }) {
-  const ink = "#ffffff";
+  const ink = night ? "#ffffff" : "#1c1c1e";
   return (
-    <View style={[styles.banner, styles.bannerNav]} testID="nav-banner">
+    <Glass night={night} style={styles.banner} testID="nav-banner">
       <TurnGlyph kind={maneuver.kind} color={ink} />
       <View style={styles.bannerText}>
-        <Text style={styles.bannerDistance}>{maneuver.kind === "arrive" ? "Arrive" : maneuver.distanceM < 30 ? "Now" : distancePhrase(maneuver)}</Text>
+        <Text style={[styles.bannerDistance, { color: ink }]}>{maneuver.kind === "arrive" ? "Arrive" : maneuver.distanceM < 30 ? "Now" : distancePhrase(maneuver)}</Text>
         <View style={styles.bannerStreetRow}>
           {maneuver.shield ? (
             <View style={styles.shield}>
@@ -205,13 +218,13 @@ function Banner({ maneuver, thenManeuver, night }: { maneuver: Maneuver; thenMan
         <LaneRow lanes={maneuver.lanes} />
         {thenManeuver ? (
           <View style={styles.thenRow}>
-            <Text style={styles.thenLabel}>Then</Text>
-            <Text style={styles.thenArrow}>{thenArrow(thenManeuver.kind)}</Text>
-            <Text style={styles.thenText} numberOfLines={1}>{thenManeuver.street}</Text>
+            <Text style={[styles.thenLabel, { color: ink }]}>Then</Text>
+            <Text style={[styles.thenArrow, { color: ink }]}>{thenArrow(thenManeuver.kind)}</Text>
+            <Text style={[styles.thenText, { color: ink }]} numberOfLines={1}>{thenManeuver.street}</Text>
           </View>
         ) : null}
       </View>
-    </View>
+    </Glass>
   );
 }
 
@@ -350,13 +363,39 @@ const styles = StyleSheet.create({
   bag: { width: 18, height: 18, alignItems: "center" },
   bagHandle: { width: 8, height: 5, borderWidth: 2, borderBottomWidth: 0, borderRadius: 4, marginBottom: 1 },
   bagBody: { width: 14, height: 11, borderWidth: 2, borderRadius: 2 },
+  gear: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#0a84ff",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  controlGroup: {
+    borderRadius: 16,
+    overflow: "hidden",
+    width: 44,
+  },
+  iconButton: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  menu: {
+    width: 220,
+    borderRadius: 14,
+    overflow: "hidden",
+    marginTop: 8,
+  },
+  menuRow: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  menuText: { fontSize: 17, fontWeight: "600" },
   banner: {
-    position: "absolute",
-    top: 10,
-    left: 12,
-    right: 12,
-    backgroundColor: "rgba(16,20,26,0.9)",
-    borderRadius: 18,
+    borderRadius: 16,
+    overflow: "hidden",
     paddingHorizontal: 14,
     paddingVertical: 12,
     flexDirection: "row",
@@ -433,11 +472,9 @@ const styles = StyleSheet.create({
   },
   side: {
     position: "absolute",
-    top: 108,
     right: 12,
-    bottom: 118,
     alignItems: "flex-end",
-    justifyContent: "space-between",
+    gap: 10,
   },
   sideStack: { gap: 12 },
   round: {
@@ -543,16 +580,16 @@ const styles = StyleSheet.create({
     left: 4,
     transform: [{ rotate: "35deg" }],
   },
+  reportFloat: { position: "absolute" },
   report: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: "rgba(28,31,36,0.94)",
-    borderRadius: 22,
+    borderRadius: 16,
+    overflow: "hidden",
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    paddingVertical: 8,
+    marginTop: 8,
   },
   warnTri: {
     width: 0,
@@ -576,22 +613,22 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   maxSign: {
-    width: 54,
-    height: 66,
-    borderRadius: 3,
+    width: 42,
+    height: 46,
+    borderRadius: 8,
     backgroundColor: "#fff",
-    borderWidth: 3,
+    borderWidth: 2,
     borderColor: "#111",
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 2,
   },
-  maxWord: { color: "#111", fontSize: 8, fontWeight: "800", letterSpacing: 0.4 },
-  maxNum: { color: "#111", fontSize: 22, fontWeight: "800", lineHeight: 24 },
+  maxWord: { color: "#111", fontSize: 8, fontWeight: "800", letterSpacing: 0.3, width: "100%", textAlign: "center" },
+  maxNum: { color: "#111", fontSize: 16, fontWeight: "800", lineHeight: 18, width: "100%", textAlign: "center" },
   speedTile: {
-    width: 54,
-    height: 66,
-    borderRadius: 14,
+    width: 46,
+    height: 46,
+    borderRadius: 12,
     backgroundColor: "#ffffff",
     borderWidth: 1,
     borderColor: "rgba(22,25,31,0.12)",
@@ -599,7 +636,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   speedTileNight: { backgroundColor: "#1c2128", borderColor: "rgba(255,255,255,0.12)" },
-  speedNum: { color: "#16191f", fontSize: 22, fontWeight: "800" },
+  speedNum: { color: "#16191f", fontSize: 16, fontWeight: "800", lineHeight: 18 },
+  speedUnit: { color: "#636366", fontSize: 9, fontWeight: "700" },
   speedNumNight: { color: "#f4f7fb" },
   speedHot: { color: "#d93025" },
   speedWarm: { color: "#c47b00" },
@@ -637,8 +675,8 @@ const styles = StyleSheet.create({
     right: 12,
     bottom: 12,
     minHeight: 58,
-    backgroundColor: "rgba(16,20,26,0.78)",
-    borderRadius: 18,
+    borderRadius: 16,
+    overflow: "hidden",
     paddingHorizontal: 12,
     paddingVertical: 8,
     flexDirection: "row",
@@ -687,9 +725,9 @@ const styles = StyleSheet.create({
     left: 12,
     right: 12,
     bottom: 12,
-    minHeight: 88,
-    backgroundColor: "#1b1d22",
-    borderRadius: 22,
+    minHeight: 72,
+    borderRadius: 16,
+    overflow: "hidden",
     paddingLeft: 18,
     paddingRight: 12,
     paddingVertical: 12,

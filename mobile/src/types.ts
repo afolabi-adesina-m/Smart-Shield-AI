@@ -176,6 +176,8 @@ export type MapScene = {
   zoom?: number;
   pitch?: number;
   driving?: boolean;
+  mapType?: "standard" | "mutedStandard" | "hybrid";
+  northToken?: number;
   steps: MapStep[];
   preview: MapPreview | null;
 };

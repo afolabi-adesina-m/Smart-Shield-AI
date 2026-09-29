@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Alert, Appearance, Platform, StyleSheet, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import * as Location from "expo-location";
 import { MapCanvas } from "./src/MapCanvas";
 import { DeliveryPanel } from "./src/DeliveryPanel";
-import { FeatureSheet } from "./src/FeatureSheet";
-import { NavChrome } from "./src/NavChrome";
+import { FeatureSheet, SearchCard } from "./src/FeatureSheet";
+import { NavChrome, type ToolId } from "./src/NavChrome";
 import {
   ApiError,
   buildLoop,
@@ -47,7 +48,6 @@ import { alertsAhead, CAMERA_DISCLAIMER, loadCameraAlerts, loadEnforcement, save
 import { loadSignsNear, lookupStreet, type RoadSign } from "./src/roadSigns";
 import { speakNav, stopSpeech } from "./src/voice";
 import type { HeatSpot } from "./src/deliveryLogic";
-import { ESTIMATE_LABEL } from "./src/deliveryLogic";
 import type {
   MapPreview,
   MapScene,
@@ -79,7 +79,6 @@ type TripLeg = { distanceM: number; durationS: number };
 export default function App() {
   const [tab, setTab] = useState<"trip" | "practice" | "fleet" | "delivery">("trip");
   const [heat, setHeat] = useState<HeatSpot[]>([]);
-  const [estimateOn, setEstimateOn] = useState(false);
   const [origin, setOrigin] = useState<Place>(TORONTO);
   const [destination, setDestination] = useState<Place>(BARRIE);
   const [activeField, setActiveField] = useState<"origin" | "destination" | null>(null);
@@ -116,7 +115,11 @@ export default function App() {
   const [simCursor, setSimCursor] = useState<GpsFix | null>(null);
   const [mapHeld, setMapHeld] = useState(false);
   const [followToken, setFollowToken] = useState(0);
-  const [sheetOpen, setSheetOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [panel, setPanel] = useState<ToolId | null>(null);
+  const [mapHeading, setMapHeading] = useState(0);
+  const [mapType, setMapType] = useState<"standard" | "mutedStandard" | "hybrid">("standard");
+  const [northToken, setNorthToken] = useState(0);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportNote, setReportNote] = useState("");
   const [reports, setReports] = useState<RoadReport[]>([]);
@@ -421,7 +424,11 @@ export default function App() {
     speakNav(cue.phrase, muted);
   }, [driving, focus, signs, activeLine, userLat, userLon, muted]);
 
-  const shownKmh = speedMode === "simulate" ? demoKmh : fix?.speedKmh ?? null;
+  const shownKmh = speedMode === "simulate"
+    ? demoKmh
+    : fix
+      ? Math.max(0, Math.round(fix.speedKmh ?? 0))
+      : null;
   const posted = speed?.posted_kmh ?? null;
   const safe = speed?.safe_kmh ?? null;
   const speedLevel: WarningLevel = warningFor(shownKmh, posted, safe);
@@ -572,7 +579,7 @@ export default function App() {
       });
     }
     const end = activeLine.length ? activeLine[activeLine.length - 1] : null;
-    const camera = driving && !sheetOpen ? "follow" : activeLine.length > 1 ? "fit" : "follow";
+    const camera = driving ? "follow" : activeLine.length > 1 ? "fit" : "follow";
     const activeSteps = focus === "nav" ? (routeSteps[selected] || []) : [];
     return {
       routes: routesOut,
@@ -590,16 +597,18 @@ export default function App() {
       followToken,
       headingUp: camera === "follow" && headingUp,
       night,
-      zoom: driving ? navZoom(shownKmh, maneuver?.distanceM ?? null) : 14,
+      zoom: driving ? navZoom(shownKmh, maneuver?.distanceM ?? null) : 16,
       pitch: driving ? 52 : 0,
       driving,
+      mapType,
+      northToken,
       steps: activeSteps.map((step) => {
         const drawn = previewFromStep(step);
         return { name: drawn.name, coords: drawn.coords, lat: drawn.lat, lon: drawn.lon };
       }),
       preview: focus === "nav" ? preview : null,
     };
-  }, [focus, driving, signs, cameras, cameraAlerts, progress, reports, geometries, selected, activeLine, sheetOpen, userLat, userLon, puck, heading, headingUp, loop, night, heat, routeSteps, preview, followToken, shownKmh, maneuver]);
+  }, [focus, driving, signs, cameras, cameraAlerts, progress, reports, geometries, selected, activeLine, userLat, userLon, puck, heading, headingUp, loop, night, heat, routeSteps, preview, followToken, shownKmh, maneuver, mapType, northToken]);
 
   function pickSuggestion(item: Suggestion) {
     const place: Place = { id: item.id, label: item.label, detail: item.detail, lat: item.lat, lon: item.lon };
@@ -682,7 +691,8 @@ export default function App() {
       setDriving(false);
       setSimCursor(null);
       setFocus("nav");
-      setSheetOpen(true);
+      setMenuOpen(false);
+      setPanel(null);
       setStatus(ordered.length === 1 ? "1 route scored." : `${ordered.length} routes scored.`);
       const chosen = ordered.find((route) => route.route_index === best) || ordered[0];
       await loadSpeed(from.lat, from.lon as number, chosen?.tier, chosen?.recommended_speed_kmh);
@@ -696,7 +706,8 @@ export default function App() {
 
   async function openPractice() {
     setTab("practice");
-    setSheetOpen(true);
+    setMenuOpen(false);
+    setPanel("practice");
     if (centres.length) return;
     setStatus("Loading DriveTest centres…");
     try {
@@ -719,7 +730,7 @@ export default function App() {
       const data = await buildLoop(centreId, level);
       setLoop(data);
       setFocus("practice");
-      setSheetOpen(false);
+      setPanel(null);
       if (data.disclaimer) setDisclaimer(data.disclaimer);
       const km = (data.distance_m / 1000).toFixed(1);
       setStatus(`${data.centre.name} · ${data.level} · ${km} km loop.`);
@@ -737,7 +748,8 @@ export default function App() {
     bearingRef.current = null;
     setDriving(true);
     setFocus("nav");
-    setSheetOpen(false);
+    setMenuOpen(false);
+    setPanel(null);
     setHeadingUp(true);
     setMapHeld(false);
     setFollowToken((value) => value + 1);
@@ -789,7 +801,7 @@ export default function App() {
   const eta = focus === "nav"
     ? etaCard(remainingM, totalM, leg?.durationS || 0, destination.label)
     : null;
-  const showExit = focus !== "idle";
+  const showExit = driving || focus === "practice" || focus === "fleet";
   const etaTitle = focus === "fleet"
     ? `Score ${fleet.score}`
     : focus === "practice" && loop
@@ -807,11 +819,17 @@ export default function App() {
       ? `${status} ${engineNote}`
       : status;
 
+  function cycleMap() {
+    setMapType((current) => current === "standard" ? "mutedStandard" : current === "mutedStandard" ? "hybrid" : "standard");
+  }
+
   return (
+    <SafeAreaProvider>
     <View style={styles.root}>
       <StatusBar style={night ? "light" : "dark"} />
       <MapCanvas
         scene={scene}
+        onHeading={setMapHeading}
         onPan={() => { if (driving) setMapHeld(true); }}
         onRoutePoint={(lat, lon) => {
           const step = nearestStep(routeSteps[selected] || [], lat, lon);
@@ -836,11 +854,19 @@ export default function App() {
         reportOpen={reportOpen}
         reportNote={reportNote}
         onCompass={() => setHeadingUp((value) => !value)}
-        onSearch={() => { setTab("trip"); setSheetOpen(true); }}
         onMute={toggleMute}
-        onRoutes={() => { setTab("trip"); setSheetOpen(true); }}
-        onDelivery={() => { setTab("delivery"); setSheetOpen(true); setEstimateOn(true); }}
-        estimateNote={estimateOn ? ESTIMATE_LABEL : ""}
+        onGear={() => { setMenuOpen((open) => !open); setPanel(null); }}
+        menuOpen={menuOpen}
+        onMenu={(id) => {
+          setMenuOpen(false);
+          if (id === "practice") openPractice();
+          else if (id === "settings") setPanel("settings");
+          else { setTab(id); setPanel(id); }
+        }}
+        onLocate={() => { setMapHeld(false); setFollowToken((value) => value + 1); }}
+        onLayers={cycleMap}
+        onNorth={() => { setHeadingUp(true); setNorthToken((value) => value + 1); setMapHeading(0); }}
+        mapRotated={Math.abs(mapHeading) > 8}
         onReport={() => { setReportNote(""); setReportOpen(true); }}
         onCloseReport={() => setReportOpen(false)}
         onSaveReport={(kind) => { storeReport(kind).catch(() => setReportNote("Could not save the report.")); }}
@@ -851,13 +877,37 @@ export default function App() {
         distanceLabel={eta?.distanceValue || ""}
         distanceUnit={eta?.distanceUnit || "km"}
         onExit={driving ? askExit : exitDrive}
-        onWhereTo={() => { setTab("trip"); setSheetOpen(true); }}
+        onWhereTo={() => undefined}
         night={night}
       />
-      {sheetOpen ? (
+      {!driving && focus !== "practice" && focus !== "fleet" ? (
+        <SearchCard
+          night={night}
+          origin={origin}
+          destination={destination}
+          onOrigin={(label) => { setOrigin({ label, lat: null, lon: null }); setActiveField("origin"); }}
+          onDestination={(label) => { setDestination({ label, lat: null, lon: null }); setActiveField("destination"); }}
+          onFocusField={setActiveField}
+          activeField={activeField}
+          suggestions={suggestions}
+          onPick={pickSuggestion}
+          onUseLocation={() => { useMyLocation().catch(() => setStatus("Location is off. Type a start address instead.")); }}
+          busy={busy}
+          onFind={() => { findRoute().catch(() => undefined); }}
+          routes={routes}
+          selected={selected}
+          onSelect={(index) => { setSelected(index); setPreview(null); }}
+          onStart={routes.length ? startGuidance : undefined}
+        />
+      ) : null}
+      {panel ? (
         <FeatureSheet
-          tab={tab}
-          onTab={(next) => { if (next === "practice") openPractice(); else setTab(next); }}
+          tab={panel}
+          night={night}
+          topInset={118}
+          muted={muted}
+          onMute={toggleMute}
+          onTab={(next) => { if (next === "practice") openPractice(); else if (next !== "settings") setTab(next); }}
           origin={origin}
           destination={destination}
           onOrigin={(label) => { setOrigin({ label, lat: null, lon: null }); setActiveField("origin"); }}
@@ -898,7 +948,7 @@ export default function App() {
           speed={speed}
           recommended={recommended}
           apiBase={API_BASE}
-          onClose={() => setSheetOpen(false)}
+          onClose={() => setPanel(null)}
           cameraAlerts={cameraAlerts}
           onCameraAlerts={(enabled) => {
             setCameraAlerts(enabled);
@@ -907,18 +957,19 @@ export default function App() {
           cameraNote={CAMERA_DISCLAIMER}
           routeAlertCount={routeAlertCount}
           onStart={startGuidance}
-          delivery={tab === "delivery" ? (
+          delivery={panel === "delivery" ? (
             <DeliveryPanel
               lat={userLat}
               lon={userLon}
               trips={fleet.trips}
               recording={fleet.running}
-              onHeat={(spots, estimate) => { setHeat(spots); setEstimateOn(estimate); }}
+              onHeat={(spots) => setHeat(spots)}
             />
           ) : null}
         />
       ) : null}
     </View>
+    </SafeAreaProvider>
   );
 }
 
