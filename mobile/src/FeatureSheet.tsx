@@ -1,5 +1,5 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
+import { ActivityIndicator, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Glass } from "./glass";
@@ -95,15 +95,19 @@ export function FeatureSheet(props: Props) {
   const card = [styles.sheet, night && styles.sheetNight, { marginTop: props.topInset }];
   return (
     <View style={styles.layer} pointerEvents="box-none">
-      <Pressable style={styles.backdrop} testID="sheet-backdrop" onPress={props.onClose} />
+      <Pressable style={styles.backdrop} testID="sheet-backdrop" onPress={() => { Keyboard.dismiss(); props.onClose(); }} />
       <View style={card}>
         <View style={styles.header}>
           <Text style={[styles.headerTitle, ink]}>{PANEL_TITLE[props.tab]}</Text>
-          <Pressable onPress={props.onClose} testID="sheet-close">
+          <Pressable onPress={() => { Keyboard.dismiss(); props.onClose(); }} testID="sheet-close">
             <Text style={styles.close}>Close</Text>
           </Pressable>
         </View>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.body}>
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          contentContainerStyle={styles.body}
+        >
           {props.tab === "delivery" ? (
             props.delivery
           ) : props.tab === "fleet" ? (
@@ -256,14 +260,45 @@ export function SearchCard(props: {
   travelNote: string;
 }) {
   const insets = useSafeAreaInsets();
+  const windowH = useWindowDimensions().height;
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const toRef = useRef<TextInput>(null);
   const [open, setOpen] = useState(props.routes.length > 0);
   useEffect(() => {
     if (props.routes.length) setOpen(true);
   }, [props.routes.length]);
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const show = Keyboard.addListener(showEvent, (event) => {
+      setKeyboardHeight(event.endCoordinates?.height || 0);
+    });
+    const hide = Keyboard.addListener(hideEvent, () => setKeyboardHeight(0));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
   const ink = props.night ? "#f2f2f7" : "#1c1c1e";
   const hint = props.night ? "#aeaeb2" : "#636366";
+  const restingBottom = keyboardHeight > 0 ? keyboardHeight + 8 : Math.max(12, insets.bottom + 8);
+  const scrollMax = keyboardHeight > 0
+    ? Math.max(120, windowH - keyboardHeight - insets.top - 210)
+    : 320;
+  function runSearch() {
+    Keyboard.dismiss();
+    props.onFind();
+  }
+  function startRoute() {
+    Keyboard.dismiss();
+    props.onStart?.();
+  }
+  function pickSuggestion(item: Suggestion) {
+    Keyboard.dismiss();
+    props.onPick(item);
+  }
   return (
-    <Glass night={props.night} style={[styles.searchCard, { bottom: Math.max(12, insets.bottom + 8) }]}>
+    <Glass night={props.night} style={[styles.searchCard, { bottom: restingBottom }]}>
       <View style={styles.grabber} />
       <Pressable testID="where-to" style={styles.searchField} onPress={() => setOpen(true)}>
         <Ionicons name="search" size={18} color={hint} />
@@ -271,20 +306,44 @@ export function SearchCard(props: {
       </Pressable>
       <ModeChips mode={props.travelMode} summaries={props.summaries} night={props.night} onSelect={props.onTravelMode} />
       {open ? (
-        <ScrollView keyboardShouldPersistTaps="handled" style={styles.searchScroll} contentContainerStyle={styles.searchBody}>
-          <Field label="From" value={props.origin.label} onChangeText={props.onOrigin} onFocus={() => props.onFocusField("origin")} />
-          {props.activeField === "origin" ? <SuggestList items={props.suggestions} onPick={props.onPick} /> : null}
-          <Field label="To" value={props.destination.label} onChangeText={props.onDestination} onFocus={() => props.onFocusField("destination")} />
-          {props.activeField === "destination" ? <SuggestList items={props.suggestions} onPick={props.onPick} /> : null}
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          style={[styles.searchScroll, { maxHeight: scrollMax }]}
+          contentContainerStyle={styles.searchBody}
+        >
+          <Field
+            label="From"
+            testID="field-from"
+            value={props.origin.label}
+            onChangeText={props.onOrigin}
+            onFocus={() => props.onFocusField("origin")}
+            returnKeyType="next"
+            blurOnSubmit={false}
+            onSubmitEditing={() => toRef.current?.focus()}
+          />
+          {props.activeField === "origin" ? <SuggestList items={props.suggestions} onPick={pickSuggestion} /> : null}
+          <Field
+            label="To"
+            testID="field-to"
+            inputRef={toRef}
+            value={props.destination.label}
+            onChangeText={props.onDestination}
+            onFocus={() => props.onFocusField("destination")}
+            returnKeyType="search"
+            blurOnSubmit
+            onSubmitEditing={runSearch}
+          />
+          {props.activeField === "destination" ? <SuggestList items={props.suggestions} onPick={pickSuggestion} /> : null}
           <Pressable onPress={props.onUseLocation}>
             <Text style={styles.link}>Use my location as start</Text>
           </Pressable>
-          <Pressable style={[styles.primary, props.busy && styles.disabled]} disabled={props.busy} onPress={props.onFind}>
+          <Pressable style={[styles.primary, props.busy && styles.disabled]} disabled={props.busy} onPress={runSearch}>
             {props.busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryText}>{props.travelMode === "drive" || props.travelMode === "motorcycle" ? "Find safest route" : "Find route"}</Text>}
           </Pressable>
           {props.travelNote ? <Text style={styles.note}>{props.travelNote}</Text> : null}
           {props.itineraries.map((item, index) => (
-            <ItineraryCard key={`${item.start || "trip"}-${index}`} item={item} onStart={index === 0 ? props.onStart : undefined} />
+            <ItineraryCard key={`${item.start || "trip"}-${index}`} item={item} onStart={index === 0 ? startRoute : undefined} />
           ))}
           {props.itineraries.length ? null : props.routes.map((route) => (
             <RouteCard
@@ -292,7 +351,7 @@ export function SearchCard(props: {
               route={route}
               selected={route.route_index === props.selected}
               onPress={() => props.onSelect(route.route_index)}
-              onStart={route.route_index === props.selected ? props.onStart : undefined}
+              onStart={route.route_index === props.selected ? startRoute : undefined}
             />
           ))}
           <Pressable onPress={() => setOpen(false)}>
@@ -311,7 +370,13 @@ function ModeChips(props: {
   onSelect: (mode: TravelMode) => void;
 }) {
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.modeRow}>
+    <ScrollView
+      horizontal
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="on-drag"
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.modeRow}
+    >
       {TRAVEL.map((item) => {
         const on = item.id === props.mode;
         const summary = props.summaries[item.id];
@@ -320,7 +385,7 @@ function ModeChips(props: {
             key={item.id}
             testID={`mode-${item.id}`}
             style={[styles.modeChip, on && styles.modeChipOn, props.night && !on && styles.modeChipNight]}
-            onPress={() => props.onSelect(item.id)}
+            onPress={() => { Keyboard.dismiss(); props.onSelect(item.id); }}
           >
             <MaterialCommunityIcons name={item.icon} size={16} color={on ? "#fff" : props.night ? "#f2f2f7" : "#1c1c1e"} />
             <Text style={[styles.modeLabel, on && styles.modeLabelOn, props.night && !on && styles.modeLabelNight]}>{item.label}</Text>
@@ -368,14 +433,30 @@ function ItineraryCard(props: { item: TransitItinerary; onStart?: () => void }) 
   );
 }
 
-function Field(props: { label: string; value: string; onChangeText: (value: string) => void; onFocus: () => void }) {
+function Field(props: {
+  label: string;
+  value: string;
+  onChangeText: (value: string) => void;
+  onFocus: () => void;
+  inputRef?: Ref<TextInput>;
+  returnKeyType?: "next" | "search";
+  blurOnSubmit?: boolean;
+  onSubmitEditing?: () => void;
+  testID?: string;
+}) {
   return (
     <View style={styles.field}>
       <Text style={styles.kicker}>{props.label}</Text>
       <TextInput
+        ref={props.inputRef}
+        testID={props.testID}
         value={props.value}
         onChangeText={props.onChangeText}
         onFocus={props.onFocus}
+        onSubmitEditing={props.onSubmitEditing}
+        returnKeyType={props.returnKeyType}
+        blurOnSubmit={props.blurOnSubmit}
+        enterKeyHint={props.returnKeyType === "search" ? "search" : "next"}
         placeholder={props.label}
         placeholderTextColor="#8b97a6"
         style={styles.input}
@@ -391,7 +472,7 @@ function SuggestList({ items, onPick }: { items: Suggestion[]; onPick: (item: Su
   return (
     <View style={styles.suggest}>
       {items.map((item) => (
-        <Pressable key={item.id || item.label} style={styles.suggestItem} onPress={() => onPick(item)}>
+        <Pressable key={item.id || item.label} style={styles.suggestItem} onPress={() => { Keyboard.dismiss(); onPick(item); }}>
           <Text style={styles.suggestLabel}>{item.label}</Text>
           {item.detail ? <Text style={styles.note}>{item.detail}</Text> : null}
         </Pressable>

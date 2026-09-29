@@ -4,12 +4,43 @@ const SUGGEST_MIN = 3;
 const SUGGEST_WAIT_MS = 300;
 let suggestUid = 0;
 
+function blurSearchFields() {
+  ["origin", "destination", "map-search-input"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el && document.activeElement === el) el.blur();
+  });
+}
+
 function initAddressSearch() {
   const origin = document.getElementById("origin");
   const destination = document.getElementById("destination");
-  if (origin) attachAddressField(origin, { assign: "origin" });
-  if (destination) attachAddressField(destination, { assign: "destination" });
+  if (origin) {
+    origin.enterKeyHint = "next";
+    attachAddressField(origin, {
+      assign: "origin",
+      onSubmit() {
+        if (destination) destination.focus();
+      },
+    });
+  }
+  if (destination) {
+    destination.enterKeyHint = "search";
+    attachAddressField(destination, {
+      assign: "destination",
+      onSubmit() {
+        destination.blur();
+        const button = document.getElementById("btn-route");
+        if (button) button.click();
+      },
+    });
+  }
   mountMapSearch();
+  document.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!target || !target.closest) return;
+    if (target.closest("#btn-route, .route-start")) blurSearchFields();
+  });
+  document.addEventListener("smartshield:start-nav", blurSearchFields);
 }
 
 function mountMapSearch() {
@@ -220,12 +251,17 @@ function attachAddressField(input, options) {
     if (current) input.setAttribute("aria-activedescendant", current.id);
   }
 
-  function choose(index) {
+  async function choose(index) {
     const item = state.items[index];
     if (!item) return;
     input.value = item.label;
     close();
-    resolveAndGo(item, options);
+    input.blur();
+    try {
+      await resolveAndGo(item, options);
+    } catch (err) {
+      /* A later Search tap can still geocode the label. */
+    }
   }
 
   async function fetchSuggest(query) {
@@ -282,9 +318,16 @@ function attachAddressField(input, options) {
       e.preventDefault();
       highlight(state.active - 1);
     } else if (e.key === "Enter") {
-      if (!state.open || state.active < 0) return;
       e.preventDefault();
-      choose(state.active);
+      const submit = () => {
+        if (typeof options.onSubmit === "function") options.onSubmit();
+        else input.blur();
+      };
+      if (state.open && state.active >= 0 && state.items[state.active]) {
+        Promise.resolve(choose(state.active)).then(submit);
+        return;
+      }
+      submit();
     } else if (e.key === "Escape") {
       if (!state.open) return;
       e.preventDefault();
@@ -302,9 +345,14 @@ function attachAddressField(input, options) {
     if (e.target === input || list.contains(e.target)) return;
     const box = document.getElementById("map-search");
     if (box && box.contains(e.target)) return;
+    const otherField = e.target && e.target.closest && e.target.closest("#origin, #destination, #map-search-input");
     close();
+    if (!otherField && document.activeElement === input) input.blur();
   });
-  document.addEventListener("smartshield:start-nav", close);
+  document.addEventListener("smartshield:start-nav", () => {
+    close();
+    if (document.activeElement === input) input.blur();
+  });
   document.addEventListener("smartshield:close-suggest", close);
 
   return { close };

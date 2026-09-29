@@ -127,6 +127,9 @@ export const MAP_HTML = `<!DOCTYPE html>
       hold = true;
       emit({ type: "smartshield-map-pan" });
     });
+    map.on("click", function () {
+      emit({ type: "smartshield-map-press" });
+    });
 
     function applyScene(scene) {
       drawn.clearLayers();

@@ -13,6 +13,7 @@ type Props = {
   onRoutePoint?: (lat: number, lon: number) => void;
   onPan?: () => void;
   onHeading?: (heading: number) => void;
+  onMapPress?: () => void;
 };
 
 /** MapKit ignores `zoom`. Altitude is the distance that keeps a street in view. */
@@ -31,10 +32,10 @@ const STREET_DELTA = 0.008;
  * Google Maps with Expo Go's development key. The OpenStreetMap page in mapHtml
  * is only used if the native map fails to mount. The browser uses MapCanvas.web.tsx.
  */
-export function MapCanvas({ scene, onRoutePoint, onPan, onHeading }: Props) {
+export function MapCanvas({ scene, onRoutePoint, onPan, onHeading, onMapPress }: Props) {
   const [nativeFailed, setNativeFailed] = useState(false);
   if (nativeFailed) {
-    return <WebMapFallback scene={scene} onRoutePoint={onRoutePoint} onPan={onPan} />;
+    return <WebMapFallback scene={scene} onRoutePoint={onRoutePoint} onPan={onPan} onMapPress={onMapPress} />;
   }
   return (
     <NativeMap
@@ -42,12 +43,13 @@ export function MapCanvas({ scene, onRoutePoint, onPan, onHeading }: Props) {
       onRoutePoint={onRoutePoint}
       onPan={onPan}
       onHeading={onHeading}
+      onMapPress={onMapPress}
       onNativeError={() => setNativeFailed(true)}
     />
   );
 }
 
-function NativeMap({ scene, onRoutePoint, onPan, onHeading, onNativeError }: Props & { onNativeError: () => void }) {
+function NativeMap({ scene, onRoutePoint, onPan, onHeading, onMapPress, onNativeError }: Props & { onNativeError: () => void }) {
   const mapRef = useRef<MapView>(null);
   const latest = useRef(scene);
   latest.current = scene;
@@ -145,6 +147,7 @@ function NativeMap({ scene, onRoutePoint, onPan, onHeading, onNativeError }: Pro
             longitudeDelta: STREET_DELTA,
           }, 0);
         }}
+        onPress={() => onMapPress?.()}
         onPanDrag={() => {
           held.current = true;
           setTracking(false);
@@ -282,7 +285,7 @@ function NativeMap({ scene, onRoutePoint, onPan, onHeading, onNativeError }: Pro
   );
 }
 
-function WebMapFallback({ scene, onRoutePoint, onPan }: Props) {
+function WebMapFallback({ scene, onRoutePoint, onPan, onMapPress }: Props) {
   const webRef = useRef<WebView>(null);
   const latest = useRef(scene);
   latest.current = scene;
@@ -307,6 +310,7 @@ function WebMapFallback({ scene, onRoutePoint, onPan }: Props) {
           try {
             const data = JSON.parse(event.nativeEvent.data) as { type?: string; lat?: number; lon?: number };
             if (data.type === "smartshield-map-pan") onPan?.();
+            if (data.type === "smartshield-map-press") onMapPress?.();
             if (data.type === "smartshield-route-press" && data.lat != null && data.lon != null) {
               onRoutePoint?.(data.lat, data.lon);
             }

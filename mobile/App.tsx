@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { Alert, Appearance, Platform, StyleSheet, View } from "react-native";
+import { Alert, Appearance, Keyboard, KeyboardAvoidingView, Platform, StyleSheet, TouchableWithoutFeedback, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -826,6 +826,7 @@ export default function App() {
   }
 
   function startGuidance() {
+    Keyboard.dismiss();
     matchRef.current = null;
     bearingRef.current = null;
     setDriving(true);
@@ -911,12 +912,17 @@ export default function App() {
   return (
     <SafeAreaProvider>
     <View style={styles.root}>
+    <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+    <View style={styles.root}>
       <StatusBar style={night ? "light" : "dark"} />
       <MapCanvas
         scene={scene}
         onHeading={setMapHeading}
         onPan={() => { if (driving) setMapHeld(true); }}
+        onMapPress={() => Keyboard.dismiss()}
         onRoutePoint={(lat, lon) => {
+          Keyboard.dismiss();
           const step = nearestStep(routeSteps[selected] || [], lat, lon);
           if (step) setPreview(previewFromStep(step));
         }}
@@ -966,31 +972,6 @@ export default function App() {
         onWhereTo={() => undefined}
         night={night}
       />
-      {!driving && focus !== "practice" && focus !== "fleet" ? (
-        <SearchCard
-          night={night}
-          origin={origin}
-          destination={destination}
-          onOrigin={(label) => { setOrigin({ label, lat: null, lon: null }); setActiveField("origin"); }}
-          onDestination={(label) => { setDestination({ label, lat: null, lon: null }); setActiveField("destination"); }}
-          onFocusField={setActiveField}
-          activeField={activeField}
-          suggestions={suggestions}
-          onPick={pickSuggestion}
-          onUseLocation={() => { useMyLocation().catch(() => setStatus("Location is off. Type a start address instead.")); }}
-          busy={busy}
-          onFind={() => { findRoute().catch(() => undefined); }}
-          routes={routes}
-          selected={selected}
-          onSelect={(index) => { setSelected(index); setPreview(null); }}
-          onStart={routes.length || itineraries.length ? startGuidance : undefined}
-          travelMode={travelMode}
-          onTravelMode={chooseMode}
-          summaries={summaries}
-          itineraries={itineraries}
-          travelNote={travelNote}
-        />
-      ) : null}
       {panel ? (
         <FeatureSheet
           tab={panel}
@@ -1006,12 +987,12 @@ export default function App() {
           onFocusField={setActiveField}
           activeField={activeField}
           suggestions={suggestions}
-          onPick={pickSuggestion}
+          onPick={(item) => { Keyboard.dismiss(); pickSuggestion(item); }}
           onUseLocation={() => { useMyLocation().catch(() => setStatus("Location is off. Type a start address instead.")); }}
           weather={weather}
           onWeather={setWeather}
           busy={busy}
-          onFind={() => { findRoute().catch(() => undefined); }}
+          onFind={() => { Keyboard.dismiss(); findRoute().catch(() => undefined); }}
           routes={routes}
           selected={selected}
           onSelect={(index) => { setSelected(index); setPreview(null); }}
@@ -1047,7 +1028,7 @@ export default function App() {
           }}
           cameraNote={CAMERA_DISCLAIMER}
           routeAlertCount={routeAlertCount}
-          onStart={startGuidance}
+          onStart={() => { Keyboard.dismiss(); startGuidance(); }}
           delivery={panel === "delivery" ? (
             <DeliveryPanel
               lat={userLat}
@@ -1059,6 +1040,34 @@ export default function App() {
           ) : null}
         />
       ) : null}
+    </View>
+    </TouchableWithoutFeedback>
+    </KeyboardAvoidingView>
+    {!driving && focus !== "practice" && focus !== "fleet" ? (
+        <SearchCard
+          night={night}
+          origin={origin}
+          destination={destination}
+          onOrigin={(label) => { setOrigin({ label, lat: null, lon: null }); setActiveField("origin"); }}
+          onDestination={(label) => { setDestination({ label, lat: null, lon: null }); setActiveField("destination"); }}
+          onFocusField={setActiveField}
+          activeField={activeField}
+          suggestions={suggestions}
+          onPick={(item) => { Keyboard.dismiss(); pickSuggestion(item); }}
+          onUseLocation={() => { useMyLocation().catch(() => setStatus("Location is off. Type a start address instead.")); }}
+          busy={busy}
+          onFind={() => { Keyboard.dismiss(); findRoute().catch(() => undefined); }}
+          onTravelMode={chooseMode}
+          routes={routes}
+          selected={selected}
+          onSelect={(index) => { setSelected(index); setPreview(null); }}
+          onStart={routes.length || itineraries.length ? () => { Keyboard.dismiss(); startGuidance(); } : undefined}
+          travelMode={travelMode}
+          summaries={summaries}
+          itineraries={itineraries}
+          travelNote={travelNote}
+        />
+    ) : null}
     </View>
     </SafeAreaProvider>
   );
