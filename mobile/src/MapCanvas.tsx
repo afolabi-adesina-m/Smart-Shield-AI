@@ -1,7 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Platform, StyleSheet, Text, View } from "react-native";
-import MapView, { Circle, Marker, Polyline, PROVIDER_DEFAULT, PROVIDER_GOOGLE } from "react-native-maps";
+import MapView, { Circle, Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
+import { WebView } from "react-native-webview";
 import { DARK_MAP_STYLE } from "./darkMapStyle";
+import { MAP_HTML } from "./mapHtml";
 import { StopSign } from "./StopSign";
 import { stopLayout } from "./stopSign";
 import type { MapScene, MapSign } from "./types";
@@ -13,16 +15,35 @@ type Props = {
 };
 
 /**
- * Phone map inside Expo Go. iPhone uses Apple Maps. Android uses Google Maps
- * with Expo Go's built-in development key. The browser uses MapCanvas.web.tsx.
+ * Phone map inside Expo Go. iPhone uses Apple MapKit (no API key). Android uses
+ * Google Maps with Expo Go's development key. The OpenStreetMap page in mapHtml
+ * is only used if the native map fails to mount. The browser uses MapCanvas.web.tsx.
  */
 export function MapCanvas({ scene, onRoutePoint, onPan }: Props) {
+  const [nativeFailed, setNativeFailed] = useState(false);
+  if (nativeFailed) {
+    return <WebMapFallback scene={scene} onRoutePoint={onRoutePoint} onPan={onPan} />;
+  }
+  return (
+    <NativeMap
+      scene={scene}
+      onRoutePoint={onRoutePoint}
+      onPan={onPan}
+      onNativeError={() => setNativeFailed(true)}
+    />
+  );
+}
+
+function NativeMap({ scene, onRoutePoint, onPan, onNativeError }: Props & { onNativeError: () => void }) {
   const mapRef = useRef<MapView>(null);
   const latest = useRef(scene);
   latest.current = scene;
   const held = useRef(false);
   const token = useRef(scene.followToken || 0);
   const user = scene.user;
+  const driving = !!scene.driving;
+  const failRef = useRef(onNativeError);
+  failRef.current = onNativeError;
 
   useEffect(() => {
     const next = latest.current;
@@ -47,12 +68,17 @@ export function MapCanvas({ scene, onRoutePoint, onPan }: Props) {
       }
       return;
     }
-    map.animateCamera({
-      center: { latitude: next.user.lat, longitude: next.user.lon },
-      heading: next.headingUp ? next.user.heading : 0,
-      pitch: 0,
-      zoom: 16,
-    }, { duration: 280 });
+    const drivingNow = !!next.driving;
+    try {
+      map.animateCamera({
+        center: { latitude: next.user.lat, longitude: next.user.lon },
+        heading: next.headingUp ? next.user.heading : 0,
+        pitch: drivingNow ? (next.pitch ?? 52) : 0,
+        zoom: drivingNow ? (next.zoom ?? 17) : (next.zoom ?? 14),
+      }, { duration: drivingNow ? 700 : 280 });
+    } catch {
+      failRef.current();
+    }
   }, [scene]);
 
   return (
@@ -60,15 +86,18 @@ export function MapCanvas({ scene, onRoutePoint, onPan }: Props) {
       <MapView
         ref={mapRef}
         style={styles.map}
-        provider={Platform.OS === "android" ? PROVIDER_GOOGLE : PROVIDER_DEFAULT}
+        provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
         userInterfaceStyle={scene.night ? "dark" : "light"}
+        mapType="standard"
         customMapStyle={Platform.OS === "android" ? (scene.night ? DARK_MAP_STYLE : []) : undefined}
-        showsUserLocation
-        followsUserLocation={scene.camera === "follow" && !scene.headingUp}
+        showsUserLocation={!driving}
+        followsUserLocation={false}
         showsCompass={false}
+        showsBuildings
         toolbarEnabled={false}
         rotateEnabled
-        pitchEnabled={false}
+        pitchEnabled={driving}
+        onMapReady={() => undefined}
         onPanDrag={() => {
           held.current = true;
           onPan?.();
@@ -92,20 +121,34 @@ export function MapCanvas({ scene, onRoutePoint, onPan }: Props) {
             strokeColor="transparent"
           />
         ))}
-        {scene.routes.map((route, index) => (
-          <Polyline
-            key={`route-${index}`}
-            coordinates={route.coords.map(([lat, lon]) => ({ latitude: lat, longitude: lon }))}
-            strokeColor={route.active ? "#ffffff" : route.color}
-            strokeWidth={route.active ? 12 : 5}
-          />
-        ))}
+        {scene.routes.map((route, index) => {
+          const coords = route.coords.map(([lat, lon]) => ({ latitude: lat, longitude: lon }));
+          const traveled = !route.active && route.color === "#9bb0c9";
+          if (!route.active) {
+            return (
+              <Polyline
+                key={`route-${index}`}
+                coordinates={coords}
+                strokeColor={route.color}
+                strokeWidth={traveled ? 8 : 5}
+              />
+            );
+          }
+          return (
+            <Polyline
+              key={`route-case-${index}`}
+              coordinates={coords}
+              strokeColor="#123a66"
+              strokeWidth={14}
+            />
+          );
+        })}
         {scene.routes.map((route, index) => route.active ? (
           <Polyline
             key={`route-core-${index}`}
             coordinates={route.coords.map(([lat, lon]) => ({ latitude: lat, longitude: lon }))}
             strokeColor={route.color || "#4da3ff"}
-            strokeWidth={7}
+            strokeWidth={8}
           />
         ) : null)}
         {scene.routes.map((route, index) => route.active ? (
@@ -161,12 +204,12 @@ export function MapCanvas({ scene, onRoutePoint, onPan }: Props) {
             </Marker>
           );
         })}
-        {user ? (
+        {driving && user ? (
           <Marker
             coordinate={{ latitude: user.lat, longitude: user.lon }}
             anchor={{ x: 0.5, y: 0.5 }}
-            flat={false}
-            rotation={scene.headingUp ? 0 : user.heading}
+            flat
+            rotation={0}
             zIndex={8}
           >
             <Puck />
@@ -178,6 +221,43 @@ export function MapCanvas({ scene, onRoutePoint, onPan }: Props) {
           <Text style={styles.previewChipText}>{scene.preview.name}</Text>
         </View>
       ) : null}
+    </View>
+  );
+}
+
+function WebMapFallback({ scene, onRoutePoint, onPan }: Props) {
+  const webRef = useRef<WebView>(null);
+  const latest = useRef(scene);
+  latest.current = scene;
+
+  function push(next: MapScene) {
+    const payload = JSON.stringify(next).replace(/</g, "\\u003c");
+    webRef.current?.injectJavaScript(`window.applyScene && window.applyScene(${payload}); true;`);
+  }
+
+  useEffect(() => {
+    push(scene);
+  }, [scene]);
+
+  return (
+    <View style={styles.wrap}>
+      <WebView
+        ref={webRef}
+        originWhitelist={["*"]}
+        source={{ html: MAP_HTML }}
+        onLoadEnd={() => push(latest.current)}
+        onMessage={(event) => {
+          try {
+            const data = JSON.parse(event.nativeEvent.data) as { type?: string; lat?: number; lon?: number };
+            if (data.type === "smartshield-map-pan") onPan?.();
+            if (data.type === "smartshield-route-press" && data.lat != null && data.lon != null) {
+              onRoutePoint?.(data.lat, data.lon);
+            }
+          } catch {
+            /* Ignore a frame that is not a map event. */
+          }
+        }}
+      />
     </View>
   );
 }

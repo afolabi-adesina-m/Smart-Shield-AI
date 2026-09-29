@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { Appearance, Platform, StyleSheet, View } from "react-native";
+import { Alert, Appearance, Platform, StyleSheet, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import * as Location from "expo-location";
 import { MapCanvas } from "./src/MapCanvas";
@@ -23,14 +23,17 @@ import { isNight } from "./src/dayNight";
 import { haversineM, warningFor, type WarningLevel } from "./src/fleetLogic";
 import { getFleetSnapshot, setLiveReader, stopTrip, subscribeFleet } from "./src/fleetStore";
 import {
+  cutLine,
   etaCard,
   featuresAhead,
   featuresAlongRoute,
   instructionSpeech,
+  navZoom,
   nextManeuver,
   pointAlong,
   progressAlong,
   shieldFrom,
+  smoothBearing,
   upcomingManeuvers,
   type LatLon,
   type Maneuver,
@@ -272,29 +275,6 @@ export default function App() {
     };
   }, [userLat, userLon, weather, activeRoute?.tier, recommended, geometries, selected, fix?.heading]);
 
-  const signKey = `${userLat.toFixed(2)},${userLon.toFixed(2)}`;
-  useEffect(() => {
-    let cancelled = false;
-    const [lat, lon] = signKey.split(",").map(Number);
-    loadSignsNear(lat, lon).then((next) => {
-      if (!cancelled) setSigns(next);
-    }).catch(() => {
-      if (!cancelled) setSigns([]);
-    });
-    return () => { cancelled = true; };
-  }, [signKey]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const [lat, lon] = signKey.split(",").map(Number);
-    loadEnforcement(lat, lon, API_BASE).then((next) => {
-      if (!cancelled) setCameras(next);
-    }).catch(() => {
-      if (!cancelled) setCameras([]);
-    });
-    return () => { cancelled = true; };
-  }, [signKey]);
-
   const fleetWatch = useRef(fleet.status);
   useEffect(() => {
     if (fleet.status === fleetWatch.current) return;
@@ -310,8 +290,14 @@ export default function App() {
     return [];
   }, [focus, loop, fleet.line, geometries, selected]);
 
+  const matchRef = useRef<{ alongM: number } | null>(null);
+  const bearingRef = useRef<number | null>(null);
+  const puckRef = useRef({ lat: userLat, lon: userLon });
+  const [puck, setPuck] = useState({ lat: userLat, lon: userLon });
+  const [cameraHeading, setCameraHeading] = useState(0);
+
   const progress = useMemo(
-    () => progressAlong(activeLine, userLat, userLon),
+    () => progressAlong(activeLine, userLat, userLon, matchRef.current),
     [activeLine, userLat, userLon],
   );
 
@@ -344,13 +330,62 @@ export default function App() {
 
   const streetHint = turnStreet || speed?.road_name || "";
   const stepGuide = useMemo(() => {
-    if (focus !== "nav" || activeLine.length < 2) return { current: null as Maneuver | null, then: null as Maneuver | null };
+    if (focus !== "nav" || activeLine.length < 2) {
+      return { current: null as Maneuver | null, then: null as Maneuver | null, match: null };
+    }
     const steps = routeSteps[selected] || [];
-    if (steps.length) return upcomingManeuvers(steps, activeLine, userLat, userLon);
+    if (steps.length) return upcomingManeuvers(steps, activeLine, userLat, userLon, matchRef.current);
     const next = nextManeuver(progress.ahead, streetHint, destination.label);
-    return { current: { ...next, shield: next.shield || shieldFrom(streetHint) }, then: null as Maneuver | null };
+    const named = next.street === "Unnamed road" && streetHint && streetHint !== "Unnamed road"
+      ? { ...next, street: streetHint, shield: shieldFrom(streetHint) }
+      : next;
+    return { current: named, then: null as Maneuver | null, match: null };
   }, [focus, activeLine, routeSteps, selected, userLat, userLon, progress.ahead, streetHint, destination.label]);
   const maneuver = stepGuide.current;
+  const signKey = `${userLat.toFixed(2)},${userLon.toFixed(2)},${driving ? "1" : "0"},${Math.round((stepGuide.match?.alongM || 0) / 500)},${activeLine.length}`;
+  useEffect(() => {
+    let cancelled = false;
+    const ahead = driving && activeLine.length > 1
+      ? cutLine(activeLine, stepGuide.match?.alongM || 0).ahead
+      : [[userLat, userLon] as LatLon];
+    loadSignsNear(userLat, userLon, ahead).then((next) => {
+      if (!cancelled && next.length) setSigns(next);
+    }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [signKey]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const [lat, lon] = signKey.split(",").map(Number);
+    loadEnforcement(lat, lon, API_BASE).then((next) => {
+      if (!cancelled) setCameras(next);
+    }).catch(() => {
+      if (!cancelled) setCameras([]);
+    });
+    return () => { cancelled = true; };
+  }, [signKey]);
+
+  useEffect(() => {
+    matchRef.current = driving && stepGuide.match ? { alongM: stepGuide.match.alongM } : null;
+  }, [driving, stepGuide.match]);
+
+  useEffect(() => {
+    const targetLat = driving && stepGuide.match?.snapped ? stepGuide.match.lat : userLat;
+    const targetLon = driving && stepGuide.match?.snapped ? stepGuide.match.lon : userLon;
+    const from = { ...puckRef.current };
+    const started = Date.now();
+    const timer = setInterval(() => {
+      const t = Math.min(1, (Date.now() - started) / 900);
+      const next = {
+        lat: from.lat + (targetLat - from.lat) * t,
+        lon: from.lon + (targetLon - from.lon) * t,
+      };
+      puckRef.current = next;
+      setPuck(next);
+      if (t >= 1) clearInterval(timer);
+    }, 50);
+    return () => clearInterval(timer);
+  }, [userLat, userLon, driving, stepGuide.match]);
 
   const turnKey = maneuver ? `${maneuver.atLat.toFixed(3)},${maneuver.atLon.toFixed(3)}` : "";
   useEffect(() => {
@@ -421,11 +456,36 @@ export default function App() {
     };
   }, [userLat, userLon]);
 
-  const heading = fix != null && fix.speedKmh != null && fix.speedKmh > 3 && fix.heading != null && fix.heading >= 0
+  const routeBearing = stepGuide.match?.bearing ?? progress.bearing;
+  const gpsCourse = fix != null && fix.speedKmh != null && fix.speedKmh >= 8 && fix.heading != null && fix.heading >= 0
     ? fix.heading
+    : null;
+  const headingTarget = driving
+    ? (gpsCourse ?? routeBearing)
     : deviceHeading != null && deviceHeading >= 0
       ? deviceHeading
-      : progress.bearing;
+      : routeBearing;
+  useEffect(() => {
+    let timer: ReturnType<typeof setInterval> | null = null;
+    const step = () => {
+      const next = smoothBearing(bearingRef.current, headingTarget, bearingRef.current == null ? 360 : 24);
+      bearingRef.current = next;
+      setCameraHeading(next);
+      let delta = headingTarget - next;
+      while (delta > 180) delta -= 360;
+      while (delta < -180) delta += 360;
+      if (Math.abs(delta) < 1 && timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+    };
+    step();
+    timer = setInterval(step, 50);
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [headingTarget]);
+  const heading = cameraHeading;
   const spokenCameras = useRef<Record<string, boolean>>({});
   const lastCameraSpeech = useRef(0);
   useEffect(() => {
@@ -506,19 +566,26 @@ export default function App() {
         ? [{ lat: end[0], lon: end[1], label: "Destination", color: "#e23b2f" }]
         : [],
       signs: drawnSigns,
-      user: { lat: userLat, lon: userLon, heading },
+      user: {
+        lat: driving ? puck.lat : userLat,
+        lon: driving ? puck.lon : userLon,
+        heading,
+      },
       heat,
       camera,
       followToken,
       headingUp: camera === "follow" && headingUp,
       night,
+      zoom: driving ? navZoom(shownKmh, maneuver?.distanceM ?? null) : 14,
+      pitch: driving ? 52 : 0,
+      driving,
       steps: activeSteps.map((step) => {
         const drawn = previewFromStep(step);
         return { name: drawn.name, coords: drawn.coords, lat: drawn.lat, lon: drawn.lon };
       }),
       preview: focus === "nav" ? preview : null,
     };
-  }, [focus, driving, signs, cameras, cameraAlerts, progress, reports, geometries, selected, activeLine, sheetOpen, userLat, userLon, heading, headingUp, loop, night, heat, routeSteps, preview, followToken]);
+  }, [focus, driving, signs, cameras, cameraAlerts, progress, reports, geometries, selected, activeLine, sheetOpen, userLat, userLon, puck, heading, headingUp, loop, night, heat, routeSteps, preview, followToken, shownKmh, maneuver]);
 
   function pickSuggestion(item: Suggestion) {
     const place: Place = { id: item.id, label: item.label, detail: item.detail, lat: item.lat, lon: item.lon };
@@ -651,6 +718,8 @@ export default function App() {
   }
 
   function startGuidance() {
+    matchRef.current = null;
+    bearingRef.current = null;
     setDriving(true);
     setFocus("nav");
     setSheetOpen(false);
@@ -658,6 +727,13 @@ export default function App() {
     setMapHeld(false);
     setFollowToken((value) => value + 1);
     spoken.current = "";
+  }
+
+  function askExit() {
+    Alert.alert("End route?", "This stops guidance.", [
+      { text: "Keep going", style: "cancel" },
+      { text: "End route", style: "destructive", onPress: exitDrive },
+    ]);
   }
 
   function exitDrive() {
@@ -691,9 +767,10 @@ export default function App() {
   }
 
   const leg = tripLegs[selected];
-  const totalM = leg?.distanceM || progress.aheadM;
+  const remainingM = stepGuide.match?.remainingM ?? progress.aheadM;
+  const totalM = leg?.distanceM || stepGuide.match?.totalM || progress.aheadM;
   const eta = focus === "nav"
-    ? etaCard(progress.aheadM, totalM, leg?.durationS || 0, destination.label)
+    ? etaCard(remainingM, totalM, leg?.durationS || 0, destination.label)
     : null;
   const showExit = focus !== "idle";
   const etaTitle = focus === "fleet"
@@ -750,7 +827,11 @@ export default function App() {
         onReport={() => { setReportNote(""); setReportOpen(true); }}
         onCloseReport={() => setReportOpen(false)}
         onSaveReport={(kind) => { storeReport(kind).catch(() => setReportNote("Could not save the report.")); }}
-        onExit={exitDrive}
+        driving={driving}
+        arrival={eta?.arrival || ""}
+        minutesLabel={eta?.minutesLabel || ""}
+        distanceLabel={eta?.distanceLabel || ""}
+        onExit={driving ? askExit : exitDrive}
         onWhereTo={() => { setTab("trip"); setSheetOpen(true); }}
         night={night}
       />

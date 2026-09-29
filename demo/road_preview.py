@@ -43,6 +43,25 @@ def step_instruction(kind: str | None, modifier: str | None, label: str) -> str:
     return f"Continue on {label}"
 
 
+def _lane_hints(step: dict) -> list[dict]:
+    """OSRM lane arrows for the maneuver. Empty when the step has none."""
+    for intersection in step.get("intersections") or []:
+        lanes = intersection.get("lanes") or []
+        if not lanes:
+            continue
+        hints = []
+        for lane in lanes:
+            indications = lane.get("indications") or []
+            if not isinstance(indications, list):
+                indications = []
+            hints.append({
+                "valid": bool(lane.get("valid")),
+                "indications": [str(item) for item in indications[:3]],
+            })
+        return hints
+    return []
+
+
 def steps_from_route(route: dict) -> list[dict]:
     """Pull named maneuvers out of one OSRM route. Overview geometry is untouched."""
     steps: list[dict] = []
@@ -60,13 +79,16 @@ def steps_from_route(route: dict) -> list[dict]:
             if location is None and not geometry:
                 continue
             label = road_label(step.get("name"), step.get("ref"))
+            lanes = _lane_hints(step)
             steps.append({
                 "name": label,
+                "ref": (step.get("ref") or "").strip(),
                 "distance": step.get("distance") or 0,
                 "location": location,
                 "geometry": geometry,
                 "type": maneuver.get("type") or "",
                 "modifier": maneuver.get("modifier") or "",
                 "instruction": step_instruction(maneuver.get("type"), maneuver.get("modifier"), label),
+                "lanes": lanes,
             })
     return steps

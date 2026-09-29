@@ -14,6 +14,8 @@ export type ManeuverKind =
   | "roundabout"
   | "exit";
 
+export type LaneHint = { valid?: boolean; indications?: string[] };
+
 export type Maneuver = {
   kind: ManeuverKind;
   distanceM: number;
@@ -21,6 +23,19 @@ export type Maneuver = {
   shield: string | null;
   atLat: number;
   atLon: number;
+  lanes?: LaneHint[];
+};
+
+export type AlongMatch = {
+  alongM: number;
+  offM: number;
+  totalM: number;
+  remainingM: number;
+  bearing: number;
+  lat: number;
+  lon: number;
+  snapped: boolean;
+  offRoute: boolean;
 };
 
 export type RouteProgress = {
@@ -81,30 +96,34 @@ function pathLength(line: LatLon[]): number {
   return total;
 }
 
-export function progressAlong(line: LatLon[], lat: number, lon: number): RouteProgress {
+export function cutLine(line: LatLon[], alongM: number): { traveled: LatLon[]; ahead: LatLon[] } {
+  if (line.length < 2) return { traveled: [], ahead: line.slice() };
+  let walked = 0;
+  for (let index = 1; index < line.length; index += 1) {
+    const start = line[index - 1];
+    const end = line[index];
+    const length = haversineM(start[0], start[1], end[0], end[1]);
+    if (walked + length >= alongM || index === line.length - 1) {
+      const t = length > 1 ? Math.max(0, Math.min(1, (alongM - walked) / length)) : 1;
+      const mid: LatLon = [start[0] + (end[0] - start[0]) * t, start[1] + (end[1] - start[1]) * t];
+      return {
+        traveled: [...line.slice(0, index), mid],
+        ahead: [mid, ...line.slice(index)],
+      };
+    }
+    walked += length;
+  }
+  const last = line[line.length - 1];
+  return { traveled: line.slice(), ahead: [last] };
+}
+
+export function progressAlong(line: LatLon[], lat: number, lon: number, previous?: { alongM: number } | null): RouteProgress {
   if (!line.length) {
     return { traveled: [], ahead: [[lat, lon]], aheadM: 0, bearing: 0 };
   }
-  let best = 0;
-  let bestD = Infinity;
-  for (let index = 0; index < line.length; index += 1) {
-    const distance = haversineM(lat, lon, line[index][0], line[index][1]);
-    if (distance < bestD) {
-      bestD = distance;
-      best = index;
-    }
-  }
-  const ahead: LatLon[] = [[lat, lon], ...line.slice(best)];
-  const traveled: LatLon[] = best === 0 ? [] : [...line.slice(0, best), [lat, lon]];
-  let bearing = 0;
-  if (line.length >= 2) {
-    const next = line[Math.min(best + 1, line.length - 1)];
-    const prev = line[Math.max(best - 1, 0)];
-    const from = best + 1 < line.length ? line[best] : prev;
-    const to = best + 1 < line.length ? next : line[best];
-    if (from !== to) bearing = bearingDeg(from[0], from[1], to[0], to[1]);
-  }
-  return { traveled, ahead, aheadM: pathLength(ahead), bearing };
+  const matched = matchAlong(line, lat, lon, previous);
+  const parts = cutLine(line, matched.alongM);
+  return { traveled: parts.traveled, ahead: parts.ahead, aheadM: matched.remainingM, bearing: matched.bearing };
 }
 
 export function nextManeuver(ahead: LatLon[], streetHint: string, destLabel: string): Maneuver {
@@ -135,7 +154,7 @@ export function nextManeuver(ahead: LatLon[], streetHint: string, destLabel: str
   }
   const total = pathLength(ahead);
   const last = ahead[ahead.length - 1];
-  if (total < 280) {
+    if (total <= ARRIVE_M) {
     return { kind: "arrive", distanceM: total, street: dest, shield: null, atLat: last[0], atLon: last[1] };
   }
   const street = hint || dest;
@@ -168,15 +187,39 @@ export function instructionSpeech(maneuver: Maneuver): string {
 
 export const ALERT_WINDOW_M = 1500;
 export const ALERT_CORRIDOR_M = 80;
+export const ARRIVE_M = 150;
+export const THEN_M = 300;
+export const SNAP_M = 25;
 const PASSED_M = 35;
+const ON_ROUTE_M = 60;
 
 export type RoadStepLike = {
   name?: string;
+  ref?: string;
+  instruction?: string;
   type?: string;
   modifier?: string;
   location?: [number, number] | null;
   geometry?: [number, number][];
+  lanes?: LaneHint[];
 };
+
+export function roadLabel(name?: string | null, ref?: string | null): string {
+  const cleaned = (name || "").trim();
+  if (cleaned && cleaned !== "Unnamed road") return cleaned;
+  const roadRef = (ref || "").trim();
+  if (/^\d{1,4}[A-Z]?$/.test(roadRef)) return `Hwy ${roadRef}`;
+  if (roadRef) return roadRef;
+  return "Unnamed road";
+}
+
+export function streetFromStep(step: RoadStepLike | null | undefined): string {
+  const labeled = roadLabel(step?.name, step?.ref);
+  if (labeled !== "Unnamed road") return labeled;
+  const onto = String(step?.instruction || "").match(/\bonto\s+(.+)$/i);
+  if (onto && onto[1] && onto[1].trim() && onto[1].trim() !== "Unnamed road") return onto[1].trim();
+  return "Unnamed road";
+}
 
 export function maneuverKindFromStep(step: RoadStepLike): ManeuverKind {
   const type = (step.type || "").replace(/[_-]/g, " ").trim().toLowerCase();
@@ -231,21 +274,118 @@ export function projectAlong(line: LatLon[], lat: number, lon: number): { alongM
   return best;
 }
 
+export function matchAlong(line: LatLon[], lat: number, lon: number, previous?: { alongM: number } | null): AlongMatch {
+  if (line.length < 2) {
+    return {
+      alongM: 0, offM: Infinity, totalM: 0, remainingM: 0, bearing: 0,
+      lat, lon, snapped: false, offRoute: true,
+    };
+  }
+  let best: { score: number; alongM: number; offM: number; lat: number; lon: number; bearing: number } | null = null;
+  let along = 0;
+  const prevAlong = previous && typeof previous.alongM === "number" ? previous.alongM : null;
+  for (let index = 1; index < line.length; index += 1) {
+    const start = line[index - 1];
+    const end = line[index];
+    const length = haversineM(start[0], start[1], end[0], end[1]);
+    const t = segmentT(start, end, lat, lon);
+    const latP = start[0] + (end[0] - start[0]) * t;
+    const lonP = start[1] + (end[1] - start[1]) * t;
+    const off = haversineM(lat, lon, latP, lonP);
+    const alongM = along + length * t;
+    let score = off;
+    if (prevAlong != null) {
+      const jump = alongM - prevAlong;
+      if (jump < -40) score += (-jump - 40) * 5;
+      else if (jump > 150 && off > 12) score += jump - 150;
+    }
+    const closer = !best || score < best.score - 0.5;
+    const earlierTie = !!best && Math.abs(score - best.score) <= 20 && alongM < best.alongM;
+    if (closer || earlierTie) {
+      best = { score, alongM, offM: off, lat: latP, lon: lonP, bearing: bearingDeg(start[0], start[1], end[0], end[1]) };
+    }
+    along += length;
+  }
+  const chosen = best!;
+  const snapped = chosen.offM <= SNAP_M;
+  return {
+    alongM: chosen.alongM,
+    offM: chosen.offM,
+    totalM: along,
+    remainingM: Math.max(0, along - chosen.alongM),
+    bearing: chosen.bearing,
+    lat: snapped ? chosen.lat : lat,
+    lon: snapped ? chosen.lon : lon,
+    snapped,
+    offRoute: chosen.offM > ON_ROUTE_M,
+  };
+}
+
+export function smoothBearing(previous: number | null, target: number, maxStep = 20): number {
+  if (!Number.isFinite(target)) return previous ?? 0;
+  const aim = ((target % 360) + 360) % 360;
+  if (previous == null || !Number.isFinite(previous)) return aim;
+  const delta = turnDelta(previous, aim);
+  const step = Math.max(-maxStep, Math.min(maxStep, delta));
+  return (previous + step + 360) % 360;
+}
+
+export function navZoom(speedKmh: number | null, maneuverM: number | null): number {
+  const speed = speedKmh == null ? 40 : speedKmh;
+  let zoom = speed >= 80 ? 15 : speed >= 50 ? 16 : 17;
+  if (maneuverM != null && maneuverM < 200) zoom = Math.max(zoom, 18);
+  return zoom;
+}
+
+type PlacedStep = { step: RoadStepLike; point: { lat: number; lon: number }; alongM: number };
+
+function toManeuver(item: PlacedStep, userAlong: number): Maneuver {
+  return {
+    kind: maneuverKindFromStep(item.step),
+    distanceM: Math.max(0, item.alongM - userAlong),
+    street: streetFromStep(item.step),
+    shield: shieldFrom(streetFromStep(item.step)),
+    atLat: item.point.lat,
+    atLon: item.point.lon,
+    lanes: item.step.lanes || [],
+  };
+}
+
+function continueOn(placed: PlacedStep[], userAlong: number, totalM: number): Maneuver | null {
+  let road: PlacedStep | null = null;
+  placed.forEach((item) => {
+    if (maneuverKindFromStep(item.step) === "arrive") return;
+    if (item.alongM <= userAlong + PASSED_M) road = item;
+  });
+  if (!road) return null;
+  const remaining = Math.max(0, totalM - userAlong);
+  const maneuver = toManeuver(road, userAlong);
+  maneuver.kind = remaining <= ARRIVE_M ? "arrive" : "straight";
+  maneuver.distanceM = remaining;
+  return maneuver;
+}
+
 export function upcomingManeuvers(
   steps: RoadStepLike[],
   line: LatLon[],
   lat: number,
   lon: number,
-): { current: Maneuver | null; then: Maneuver | null } {
-  const user = projectAlong(line, lat, lon);
+  previous?: { alongM: number } | null,
+): { current: Maneuver | null; then: Maneuver | null; match: AlongMatch } {
+  const user = matchAlong(line, lat, lon, previous);
   const placed = steps.map((step) => {
     const point = stepPoint(step);
     if (!point) return null;
     const alongM = line.length >= 2 ? projectAlong(line, point.lat, point.lon).alongM : 0;
     return { step, point, alongM };
-  }).filter((item): item is { step: RoadStepLike; point: { lat: number; lon: number }; alongM: number } => item != null);
+  }).filter((item): item is PlacedStep => item != null);
   placed.sort((a, b) => a.alongM - b.alongM);
-  const upcoming = placed.filter((item) => item.alongM - user.alongM >= -PASSED_M);
+  const upcoming = placed.filter((item) => {
+    const ahead = item.alongM - user.alongM;
+    if (ahead < -PASSED_M) return false;
+    if (maneuverKindFromStep(item.step) === "arrive" && ahead > ARRIVE_M) return false;
+    return true;
+  });
   while (
     upcoming.length > 1
     && upcoming[0].alongM - user.alongM < 40
@@ -253,19 +393,18 @@ export function upcomingManeuvers(
   ) {
     upcoming.shift();
   }
-  const toManeuver = (item: typeof placed[number]): Maneuver => ({
-    kind: maneuverKindFromStep(item.step),
-    distanceM: Math.max(0, item.alongM - user.alongM),
-    street: item.step.name || "Unnamed road",
-    shield: shieldFrom(item.step.name),
-    atLat: item.point.lat,
-    atLon: item.point.lon,
-  });
-  if (!upcoming.length) return { current: null, then: null };
-  return {
-    current: toManeuver(upcoming[0]),
-    then: upcoming[1] ? toManeuver(upcoming[1]) : null,
-  };
+  let current = upcoming.length ? toManeuver(upcoming[0], user.alongM) : continueOn(placed, user.alongM, user.totalM);
+  if (current && current.kind === "arrive" && current.distanceM > ARRIVE_M) {
+    current = continueOn(placed, user.alongM, user.totalM) || current;
+  }
+  let thenItem = upcoming.length > 1 ? upcoming[1] : null;
+  if (!thenItem && current && current.kind !== "arrive") {
+    const arrive = placed.find((item) => maneuverKindFromStep(item.step) === "arrive");
+    if (arrive && arrive.alongM - user.alongM <= THEN_M) thenItem = arrive;
+  }
+  let thenManeuver = thenItem ? toManeuver(thenItem, user.alongM) : null;
+  if (thenManeuver && thenManeuver.distanceM > THEN_M) thenManeuver = null;
+  return { current, then: thenManeuver, match: user };
 }
 
 export function featuresAhead<T extends { lat: number; lon: number }>(
@@ -344,21 +483,26 @@ export function etaCard(remainingM: number, totalM: number, totalS: number, dest
   title: string;
   subtitle: string;
   arriving: boolean;
+  arrival: string;
+  minutesLabel: string;
+  distanceLabel: string;
 } {
   const fraction = totalM > 1 ? Math.min(1, Math.max(0, remainingM / totalM)) : 1;
   const seconds = Math.max(0, totalS * fraction);
-  const arriving = remainingM < 350;
-  const minutes = Math.max(1, Math.round(seconds / 60));
+  const arriving = remainingM <= ARRIVE_M;
+  const minutes = Math.max(arriving ? 0 : 1, Math.round(seconds / 60));
   const title = arriving
-    ? "Arriving soon"
+    ? "Arriving"
     : minutes < 60
       ? `${minutes} min`
       : `${Math.floor(minutes / 60)} hr ${minutes % 60 ? `${minutes % 60} min` : ""}`.trim();
-  const distance = remainingM < 950
+  const distanceLabel = remainingM < 950
     ? `${Math.max(1, Math.round(remainingM))} m`
     : `${(remainingM / 1000).toFixed(remainingM < 10000 ? 1 : 0)} km`;
+  const arrival = formatClock(new Date(Date.now() + seconds * 1000));
+  const minutesLabel = arriving ? "Now" : title;
   const subtitle = arriving
     ? shortPlace(destination)
-    : `${distance} · ${formatClock(new Date(Date.now() + seconds * 1000))}`;
-  return { title, subtitle, arriving };
+    : `${minutesLabel} · ${distanceLabel}`;
+  return { title, subtitle, arriving, arrival, minutesLabel, distanceLabel };
 }

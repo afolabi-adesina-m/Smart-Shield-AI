@@ -33,6 +33,9 @@
     lastCameraSpeech: 0,
     posted: null,
     roadMode: "",
+    match: null,
+    bearingSmooth: null,
+    speedKmh: null,
   };
 
   function haversineM(lat1, lon1, lat2, lon2) {
@@ -151,7 +154,7 @@
     }
     const total = pathLength(ahead);
     const last = ahead[ahead.length - 1];
-    if (total < 280) {
+    if (total <= 150) {
       return { kind: "arrive", distanceM: total, street: dest, shield: null, atLat: last[0], atLon: last[1] };
     }
     const street = hint || dest;
@@ -287,6 +290,7 @@
               <div id="nav-street" class="nav-street"></div>
             </div>
             <div id="nav-then" class="nav-then" hidden></div>
+            <div id="nav-lanes" class="nav-lanes" hidden></div>
           </div>
         </div>
         <div class="nav-side">
@@ -318,9 +322,10 @@
             <strong>Where to?</strong>
             <span>Search a destination</span>
           </button>
-          <div id="nav-eta" class="nav-card-main" hidden>
-            <strong id="nav-eta-title">—</strong>
-            <span id="nav-eta-sub"></span>
+          <div id="nav-eta" class="nav-eta" hidden>
+            <div class="nav-eta-col"><strong id="nav-eta-title">—</strong><span>arrival</span></div>
+            <div class="nav-eta-col"><strong id="nav-eta-mins">—</strong><span>left</span></div>
+            <div class="nav-eta-col"><strong id="nav-eta-km">—</strong><span>left</span></div>
             <span id="nav-score" class="nav-score" hidden></span>
           </div>
           <button type="button" id="nav-exit" class="nav-exit" hidden>Exit</button>
@@ -375,6 +380,21 @@
       shield.textContent = "";
     }
     document.getElementById("nav-street").textContent = maneuver.street;
+    const laneRow = document.getElementById("nav-lanes");
+    if (laneRow) {
+      const lanes = maneuver.lanes || [];
+      if (!lanes.length) {
+        laneRow.hidden = true;
+        laneRow.innerHTML = "";
+      } else {
+        laneRow.hidden = false;
+        laneRow.innerHTML = lanes.map((lane) => {
+          const hint = (lane.indications && lane.indications[0]) || "straight";
+          const arrow = /left/i.test(hint) ? "←" : /right/i.test(hint) ? "→" : /uturn/i.test(hint) ? "↩" : "↑";
+          return `<span class="nav-lane${lane.valid ? " is-valid" : ""}">${arrow}</span>`;
+        }).join("");
+      }
+    }
     const thenRow = document.getElementById("nav-then");
     const follow = maneuver.then;
     if (thenRow) {
@@ -404,14 +424,27 @@
       return;
     }
     const line = toLatLon(route.geometry);
+    const progressApi = window.NavProgress;
+    const previous = state.match;
+    const matched = progressApi
+      ? progressApi.matchAlong(line, pos.lat, pos.lon, previous)
+      : null;
     const progress = progressAlong(line, pos.lat, pos.lon);
-    state.bearing = progress.bearing;
+    const aheadM = matched ? matched.remainingM : progress.aheadM;
+    const bearingTarget = matched ? matched.bearing : progress.bearing;
+    state.jumpCamera = state.bearingSmooth == null;
+    state.aim = bearingTarget;
+    state.bearing = progressApi
+      ? progressApi.smoothBearing(state.bearingSmooth, bearingTarget, state.bearingSmooth == null ? 360 : 24)
+      : bearingTarget;
+    state.bearingSmooth = state.bearing;
     const needle = document.getElementById("nav-needle");
     if (needle) needle.style.transform = `rotate(${state.headingUp ? 0 : -state.bearing}deg)`;
     const dest = route.destination || "Destination";
-    const guide = window.NavProgress && route.steps && route.steps.length
-      ? window.NavProgress.upcomingManeuvers(route.steps, line, pos.lat, pos.lon)
-      : { current: nextManeuver(progress.ahead, state.roadName, dest), then: null };
+    const guide = progressApi && route.steps && route.steps.length
+      ? progressApi.upcomingManeuvers(route.steps, line, pos.lat, pos.lon, previous)
+      : { current: nextManeuver(matched && progressApi ? progressApi.cutLine(line, matched.alongM).ahead : progress.ahead, state.roadName, dest), then: null, match: matched };
+    state.match = guide.match || matched;
     const maneuver = guide.current;
     if (maneuver) {
       maneuver.then = guide.then;
@@ -425,24 +458,26 @@
       renderManeuver(null);
     }
 
-    const totalM = route.distanceM || pathLength(line) || 1;
-    const fraction = Math.min(1, Math.max(0, progress.aheadM / totalM));
+    const totalM = route.distanceM || (state.match && state.match.totalM) || pathLength(line) || 1;
+    const fraction = Math.min(1, Math.max(0, aheadM / totalM));
     const seconds = Math.max(0, (route.durationS || 0) * fraction);
-    const arriving = progress.aheadM < 350;
-    const minutes = Math.max(1, Math.round(seconds / 60));
+    const arriving = aheadM <= 150;
+    const minutes = Math.max(arriving ? 0 : 1, Math.round(seconds / 60));
     const title = arriving
-      ? "Arriving soon"
+      ? "Now"
       : minutes < 60
         ? `${minutes} min`
         : `${Math.floor(minutes / 60)} hr ${minutes % 60 ? `${minutes % 60} min` : ""}`.trim();
-    const distance = progress.aheadM < 950
-      ? `${Math.max(1, Math.round(progress.aheadM))} m`
-      : `${(progress.aheadM / 1000).toFixed(progress.aheadM < 10000 ? 1 : 0)} km`;
+    const distance = aheadM < 950
+      ? `${Math.max(1, Math.round(aheadM))} m`
+      : `${(aheadM / 1000).toFixed(aheadM < 10000 ? 1 : 0)} km`;
     const clock = new Date(Date.now() + seconds * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
     if (!state.navigating) {
       where.hidden = true;
       eta.hidden = true;
       exit.hidden = true;
+      paintRouteProgress(line);
+      document.dispatchEvent(new CustomEvent("smartshield:nav-frame", { detail: { navigating: false } }));
       paintFeatures();
       return;
     }
@@ -450,7 +485,12 @@
     eta.hidden = false;
     exit.hidden = false;
     document.getElementById("nav-eta-title").textContent = clock;
-    document.getElementById("nav-eta-sub").textContent = arriving ? shortPlace(dest) : `${title} · ${distance}`;
+    const mins = document.getElementById("nav-eta-mins");
+    const km = document.getElementById("nav-eta-km");
+    if (mins) mins.textContent = title;
+    if (km) km.textContent = distance;
+    paintRouteProgress(line);
+    publishNavFrame(line);
     const score = document.getElementById("nav-score");
     if (score) {
       const value = route.safetyScore;
@@ -472,15 +512,61 @@
     speak(phrase);
   }
 
-  function followCamera() {
+  let progressLayer = null;
+
+  function paintRouteProgress(line) {
     const leaflet = map();
-    const pos = state.position;
+    if (!leaflet || !window.L || !window.NavProgress) return;
+    if (!progressLayer) progressLayer = window.L.layerGroup().addTo(leaflet);
+    progressLayer.clearLayers();
+    if (!state.navigating || !state.match || line.length < 2) return;
+    const parts = window.NavProgress.cutLine(line, state.match.alongM);
+    if (parts.traveled.length >= 2) {
+      window.L.polyline(parts.traveled, {
+        color: "#8b97a6", weight: 8, opacity: 0.95, smoothFactor: 0, interactive: false,
+      }).addTo(progressLayer);
+    }
+  }
+
+  function publishNavFrame(line) {
+    if (!state.navigating || !state.position || !window.NavProgress) return;
+    const parts = state.match ? window.NavProgress.cutLine(line, state.match.alongM) : { traveled: [], ahead: line };
+    const target = state.match && state.match.snapped
+      ? { lat: state.match.lat, lon: state.match.lon }
+      : state.position;
+    document.dispatchEvent(new CustomEvent("smartshield:nav-frame", {
+      detail: {
+        navigating: true,
+        lat: target.lat,
+        lon: target.lon,
+        bearing: state.headingUp ? (state.aim == null ? state.bearing : state.aim) : 0,
+        jump: !!state.jumpCamera,
+        zoom: window.NavProgress.navZoom(state.speedKmh, state.maneuver && state.maneuver.distanceM),
+        pitch: 52,
+        night: document.documentElement.getAttribute("data-theme") === "dark",
+        traveled: parts.traveled,
+        ahead: parts.ahead,
+        signs: window.NavProgress.featuresAhead(state.signs || [], line, state.position.lat, state.position.lon),
+      },
+    }));
+  }
+
+  function followCamera() {
+    if (document.body.classList.contains("nav-gl-live")) return;
+    const leaflet = map();
+    const pos = state.match && state.match.snapped
+      ? { lat: state.match.lat, lon: state.match.lon }
+      : state.position;
     if (!leaflet || !pos) return;
-    const zoom = Math.max(leaflet.getZoom() || 0, 16);
+    const zoom = window.NavProgress
+      ? window.NavProgress.navZoom(state.speedKmh, state.maneuver && state.maneuver.distanceM)
+      : 17;
     if (state.headingUp && typeof leaflet.setBearing === "function") {
       leaflet.setBearing(state.bearing || 0);
+    } else if (typeof leaflet.setBearing === "function") {
+      leaflet.setBearing(0);
     }
-    leaflet.setView([pos.lat, pos.lon], zoom, { animate: false });
+    leaflet.setView([pos.lat, pos.lon], zoom, { animate: true, duration: 0.6 });
   }
 
   function recenter() {
@@ -712,52 +798,96 @@
     return "stop";
   }
 
+  function signQuery(lat, lon) {
+    const line = routeLine();
+    const along = state.match && typeof state.match.alongM === "number" ? state.match.alongM : 0;
+    const ahead = window.NavProgress && line.length > 1 ? window.NavProgress.cutLine(line, along).ahead : [];
+    if (state.navigating && ahead.length > 1) {
+      const sample = [];
+      let walked = 0;
+      let mark = 0;
+      ahead.forEach((point, index) => {
+        if (index > 0) walked += haversineM(ahead[index - 1][0], ahead[index - 1][1], point[0], point[1]);
+        if (walked > 1600) return;
+        if (index === 0 || walked - mark >= 90) {
+          sample.push(point);
+          mark = walked;
+        }
+      });
+      const coords = sample.slice(0, 16).map((point) => `${point[0].toFixed(5)},${point[1].toFixed(5)}`).join(",");
+      const key = sample.length ? `along:${sample[0][0].toFixed(3)},${sample[0][1].toFixed(3)}` : `${lat.toFixed(2)},${lon.toFixed(2)}`;
+      return {
+        key,
+        query: `[out:json][timeout:20];(node["highway"="traffic_signals"](around:70,${coords});node["highway"="stop"](around:70,${coords}););out body;`,
+      };
+    }
+    return {
+      key: `${lat.toFixed(2)},${lon.toFixed(2)}`,
+      query: `[out:json][timeout:12];(node["highway"="traffic_signals"](around:1200,${lat},${lon});node["highway"="stop"](around:1200,${lat},${lon}););out body;`,
+    };
+  }
+
+  async function overpassElements(query) {
+    const hosts = [
+      "https://overpass-api.de/api/interpreter",
+      "https://overpass.kumi.systems/api/interpreter",
+    ];
+    for (let index = 0; index < hosts.length; index += 1) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 12000);
+      try {
+        const response = await fetch(hosts[index], {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+          body: `data=${encodeURIComponent(query)}`,
+          signal: controller.signal,
+        });
+        if (!response.ok) continue;
+        const data = await response.json();
+        return data.elements || [];
+      } catch (err) {
+        /* Try the next Overpass host. */
+      } finally {
+        clearTimeout(timer);
+      }
+    }
+    return null;
+  }
+
   async function loadSigns(lat, lon) {
-    const cell = `${lat.toFixed(2)},${lon.toFixed(2)}`;
-    if (cell === state.signCell) return;
-    state.signCell = cell;
-    const cacheKey = `smartshield.osmSigns.v2.${cell}`;
+    const request = signQuery(lat, lon);
+    if (request.key === state.signCell) return;
+    state.signCell = request.key;
+    const cacheKey = `smartshield.osmSigns.v2.${request.key}`;
     try {
       const saved = JSON.parse(localStorage.getItem(cacheKey) || "null");
-      if (saved && saved.at && Date.now() - saved.at < 6 * 60 * 60 * 1000 && Array.isArray(saved.signs)) {
+      if (saved && saved.at && Date.now() - saved.at < 6 * 60 * 60 * 1000 && Array.isArray(saved.signs) && saved.signs.length) {
         state.signs = saved.signs;
         paintFeatures();
         return;
       }
     } catch (err) { /* lookup again */ }
-    const query = `[out:json][timeout:12];(node["highway"="traffic_signals"](around:1200,${lat},${lon});node["highway"="stop"](around:1200,${lat},${lon}););out body 50;`;
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 12000);
-    try {
-      const response = await fetch("https://overpass-api.de/api/interpreter", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
-        body: `data=${encodeURIComponent(query)}`,
-        signal: controller.signal,
+    const elements = await overpassElements(request.query);
+    if (!elements) return;
+    const signs = [];
+    elements.forEach((element) => {
+      if (element.lat == null || element.lon == null) return;
+      const highway = element.tags && element.tags.highway;
+      if (highway !== "traffic_signals" && highway !== "stop") return;
+      signs.push({
+        lat: element.lat,
+        lon: element.lon,
+        kind: highway === "stop" ? stopKind(element.tags) : "signal",
       });
-      if (!response.ok) return;
-      const data = await response.json();
-      const signs = [];
-      (data.elements || []).forEach((element) => {
-        if (element.lat == null || element.lon == null) return;
-        const highway = element.tags && element.tags.highway;
-        if (highway !== "traffic_signals" && highway !== "stop") return;
-        signs.push({
-          lat: element.lat,
-          lon: element.lon,
-          kind: highway === "stop" ? stopKind(element.tags) : "signal",
-        });
-      });
+    });
+    if (signs.length) {
       try {
         localStorage.setItem(cacheKey, JSON.stringify({ at: Date.now(), signs }));
       } catch (err) { /* cache is optional */ }
       state.signs = signs;
-      paintFeatures();
-    } catch (err) {
-      /* Best effort. A missed lookup leaves the previous icons, or none. */
-    } finally {
-      clearTimeout(timer);
     }
+    paintFeatures();
+    if (state.navigating && routeLine().length) publishNavFrame(routeLine());
   }
 
   function bind() {
@@ -862,6 +992,10 @@
       state.navigating = false;
       state.following = false;
       state.spokenTurn = "";
+      state.match = null;
+      state.bearingSmooth = null;
+      state.jumpCamera = true;
+      document.dispatchEvent(new CustomEvent("smartshield:nav-frame", { detail: { navigating: false } }));
       document.body.classList.remove("is-navigating");
       document.body.classList.remove("nav-tools-open");
       const panel = document.getElementById("side-panel");
@@ -872,6 +1006,7 @@
       if (recenterButton) recenterButton.hidden = true;
     }
     document.getElementById("nav-exit").addEventListener("click", () => {
+      if (state.navigating && !window.confirm("End route? This stops guidance.")) return;
       const drive = document.getElementById("speed-drive");
       if (drive && drive.textContent.trim() === "Stop") drive.click();
       state.route = null;
@@ -887,6 +1022,9 @@
       state.following = true;
       state.headingUp = true;
       state.spokenTurn = "";
+      state.match = null;
+      state.bearingSmooth = null;
+      state.jumpCamera = true;
       document.body.classList.add("is-navigating");
       const panel = document.getElementById("side-panel");
       const sheet = document.getElementById("bottom-sheet");
@@ -938,6 +1076,7 @@
         loadSigns(detail.lat, detail.lon);
         loadCameras(detail.lat, detail.lon);
       }
+      if (detail.current_kmh != null) state.speedKmh = detail.current_kmh;
       if (detail.road_name) state.roadName = detail.road_name;
       if (detail.posted_kmh != null) state.posted = detail.posted_kmh;
       if (detail.road_mode) state.roadMode = detail.road_mode;

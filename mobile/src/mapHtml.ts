@@ -117,11 +117,19 @@ export const MAP_HTML = `<!DOCTYPE html>
       if (typeof map.setBearing === "function") map.setBearing(deg || 0);
     }
 
+    function emit(payload) {
+      var raw = JSON.stringify(payload);
+      if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+        window.ReactNativeWebView.postMessage(raw);
+      }
+      if (window.parent && window.parent !== window) window.parent.postMessage(payload, "*");
+    }
+
     var hold = false;
     var seenToken = 0;
     map.on("dragstart", function () {
       hold = true;
-      if (window.parent) window.parent.postMessage({ type: "smartshield-map-pan" }, "*");
+      emit({ type: "smartshield-map-pan" });
     });
 
     function applyScene(scene) {
@@ -143,8 +151,8 @@ export const MAP_HTML = `<!DOCTYPE html>
       (scene.routes || []).forEach(function (route) {
         if (!route.coords || route.coords.length < 2) return;
         if (route.active) {
-          L.polyline(route.coords, { color: "#ffffff", weight: 12, opacity: 0.92, interactive: false }).addTo(drawn);
-          L.polyline(route.coords, { color: route.color || "#4da3ff", weight: 7, opacity: 1, interactive: false }).addTo(drawn);
+          L.polyline(route.coords, { color: "#123a66", weight: 14, opacity: 0.95, smoothFactor: 0, interactive: false }).addTo(drawn);
+          L.polyline(route.coords, { color: route.color || "#4da3ff", weight: 8, opacity: 1, smoothFactor: 0, interactive: false }).addTo(drawn);
           if (scene.steps && scene.steps.length) {
             var hit = L.polyline(route.coords, { weight: 22, opacity: 0 }).addTo(drawn);
             hit.on("mousemove", function (event) {
@@ -161,17 +169,16 @@ export const MAP_HTML = `<!DOCTYPE html>
               if (map.hasLayer(roadTip)) map.removeLayer(roadTip);
             });
             hit.on("click", function (event) {
-              if (window.parent) {
-                window.parent.postMessage({
-                  type: "smartshield-route-press",
-                  lat: event.latlng.lat,
-                  lon: event.latlng.lng
-                }, "*");
-              }
+              emit({
+                type: "smartshield-route-press",
+                lat: event.latlng.lat,
+                lon: event.latlng.lng
+              });
             });
           }
         } else {
-          L.polyline(route.coords, { color: route.color || "#8aa0b8", weight: 5, opacity: 0.55, interactive: false }).addTo(drawn);
+          var travelled = route.color === "#9bb0c9";
+          L.polyline(route.coords, { color: route.color || "#8aa0b8", weight: travelled ? 8 : 5, opacity: travelled ? 0.95 : 0.55, smoothFactor: 0, interactive: false }).addTo(drawn);
         }
         route.coords.forEach(function (pair) { bounds.push(pair); });
       });
@@ -262,9 +269,8 @@ export const MAP_HTML = `<!DOCTYPE html>
       var token = scene.followToken || 0;
       if (token !== seenToken) { seenToken = token; hold = false; }
       if (scene.camera === "follow" && scene.user && !hold) {
-        var zoom = map.getZoom();
-        if (!zoom || zoom < 15) zoom = 16;
-        map.setView([scene.user.lat, scene.user.lon], zoom, { animate: false });
+        var zoom = scene.zoom || map.getZoom() || 16;
+        map.setView([scene.user.lat, scene.user.lon], zoom, { animate: true, duration: 0.6 });
         setBearing(scene.headingUp ? (scene.user.heading || 0) : 0);
       } else if (scene.camera !== "follow" && bounds.length) {
         setBearing(0);

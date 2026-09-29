@@ -322,8 +322,8 @@ function drawRoutesOnMap(routes, activeIndex, origin = null, dest = null) {
 
     const isActive = i === activeIndex;
     if (isActive) {
-      routeLayers.push(L.polyline(latlngs, { color: "#ffffff", weight: 12, opacity: 0.92 }).addTo(map));
-      routeLayers.push(L.polyline(latlngs, { color: "#4da3ff", weight: 7, opacity: 1 }).addTo(map));
+      routeLayers.push(L.polyline(latlngs, { color: "#123a66", weight: 14, opacity: 0.95, smoothFactor: 0 }).addTo(map));
+      routeLayers.push(L.polyline(latlngs, { color: "#4da3ff", weight: 8, opacity: 1, smoothFactor: 0 }).addTo(map));
     } else {
       routeLayers.push(L.polyline(latlngs, {
         color: ROUTE_COLORS[i % ROUTE_COLORS.length],

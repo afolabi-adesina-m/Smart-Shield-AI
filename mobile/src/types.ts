@@ -16,12 +16,14 @@ export type Suggestion = {
 
 export type RoadStep = {
   name: string;
+  ref?: string;
   distance: number;
   location: [number, number] | null;
   geometry: [number, number][];
   type: string;
   modifier: string;
   instruction: string;
+  lanes?: { valid?: boolean; indications?: string[] }[];
 };
 
 export type OsrmRoute = {
@@ -171,6 +173,9 @@ export type MapScene = {
   followToken?: number;
   headingUp: boolean;
   night: boolean;
+  zoom?: number;
+  pitch?: number;
+  driving?: boolean;
   steps: MapStep[];
   preview: MapPreview | null;
 };

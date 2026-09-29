@@ -24,14 +24,15 @@
   <link rel="stylesheet" href="/static/css/speed-panel.css?v=20260928s" />
   <link rel="stylesheet" href="/static/css/address-search.css?v=20260927p" />
   <link rel="stylesheet" href="/static/css/fleet.css?v=20260927p" />
-  <link rel="stylesheet" href="/static/css/nav-chrome.css?v=20260928u" />
-  <link rel="stylesheet" href="/static/css/maps-ui.css?v=20260928z" />
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.css" />
+  <link rel="stylesheet" href="/static/css/nav-chrome.css?v=20260929a" />
+  <link rel="stylesheet" href="/static/css/maps-ui.css?v=20260929a" />
   <link rel="stylesheet" href="/static/css/delivery.css?v=20260928r" />
   <script src="/static/js/theme.js?v=20260928z"></script>
 </head>
 <body data-speed-layout="mobile">
   <div id="mobile-app">
-    <main id="map-stage"><div id="map"></div></main>
+    <main id="map-stage"><div id="map"></div><div id="nav-gl" hidden></div></main>
 
     <header class="topbar">
       <div class="topbar-tools">
@@ -179,8 +180,10 @@
   <script src="/static/js/leaflet-heat.js?v=20260928r"></script>
   <script src="/static/js/stop-sign.js?v=20260928o"></script>
   <script src="/static/js/cameras.js?v=20260928c"></script>
-  <script src="/static/js/nav-progress.js?v=20260928u"></script>
-  <script src="/static/js/nav-chrome.js?v=20260928z"></script>
+  <script src="https://unpkg.com/maplibre-gl@5.6.1/dist/maplibre-gl.js"></script>
+  <script src="/static/js/nav-progress.js?v=20260929a"></script>
+  <script src="/static/js/nav-chrome.js?v=20260929a"></script>
+  <script src="/static/js/nav-gl.js?v=20260929a"></script>
   <script src="/static/js/weather-picker.js?v=20260927p"></script>
   <script src="/static/js/speed-panel.js?v=20260928z"></script>
   <script src="/static/js/address-search.js?v=20260928z"></script>
@@ -190,6 +193,6 @@
   <script src="/static/js/panel.js?v=20260928z"></script>
   <script src="/static/js/pwa.js?v=20260928q"></script>
   <script src="/static/js/road-preview.js?v=20260928t"></script>
-  <script src="/static/js/mobile.js?v=20260928z" defer></script>
+  <script src="/static/js/mobile.js?v=20260929a" defer></script>
 </body>
 </html>
