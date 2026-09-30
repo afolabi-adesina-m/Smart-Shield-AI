@@ -1,6 +1,6 @@
 /* App shell only. API responses are never stored. */
 
-const CACHE = "smart-shield-shell-v1";
+const CACHE = "smart-shield-shell-v2";
 const SHELL = [
   "/",
   "/mobile",

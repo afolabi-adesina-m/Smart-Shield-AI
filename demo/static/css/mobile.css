@@ -1,15 +1,18 @@
 /* Phone shell. The map is full screen; the sheet and HUD float on it. */
 
 #mobile-app {
-  position: relative;
-  height: 100vh;
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
   height: 100dvh;
+  min-height: -webkit-fill-available;
   overflow: hidden;
   background: var(--bg);
 }
 
-#map-stage { position: absolute; inset: 0; }
-#map-stage #map { position: absolute; inset: 0; }
+#map-stage, #map-stage #map, #map-stage #nav-gl { position: absolute; inset: 0; width: 100%; height: 100%; }
 
 .topbar {
   top: calc(10px + env(safe-area-inset-top, 0px));

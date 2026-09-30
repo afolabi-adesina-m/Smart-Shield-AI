@@ -85,9 +85,15 @@ export function NavChrome(props: Props) {
           </Pressable>
         )}
         <Glass night={props.night} style={styles.controlGroup}>
-          {driving ? (
-            <IconButton label={props.muted ? "Unmute voice" : "Mute voice"} name={props.muted ? "volume-mute" : "volume-high"} color={ink} onPress={props.onMute} />
-          ) : null}
+          <Pressable
+            accessibilityLabel={props.muted ? "Unmute voice" : "Mute voice"}
+            accessibilityState={{ selected: props.muted }}
+            testID="mute-voice"
+            onPress={props.onMute}
+            style={styles.iconButton}
+          >
+            <SpeakerIcon muted={props.muted} color={ink} />
+          </Pressable>
           <IconButton label="Locate" name="locate" color="#0a84ff" onPress={props.onLocate} />
           {props.mapRotated ? (
             <IconButton label="Compass" name="compass" color={ink} onPress={props.onNorth} />
@@ -139,21 +145,21 @@ export function NavChrome(props: Props) {
       {props.showExit && driving ? (
         <Glass night={props.night} style={[styles.etaPill, { bottom: Math.max(12, insets.bottom + 8) }]} testID="eta-card">
           <View style={styles.etaCol}>
-            <Text style={[styles.etaStrong, { color: ink }]}>{props.arrival || "—"}</Text>
-            <Text style={styles.etaHint}>arrival</Text>
+            <Text style={[styles.etaStrong, { color: ink }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.55}>{props.arrival || "—"}</Text>
+            <Text style={styles.etaHint} numberOfLines={1}>arrival</Text>
           </View>
           <View style={styles.etaCol}>
-            <Text style={[styles.etaStrong, { color: ink }]}>{props.minutesLabel || "—"}</Text>
-            <Text style={styles.etaHint}>min</Text>
+            <Text style={[styles.etaStrong, { color: ink }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.55}>{props.minutesLabel || "—"}</Text>
+            <Text style={styles.etaHint} numberOfLines={1}>min</Text>
           </View>
           <View style={styles.etaCol}>
-            <Text style={[styles.etaStrong, { color: ink }]}>{props.distanceLabel || "—"}</Text>
-            <Text style={styles.etaHint}>{props.distanceUnit || "km"}</Text>
+            <Text style={[styles.etaStrong, { color: ink }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.55}>{props.distanceLabel || "—"}</Text>
+            <Text style={styles.etaHint} numberOfLines={1}>{props.distanceUnit || "km"}</Text>
           </View>
-          {vehicle && props.risk ? <Text style={styles.riskChip}>Risk {props.risk}</Text> : null}
-          {!vehicle && driving ? <Text style={styles.riskChip}>Driving only</Text> : null}
+          {vehicle && props.risk ? <Text style={styles.riskChip} numberOfLines={1}>Risk {props.risk}</Text> : null}
+          {!vehicle && driving ? <Text style={styles.riskChip} numberOfLines={1}>Driving only</Text> : null}
           <Pressable style={styles.exitQuiet} testID="exit-nav" onPress={props.onExit}>
-            <Text style={[styles.exitQuietText, { color: ink }]}>Exit</Text>
+            <Text style={[styles.exitQuietText, { color: ink }]} numberOfLines={1}>Exit</Text>
           </Pressable>
         </Glass>
       ) : props.showExit ? (
@@ -416,10 +422,12 @@ const styles = StyleSheet.create({
   thenText: { color: "#ffffff", fontSize: 14, fontWeight: "600", flex: 1 },
   recenterMark: { fontSize: 18, fontWeight: "700" },
   riskChip: {
-    alignSelf: "flex-start",
-    marginTop: 6,
+    flexGrow: 0,
+    flexShrink: 0,
+    alignSelf: "center",
+    marginTop: 0,
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 4,
     borderRadius: 999,
     overflow: "hidden",
     backgroundColor: "rgba(255,255,255,0.16)",
@@ -529,7 +537,7 @@ const styles = StyleSheet.create({
     bottom: 3,
     transform: [{ rotate: "45deg" }],
   },
-  speaker: { width: 22, height: 18, justifyContent: "center" },
+  speaker: { width: 22, height: 18, justifyContent: "center", position: "relative" },
   speakerBody: { width: 6, height: 8, backgroundColor: "#fff", marginLeft: 2 },
   speakerCone: {
     position: "absolute",
@@ -677,24 +685,28 @@ const styles = StyleSheet.create({
     left: 12,
     right: 12,
     bottom: 12,
-    minHeight: 58,
+    minHeight: 64,
     borderRadius: 16,
     overflow: "hidden",
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 8,
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
   },
-  etaCol: { flex: 1 },
-  etaStrong: { color: "#fff", fontSize: 18, fontWeight: "800" },
-  etaHint: { color: "#c5ced8", fontSize: 11, fontWeight: "600" },
+  etaCol: { flex: 1, minWidth: 0, alignItems: "flex-start", justifyContent: "center" },
+  etaStrong: { color: "#fff", fontSize: 20, fontWeight: "800", lineHeight: 24, width: "100%" },
+  etaHint: { color: "#c5ced8", fontSize: 12, fontWeight: "600", lineHeight: 16, marginTop: 1 },
   exitQuiet: {
+    flexGrow: 0,
+    flexShrink: 0,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.35)",
     borderRadius: 999,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 8,
+    alignItems: "center",
+    justifyContent: "center",
   },
   exitQuietText: { color: "#e8eef4", fontSize: 14, fontWeight: "700" },
   sign: {

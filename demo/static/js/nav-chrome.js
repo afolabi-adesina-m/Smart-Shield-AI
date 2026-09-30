@@ -424,6 +424,14 @@
     }
   }
 
+  function formatArrival(date) {
+    let hour = date.getHours();
+    const minute = String(date.getMinutes()).padStart(2, "0");
+    const suffix = hour >= 12 ? "PM" : "AM";
+    hour = hour % 12 || 12;
+    return `${hour}:${minute}\u00a0${suffix}`;
+  }
+
   function renderEta() {
     const where = document.getElementById("nav-where");
     const eta = document.getElementById("nav-eta");
@@ -490,12 +498,12 @@
     const seconds = Math.max(0, (route.durationS || 0) * fraction);
     const arriving = aheadM <= 150;
     const minutes = Math.max(arriving ? 0 : 1, Math.round(seconds / 60));
-    const minuteValue = arriving ? "0" : minutes < 60 ? String(minutes) : `${Math.floor(minutes / 60)} hr ${minutes % 60 ? minutes % 60 : ""}`.trim();
+    const minuteValue = arriving ? "0" : minutes < 60 ? String(minutes) : `${Math.floor(minutes / 60)}\u00a0hr${minutes % 60 ? `\u00a0${minutes % 60}` : ""}`;
     const distanceValue = aheadM < 950
       ? String(Math.max(1, Math.round(aheadM)))
       : (aheadM / 1000).toFixed(aheadM < 10000 ? 1 : 0);
     const distanceUnit = aheadM < 950 ? "m" : "km";
-    const clock = new Date(Date.now() + seconds * 1000).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    const clock = formatArrival(new Date(Date.now() + seconds * 1000));
     if (!state.navigating) {
       where.hidden = true;
       eta.hidden = true;

@@ -162,12 +162,15 @@ html[data-theme="light"] .nav-distance {
 
 .nav-score {
   display: inline-block;
-  margin-top: 6px;
-  padding: 2px 8px;
+  flex: 0 0 auto;
+  align-self: center;
+  margin-top: 0;
+  padding: 4px 8px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.18);
   font-size: 12px;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .travel-modes {
@@ -469,6 +472,7 @@ body.is-navigating .leaflet-bottom.leaflet-right {
 }
 
 @media (max-width: 860px) {
+  #side-panel:not(.is-open),
   #side-panel.is-collapsed {
     transform: translateY(110%) !important;
     pointer-events: none !important;
@@ -495,9 +499,10 @@ body.is-navigating .leaflet-bottom.leaflet-right {
     max-width: calc(100vw - 88px);
   }
   body.is-navigating .nav-card {
-    left: 12px !important;
-    right: 12px !important;
-    bottom: 12px !important;
+    left: calc(12px + env(safe-area-inset-left, 0px)) !important;
+    right: calc(12px + env(safe-area-inset-right, 0px)) !important;
+    bottom: calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+    align-items: center;
   }
 }
 .leaflet-control-zoom a {

@@ -679,7 +679,11 @@ export function pointAlong(line: LatLon[], meters: number): {
 }
 
 export function formatClock(date: Date): string {
-  return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  let hour = date.getHours();
+  const minute = String(date.getMinutes()).padStart(2, "0");
+  const suffix = hour >= 12 ? "PM" : "AM";
+  hour = hour % 12 || 12;
+  return `${hour}:${minute}\u00a0${suffix}`;
 }
 
 export function etaCard(remainingM: number, totalM: number, totalS: number, destination: string): {
@@ -707,7 +711,11 @@ export function etaCard(remainingM: number, totalM: number, totalS: number, dest
     : `${(remainingM / 1000).toFixed(remainingM < 10000 ? 1 : 0)} km`;
   const arrival = formatClock(new Date(Date.now() + seconds * 1000));
   const minutesLabel = arriving ? "Now" : title;
-  const minuteValue = arriving ? "0" : minutes < 60 ? String(minutes) : `${Math.floor(minutes / 60)} hr ${minutes % 60 ? minutes % 60 : ""}`.trim();
+  const minuteValue = arriving
+    ? "0"
+    : minutes < 60
+      ? String(minutes)
+      : `${Math.floor(minutes / 60)}\u00a0hr${minutes % 60 ? `\u00a0${minutes % 60}` : ""}`;
   const distanceValue = remainingM >= 950
     ? (remainingM / 1000).toFixed(remainingM < 10000 ? 1 : 0)
     : String(Math.max(1, Math.round(remainingM)));

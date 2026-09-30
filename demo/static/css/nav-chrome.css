@@ -101,12 +101,38 @@ html[data-theme="light"] body.is-navigating .nav-distance { color: #fff; }
 .nav-eta {
   display: flex;
   align-items: center;
-  gap: 12px;
-  flex: 1;
+  gap: 4px;
+  flex: 1 1 auto;
   min-width: 0;
 }
-.nav-eta-col strong { display: block; font-size: 18px; font-weight: 800; letter-spacing: -0.02em; }
-.nav-eta-col span { display: block; font-size: 11px; color: #c5ced8; }
+.nav-eta-col {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+}
+.nav-eta-col strong {
+  display: block;
+  width: 100%;
+  font-size: clamp(15px, 4.4vw, 22px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.nav-eta-col span {
+  display: block;
+  margin-top: 1px;
+  font-size: 12px;
+  line-height: 1.2;
+  font-weight: 600;
+  color: #c5ced8;
+  white-space: nowrap;
+}
 .nav-road {
   position: absolute;
   left: 150px;
@@ -260,14 +286,14 @@ html[data-theme="light"] .nav-round {
   border-radius: 0 8px 8px 0;
 }
 .nav-round.is-muted .nav-speaker::after {
-  width: 16px;
+  width: 22px;
   height: 2px;
-  left: -2px;
-  top: 3px;
+  left: -6px;
+  top: 7px;
   border: 0;
-  border-radius: 0;
+  border-radius: 1px;
   background: currentColor;
-  transform: rotate(-40deg);
+  transform: rotate(-42deg);
 }
 
 .nav-fork {
@@ -655,4 +681,40 @@ body[data-speed-layout="mobile"] .speed-panel {
   bottom: 118px;
   right: 128px !important;
   margin-right: 0 !important;
+}
+
+.leaflet-container,
+.maplibregl-map {
+  width: 100%;
+  height: 100%;
+}
+
+/* Home Screen: the map is the screen. Controls stay clear of the status bar and home indicator. */
+@media (display-mode: standalone), (display-mode: fullscreen) {
+  .nav-banner {
+    top: calc(8px + env(safe-area-inset-top, 0px));
+  }
+  .nav-side {
+    top: calc(8px + env(safe-area-inset-top, 0px));
+    right: max(10px, env(safe-area-inset-right, 0px));
+    bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  }
+  .nav-card,
+  body.is-navigating .nav-card,
+  body[data-speed-layout="mobile"] .nav-card {
+    left: calc(12px + env(safe-area-inset-left, 0px)) !important;
+    right: calc(12px + env(safe-area-inset-right, 0px)) !important;
+    bottom: calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+  body[data-speed-layout="mobile"] .nav-banner,
+  body[data-speed-layout="mobile"] .nav-side {
+    top: calc(64px + env(safe-area-inset-top, 0px)) !important;
+  }
+  .bottom-sheet {
+    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 96px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .topbar {
+    top: calc(8px + env(safe-area-inset-top, 0px));
+  }
 }
