@@ -51,6 +51,10 @@ type Props = {
   roadName?: string;
 };
 
+// Expo Go draws its own dev button in the top-right, over the status bar.
+// Start our column a full tap target plus a gap below the safe area so both can be pressed.
+const EXPO_CORNER_CLEARANCE = 72;
+
 const TOOLS: { id: ToolId; label: string }[] = [
   { id: "trip", label: "Trip" },
   { id: "fleet", label: "Fleet" },
@@ -78,13 +82,13 @@ export function NavChrome(props: Props) {
           <Text style={styles.cameraNoteText}>{props.cameraNote}</Text>
         </View>
       ) : null}
-      <View style={[styles.side, { top: insets.top + 8 }]} pointerEvents="box-none">
-        {driving ? null : (
-          <Pressable style={styles.gear} accessibilityLabel="Trip tools" testID="tool-gear" onPress={props.onGear}>
-            <Ionicons name="settings-sharp" size={20} color="#ffffff" />
-          </Pressable>
-        )}
+      <View style={[styles.side, { top: Math.max(insets.top, 20) + EXPO_CORNER_CLEARANCE }]} pointerEvents="box-none">
         <Glass night={props.night} style={styles.controlGroup}>
+          {driving ? null : (
+            <Pressable accessibilityLabel="Trip tools" testID="tool-gear" onPress={props.onGear} style={styles.iconButton}>
+              <Ionicons name="settings-sharp" size={22} color="#0a84ff" />
+            </Pressable>
+          )}
           <Pressable
             accessibilityLabel={props.muted ? "Unmute voice" : "Mute voice"}
             accessibilityState={{ selected: props.muted }}
@@ -372,14 +376,6 @@ const styles = StyleSheet.create({
   bag: { width: 18, height: 18, alignItems: "center" },
   bagHandle: { width: 8, height: 5, borderWidth: 2, borderBottomWidth: 0, borderRadius: 4, marginBottom: 1 },
   bagBody: { width: 14, height: 11, borderWidth: 2, borderRadius: 2 },
-  gear: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#0a84ff",
-    alignItems: "center",
-    justifyContent: "center",
-  },
   controlGroup: {
     borderRadius: 16,
     overflow: "hidden",
