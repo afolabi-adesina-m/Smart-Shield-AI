@@ -286,6 +286,12 @@ class TravelModeTests(unittest.TestCase):
         self.assertEqual(bus["draw_color"], "#5f6368")
         self.assertGreaterEqual(len(bus["geometry"]), 2)
         self.assertEqual(body["itineraries"][0]["walk_min"], 5)
+        notes = body["itineraries"][0]["walk_notes"]
+        self.assertTrue(any("last stop" in note for note in notes))
+        self.assertFalse(any("first stop" in note for note in notes))
+        self.assertEqual(body["itineraries"][0]["legs"][0]["mode"], "WALK")
+        self.assertEqual(body["itineraries"][0]["legs"][0]["distance_m"], 400)
+        self.assertGreaterEqual(len(body["itineraries"][0]["legs"][0]["geometry"]), 2)
         self.assertTrue(all(-180 <= point[0] <= 180 and -90 <= point[1] <= 90 for point in bus["geometry"]))
 
 

@@ -30,8 +30,10 @@
     if (type === "merge") return "merge";
     if (type === "off ramp" || type === "fork" || type === "exit roundabout") return "exit";
     if (modifier === "uturn") return "uturn";
-    if (modifier === "sharp left" || modifier === "left") return "left";
-    if (modifier === "sharp right" || modifier === "right") return "right";
+    if (modifier === "sharp left") return "sharp-left";
+    if (modifier === "sharp right") return "sharp-right";
+    if (modifier === "left") return "left";
+    if (modifier === "right") return "right";
     if (modifier === "slight left") return "slight-left";
     if (modifier === "slight right") return "slight-right";
     return "straight";

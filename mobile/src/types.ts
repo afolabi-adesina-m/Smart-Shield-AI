@@ -61,6 +61,7 @@ export type TransitItinerary = {
   distance_m?: number | null;
   summary?: string;
   scheduled?: boolean;
+  walk_notes?: string[];
   legs: TransitLeg[];
 };
 

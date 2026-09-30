@@ -206,7 +206,8 @@ function NativeMap({ scene, onRoutePoint, onPan, onHeading, onMapPress, onNative
             coordinates={route.coords.map(([lat, lon]) => ({ latitude: lat, longitude: lon }))}
             strokeColor={route.color || "#4da3ff"}
             strokeWidth={route.dashed ? 5 : 8}
-            lineDashPattern={route.dashed ? [2, 8] : undefined}
+            lineCap={route.dashed ? "round" : "butt"}
+            lineDashPattern={route.dashed ? [2, 10] : undefined}
           />
         ) : null)}
         {scene.routes.map((route, index) => route.active ? (

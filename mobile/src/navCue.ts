@@ -9,11 +9,15 @@ export type ManeuverKind =
   | "right"
   | "slight-left"
   | "slight-right"
+  | "sharp-left"
+  | "sharp-right"
   | "uturn"
   | "arrive"
   | "merge"
   | "roundabout"
-  | "exit";
+  | "exit"
+  | "walk"
+  | "bus";
 
 export type LaneHint = { valid?: boolean; indications?: string[] };
 
@@ -205,12 +209,16 @@ function verbFor(kind: ManeuverKind): string {
     right: "turn right",
     "slight-left": "bear left",
     "slight-right": "bear right",
+    "sharp-left": "turn sharp left",
+    "sharp-right": "turn sharp right",
     uturn: "make a U-turn",
     merge: "merge",
     roundabout: "enter the roundabout",
     exit: "take the exit",
     arrive: "arrive",
     straight: "continue",
+    walk: "walk",
+    bus: "continue",
   }[kind];
 }
 
@@ -357,8 +365,10 @@ export function maneuverKindFromStep(step: RoadStepLike): ManeuverKind {
   if (type === "merge") return "merge";
   if (type === "off ramp" || type === "fork" || type === "exit roundabout") return "exit";
   if (modifier === "uturn") return "uturn";
-  if (modifier === "sharp left" || modifier === "left") return "left";
-  if (modifier === "sharp right" || modifier === "right") return "right";
+  if (modifier === "sharp left") return "sharp-left";
+  if (modifier === "sharp right") return "sharp-right";
+  if (modifier === "left") return "left";
+  if (modifier === "right") return "right";
   if (modifier === "slight left") return "slight-left";
   if (modifier === "slight right") return "slight-right";
   return "straight";
@@ -513,22 +523,63 @@ export function transitManeuver(legs: TransitLeg[], alongM: number): Maneuver | 
     }).length;
     remainingStops = ahead + 1;
   }
+  const last = legs[legs.length - 1] === current;
+  if (current.mode === "WALK") {
+    return {
+      kind: last && remain < 40 ? "arrive" : "walk",
+      distanceM: remain,
+      street: current.to_name || "the stop",
+      shield: null,
+      atLat: line.length ? line[0][0] : 0,
+      atLon: line.length ? line[0][1] : 0,
+    };
+  }
   const title = legTitle(current);
   let street = title;
-  if (current.mode !== "WALK" && remainingStops != null) street = `${title} · get off in ${remainingStops} stops`;
-  else if (current.mode !== "WALK" && current.stop_count) street = `${title} · ${current.stop_count} stops`;
+  if (remainingStops != null) street = `${title} · get off in ${remainingStops} stops`;
+  else if (current.stop_count) street = `${title} · ${current.stop_count} stops`;
   const next = (current.stops || []).find((stop) => stop.name && stop.lat != null && stop.lon != null && line.length >= 2 && projectAlong(line, stop.lat as number, stop.lon as number).alongM >= into - 20);
   if (next?.name) street = `${street} · next ${next.name}`;
   else if (current.to_name) street = `${street} · next ${current.to_name}`;
-  const last = legs[legs.length - 1] === current;
   return {
-    kind: last && remain < 40 ? "arrive" : "straight",
+    kind: last && remain < 40 ? "arrive" : "bus",
     distanceM: remain,
     street,
     shield: null,
     atLat: line.length ? line[0][0] : 0,
     atLon: line.length ? line[0][1] : 0,
   };
+}
+
+export function walkCaption(leg: TransitLeg): string {
+  const stop = leg.to_name || "the stop";
+  const minutes = leg.walk_min != null ? `${leg.walk_min} min` : "time not provided";
+  const distance = typeof leg.distance_m === "number"
+    ? (leg.distance_m < 950 ? `${Math.max(1, Math.round(leg.distance_m))} m` : `${(leg.distance_m / 1000).toFixed(leg.distance_m < 10000 ? 1 : 0)} km`)
+    : "distance not provided";
+  return `Walk to the stop · ${stop} · ${minutes} · ${distance}`;
+}
+
+/** Notes for walks the feed left out. Never builds a path to fill the gap. */
+export function walkNotes(legs: TransitLeg[]): string[] {
+  const notes: string[] = [];
+  if (!legs.length) return notes;
+  if (legs[0].mode !== "WALK") notes.push("Transitous did not include the walk to the first stop.");
+  legs.forEach((leg, index) => {
+    const next = legs[index + 1];
+    if (next && leg.mode !== "WALK" && next.mode !== "WALK") {
+      const from = leg.to_name || "the vehicle";
+      const to = next.from_name || "the next vehicle";
+      notes.push(`Transitous did not include the walk between ${from} and ${to}.`);
+    }
+  });
+  if (legs[legs.length - 1].mode !== "WALK") notes.push("Transitous did not include the walk from the last stop to the destination.");
+  legs.forEach((leg) => {
+    if (leg.mode === "WALK" && (leg.geometry || []).length < 2) {
+      notes.push(`Transitous did not include a path for the walk to ${leg.to_name || "the stop"}.`);
+    }
+  });
+  return notes;
 }
 
 type PlacedStep = { step: RoadStepLike; point: { lat: number; lon: number }; alongM: number };

@@ -299,6 +299,7 @@
           <button type="button" id="nav-turn" class="nav-turn" aria-label="Show the next turn"></button>
           <div class="nav-banner-copy">
             <div id="nav-distance" class="nav-distance"></div>
+            <div id="nav-kicker" class="nav-kicker" hidden></div>
             <div class="nav-street-row">
               <span id="nav-shield" class="nav-shield" hidden></span>
               <div id="nav-street" class="nav-street"></div>
@@ -359,19 +360,23 @@
   }
 
   function turnMarkup(kind) {
-    if (kind === "arrive") return '<span class="nav-arrive"></span>';
-    if (kind === "roundabout") return '<span class="nav-roundabout"></span>';
-    if (kind === "merge") return '<span class="nav-merge"></span>';
-    if (kind === "exit") return '<span class="nav-arrow nav-exit-arrow"></span>';
+    if (kind === "arrive") return '<span class="nav-glyph nav-arrive"></span>';
+    if (kind === "walk") return '<span class="nav-glyph nav-walk"></span>';
+    if (kind === "bus") return '<span class="nav-glyph nav-bus"></span>';
+    if (kind === "uturn") return '<span class="nav-glyph nav-uturn"></span>';
+    if (kind === "roundabout") return '<span class="nav-glyph nav-roundabout"></span>';
     const rotate = {
       straight: 0,
       left: -90,
       right: 90,
-      "slight-left": -40,
-      "slight-right": 40,
-      uturn: 180,
-    }[kind] || 0;
-    return `<span class="nav-arrow" style="transform:rotate(${rotate}deg)"></span>`;
+      "slight-left": -32,
+      "slight-right": 32,
+      "sharp-left": -135,
+      "sharp-right": 135,
+      merge: -22,
+      exit: 48,
+    }[kind];
+    return `<span class="nav-glyph nav-arrow" style="transform:rotate(${rotate == null ? 0 : rotate}deg)"></span>`;
   }
 
   function renderManeuver(maneuver) {
@@ -386,6 +391,11 @@
     distance.textContent = maneuver.kind === "arrive"
       ? "Arrive"
       : maneuver.distanceM < 30 ? "Now" : formatDistance(maneuver.distanceM);
+    const kicker = document.getElementById("nav-kicker");
+    if (kicker) {
+      kicker.hidden = maneuver.kind !== "walk";
+      kicker.textContent = maneuver.kind === "walk" ? "Walk to the stop" : "";
+    }
     const shield = document.getElementById("nav-shield");
     if (maneuver.shield) {
       shield.hidden = false;
@@ -481,10 +491,11 @@
     if (state.navigating) {
       renderManeuver(maneuver);
       if (travelMode() === "transit" && maneuver && maneuver.street) {
-        const legKey = maneuver.street.split(" · ")[0];
+        const phrase = maneuver.kind === "walk" ? `Walk to the stop. ${maneuver.street}` : maneuver.street;
+        const legKey = phrase.split(" · ")[0];
         if (legKey && legKey !== state.spokenTransit && !state.muted) {
           state.spokenTransit = legKey;
-          speak(maneuver.street);
+          speak(phrase);
         }
       } else if (vehicleTravel() || travelMode() === "walk" || travelMode() === "cycle") {
         maybeSpeakTurn(maneuver);

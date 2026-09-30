@@ -220,6 +220,7 @@ function Banner({ maneuver, thenManeuver, night }: { maneuver: Maneuver; thenMan
       <TurnGlyph kind={maneuver.kind} color={ink} />
       <View style={styles.bannerText}>
         <Text style={[styles.bannerDistance, { color: ink }]}>{maneuver.kind === "arrive" ? "Arrive" : maneuver.distanceM < 30 ? "Now" : distancePhrase(maneuver)}</Text>
+        {maneuver.kind === "walk" ? <Text style={[styles.bannerKicker, { color: ink }]}>Walk to the stop</Text> : null}
         <View style={styles.bannerStreetRow}>
           {maneuver.shield ? (
             <View style={styles.shield}>
@@ -258,12 +259,14 @@ function LaneRow({ lanes }: { lanes?: LaneHint[] }) {
 }
 
 function thenArrow(kind: ManeuverKind): string {
-  if (kind === "left" || kind === "slight-left") return "←";
-  if (kind === "right" || kind === "slight-right" || kind === "exit") return "→";
+  if (kind === "left" || kind === "slight-left" || kind === "sharp-left") return "←";
+  if (kind === "right" || kind === "slight-right" || kind === "sharp-right" || kind === "exit") return "→";
   if (kind === "uturn") return "↩";
   if (kind === "roundabout") return "↻";
   if (kind === "merge") return "↗";
   if (kind === "arrive") return "●";
+  if (kind === "walk") return "🚶";
+  if (kind === "bus") return "🚌";
   return "↑";
 }
 
@@ -275,25 +278,65 @@ function distancePhrase(maneuver: Maneuver): string {
 }
 
 function TurnGlyph({ kind, color }: { kind: ManeuverKind; color: string }) {
+  if (kind === "arrive") return <View style={[styles.arriveDot, { backgroundColor: color }]} />;
+  if (kind === "walk") return <WalkGlyph color={color} />;
+  if (kind === "bus") return <BusGlyph color={color} />;
+  if (kind === "uturn") return <UturnGlyph color={color} />;
+  if (kind === "roundabout") return <RoundaboutGlyph color={color} />;
   const rotate = {
     straight: "0deg",
     left: "-90deg",
     right: "90deg",
-    "slight-left": "-40deg",
-    "slight-right": "40deg",
-    uturn: "180deg",
-    arrive: "0deg",
-    merge: "-20deg",
-    roundabout: "40deg",
-    exit: "28deg",
-  }[kind];
-  if (kind === "arrive") {
-    return <View style={[styles.arriveDot, { backgroundColor: color }]} />;
-  }
+    "slight-left": "-32deg",
+    "slight-right": "32deg",
+    "sharp-left": "-135deg",
+    "sharp-right": "135deg",
+    merge: "-22deg",
+    exit: "48deg",
+  }[kind] || "0deg";
   return (
     <View style={[styles.turnWrap, { transform: [{ rotate }] }]}>
-      <View style={[styles.turnStem, { backgroundColor: color }]} />
       <View style={[styles.turnHead, { borderBottomColor: color }]} />
+      <View style={[styles.turnStem, { backgroundColor: color }]} />
+    </View>
+  );
+}
+
+function WalkGlyph({ color }: { color: string }) {
+  return (
+    <View style={styles.walkGlyph}>
+      <View style={[styles.walkHead, { backgroundColor: color }]} />
+      <View style={[styles.walkBody, { backgroundColor: color }]} />
+    </View>
+  );
+}
+
+function BusGlyph({ color }: { color: string }) {
+  return (
+    <View style={[styles.busGlyph, { borderColor: color }]}>
+      <View style={[styles.busWindow, { backgroundColor: color }]} />
+      <View style={styles.busWheels}>
+        <View style={[styles.busWheel, { backgroundColor: color }]} />
+        <View style={[styles.busWheel, { backgroundColor: color }]} />
+      </View>
+    </View>
+  );
+}
+
+function UturnGlyph({ color }: { color: string }) {
+  return (
+    <View style={styles.uturnGlyph}>
+      <View style={[styles.uturnStem, { backgroundColor: color }]} />
+      <View style={[styles.uturnCap, { borderColor: color }]} />
+      <View style={[styles.uturnHead, { borderTopColor: color }]} />
+    </View>
+  );
+}
+
+function RoundaboutGlyph({ color }: { color: string }) {
+  return (
+    <View style={[styles.roundGlyph, { borderColor: color }]}>
+      <View style={[styles.roundHead, { borderBottomColor: color }]} />
     </View>
   );
 }
@@ -412,6 +455,7 @@ const styles = StyleSheet.create({
   bannerDistanceDay: { color: "#3d6b62" },
   bannerText: { flex: 1, gap: 2 },
   bannerDistance: { color: "#ffffff", fontSize: 26, fontWeight: "700" },
+  bannerKicker: { fontSize: 15, fontWeight: "700" },
   thenRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
   thenLabel: { color: "#ffffff", fontSize: 14, fontWeight: "600", opacity: 0.9 },
   thenArrow: { color: "#ffffff", fontSize: 14, fontWeight: "700" },
@@ -456,8 +500,8 @@ const styles = StyleSheet.create({
   },
   laneOn: { backgroundColor: "#ffffff", color: "#142033" },
   laneOff: { backgroundColor: "rgba(255,255,255,0.16)", color: "rgba(255,255,255,0.45)" },
-  turnWrap: { width: 48, height: 48, alignItems: "center" },
-  turnStem: { width: 6, height: 22, backgroundColor: "#fff", borderRadius: 2, marginTop: 16 },
+  turnWrap: { width: 64, height: 64, alignItems: "center", justifyContent: "center", position: "relative" },
+  turnStem: { width: 8, height: 28, backgroundColor: "#fff", borderRadius: 3, marginTop: -4 },
   turnHead: {
     position: "absolute",
     top: 2,
@@ -476,6 +520,41 @@ const styles = StyleSheet.create({
     borderRadius: 9,
     backgroundColor: "#fff",
     marginHorizontal: 9,
+  },
+  walkGlyph: { width: 28, height: 44, alignItems: "center" },
+  walkHead: { width: 12, height: 12, borderRadius: 6 },
+  walkBody: { width: 4, height: 22, borderRadius: 2, marginTop: 3 },
+  busGlyph: { width: 32, height: 36, borderWidth: 3, borderRadius: 6, alignItems: "center", justifyContent: "space-between", paddingVertical: 4 },
+  busWindow: { width: 18, height: 8, borderRadius: 2 },
+  busWheels: { width: 24, flexDirection: "row", justifyContent: "space-between" },
+  busWheel: { width: 6, height: 6, borderRadius: 3 },
+  uturnGlyph: { width: 36, height: 44 },
+  uturnStem: { position: "absolute", left: 4, top: 8, width: 6, height: 28, borderRadius: 3 },
+  uturnCap: { position: "absolute", left: 4, top: 4, width: 22, height: 16, borderTopWidth: 6, borderRightWidth: 6, borderTopRightRadius: 12 },
+  uturnHead: {
+    position: "absolute",
+    right: 2,
+    bottom: 2,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 7,
+    borderRightWidth: 7,
+    borderTopWidth: 10,
+    borderLeftColor: "transparent",
+    borderRightColor: "transparent",
+  },
+  roundGlyph: { width: 36, height: 36, borderWidth: 6, borderRadius: 18, borderRightColor: "transparent" },
+  roundHead: {
+    position: "absolute",
+    right: -4,
+    top: 16,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 7,
+    borderRightWidth: 7,
+    borderBottomWidth: 10,
+    borderLeftColor: "transparent",
+    borderRightColor: "transparent",
   },
   side: {
     position: "absolute",

@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Glass } from "./glass";
 import { FleetPanel } from "./FleetPanel";
 import type { ModeSummary, Place, PracticeLoop, RoadStep, ScoredRoute, SpeedReading, Suggestion, TestCentre, TransitItinerary, TravelMode } from "./types";
-import { legTitle } from "./navCue";
+import { legTitle, walkCaption, walkNotes } from "./navCue";
 
 const TRAVEL: { id: TravelMode; label: string; icon: "car" | "motorbike" | "bicycle" | "walk" | "bus" }[] = [
   { id: "drive", label: "Drive", icon: "car" },
@@ -416,14 +416,15 @@ function ItineraryCard(props: { item: TransitItinerary; onStart?: () => void }) 
       <Text style={styles.note}>{item.scheduled === false ? "Live times" : "Scheduled"}{item.walk_min != null ? ` · ${item.walk_min} min walk` : ""}</Text>
       {item.legs.map((leg, index) => (
         <View key={`${leg.mode}-${index}`} style={styles.legRow}>
-          <View style={[styles.swatch, { backgroundColor: leg.draw_color || leg.color || "#5f6368" }]} />
+          <View style={[styles.swatch, leg.mode === "WALK" ? styles.swatchWalk : null, { backgroundColor: leg.mode === "WALK" ? "transparent" : (leg.draw_color || leg.color || "#5f6368"), borderColor: leg.draw_color || "#1a73e8" }]} />
           <Text style={styles.note}>
-            {legTitle(leg)}
-            {leg.mode !== "WALK" && leg.stop_count ? ` · ${leg.stop_count} stops` : ""}
-            {leg.from_name && leg.to_name ? ` · ${leg.from_name} → ${leg.to_name}` : ""}
+            {leg.mode === "WALK"
+              ? walkCaption(leg)
+              : `${legTitle(leg)}${leg.stop_count ? ` · ${leg.stop_count} stops` : ""}${leg.from_name && leg.to_name ? ` · ${leg.from_name} → ${leg.to_name}` : ""}`}
           </Text>
         </View>
       ))}
+      {walkNotes(item.legs).map((note) => <Text key={note} style={styles.fine}>{note}</Text>)}
       {item.legs.some((leg) => leg.color_missing) ? <Text style={styles.fine}>Line colour was not provided by the agency.</Text> : null}
       {props.onStart ? (
         <Pressable style={styles.start} testID="route-start" onPress={props.onStart}>
@@ -576,6 +577,7 @@ const styles = StyleSheet.create({
   modeEta: { fontSize: 11, color: "#526072" },
   legRow: { flexDirection: "row", gap: 8, alignItems: "flex-start" },
   swatch: { width: 8, height: 8, borderRadius: 4, marginTop: 5 },
+  swatchWalk: { borderWidth: 2, borderStyle: "dashed" },
   searchPlaceholder: { flex: 1, fontSize: 17, fontWeight: "600" },
   searchScroll: { maxHeight: 320 },
   searchBody: { gap: 8, paddingTop: 8 },

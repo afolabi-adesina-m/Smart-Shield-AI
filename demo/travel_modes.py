@@ -316,12 +316,36 @@ def _itinerary(raw: dict) -> dict | None:
         "distance_m": sum(distances) if distance_known and distances else None,
         "summary": _summary(legs),
         "scheduled": scheduled,
+        "walk_notes": _walk_notes(legs),
         "legs": legs,
     }
 
 
+def _walk_notes(legs: list[dict]) -> list[str]:
+    """Say when Transitous left a walk out. Do not invent a path."""
+    notes: list[str] = []
+    if not legs:
+        return notes
+    if legs[0]["mode"] != "WALK":
+        notes.append("Transitous did not include the walk to the first stop.")
+    for index, leg in enumerate(legs[:-1]):
+        nxt = legs[index + 1]
+        if leg["mode"] != "WALK" and nxt["mode"] != "WALK":
+            origin = leg.get("to_name") or "the vehicle"
+            dest = nxt.get("from_name") or "the next vehicle"
+            notes.append(f"Transitous did not include the walk between {origin} and {dest}.")
+    if legs[-1]["mode"] != "WALK":
+        notes.append("Transitous did not include the walk from the last stop to the destination.")
+    for leg in legs:
+        if leg["mode"] == "WALK" and len(leg.get("geometry") or []) < 2:
+            notes.append(f"Transitous did not include a path for the walk to {leg.get('to_name') or 'the stop'}.")
+    return notes
+
+
 def _leg(raw: dict) -> dict | None:
     mode = str(raw.get("mode") or "").upper()
+    if mode == "FOOT":
+        mode = "WALK"
     if not mode:
         return None
     geometry = decode_polyline_auto(((raw.get("legGeometry") or {}).get("points")) or "")

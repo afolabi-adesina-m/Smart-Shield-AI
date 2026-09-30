@@ -216,6 +216,7 @@ body.is-navigating #nav-travel-modes { display: none; }
 .travel-note, #travel-note { margin: 0 0 8px; color: #526072; font-size: 12px; }
 .transit-leg { display: flex; gap: 8px; align-items: flex-start; margin: 6px 0; font-size: 13px; }
 .transit-leg i { flex: 0 0 auto; width: 8px; height: 8px; margin-top: 5px; border-radius: 4px; }
+.transit-leg i.is-dotted { background: transparent; border: 2px dashed #1a73e8; box-sizing: border-box; }
 .transit-colour-note { margin: 0 0 6px 16px; font-size: 11px; color: #526072; }
 body[data-travel="walk"] #speed-panel,
 body[data-travel="cycle"] #speed-panel,

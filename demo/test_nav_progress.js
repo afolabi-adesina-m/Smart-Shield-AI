@@ -3,6 +3,8 @@ const assert = require("assert");
 const progress = require("./static/js/nav-progress.js");
 
 assert.strictEqual(progress.maneuverKind({ type: "turn", modifier: "left" }), "left");
+assert.strictEqual(progress.maneuverKind({ type: "turn", modifier: "sharp left" }), "sharp-left");
+assert.strictEqual(progress.maneuverKind({ type: "turn", modifier: "sharp right" }), "sharp-right");
 assert.strictEqual(progress.maneuverKind({ type: "turn", modifier: "slight right" }), "slight-right");
 assert.strictEqual(progress.maneuverKind({ type: "merge", modifier: "slight left" }), "merge");
 assert.strictEqual(progress.maneuverKind({ type: "roundabout", modifier: "right" }), "roundabout");

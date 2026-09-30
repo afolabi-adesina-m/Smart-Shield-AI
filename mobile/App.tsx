@@ -441,10 +441,11 @@ export default function App() {
 
   useEffect(() => {
     if (!driving || travelMode !== "transit" || !maneuver?.street) return;
-    const key = maneuver.street.split(" · ")[0];
+    const phrase = maneuver.kind === "walk" ? `Walk to the stop. ${maneuver.street}` : maneuver.street;
+    const key = phrase.split(" · ")[0];
     if (!key || key === spokenTransit.current) return;
     spokenTransit.current = key;
-    speakNav(maneuver.street, muted);
+    speakNav(phrase, muted);
   }, [driving, travelMode, maneuver, muted]);
 
   useEffect(() => {
@@ -595,7 +596,7 @@ export default function App() {
         : [...drawnSigns, ...featuresAlongRoute(pool, activeLine).map((item) => ({ ...item, subtle: true }))];
     }
     const routesOut: MapScene["routes"] = [];
-    if (focus === "nav" && travelMode === "transit" && legLines.length) {
+    if (travelMode === "transit" && legLines.length) {
       legLines.forEach((leg) => {
         routesOut.push({ coords: leg.coords, color: leg.color, active: true, dashed: leg.dashed });
       });

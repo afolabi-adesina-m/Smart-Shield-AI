@@ -1,4 +1,5 @@
 import type { ModeSummary, OsrmRoute, Place, TransitItinerary, TransitLeg, TravelMode, TravelPlan } from "./types";
+import { walkNotes } from "./navCue";
 
 /** Keep these in step with demo/travel_modes.py. */
 export const CYCLE_KMH = 16.5;
@@ -347,12 +348,14 @@ function buildItinerary(raw: Record<string, unknown>): TransitItinerary | null {
     distance_m: distanceKnown && distances.length ? distances.reduce((sum, value) => sum + value, 0) : null,
     summary: transitSummary(legs),
     scheduled: legs.some((leg) => !leg.realtime),
+    walk_notes: walkNotes(legs),
     legs,
   };
 }
 
 function buildLeg(raw: Record<string, unknown>): TransitLeg | null {
-  const mode = String(raw.mode || "").toUpperCase();
+  let mode = String(raw.mode || "").toUpperCase();
+  if (mode === "FOOT") mode = "WALK";
   if (!mode) return null;
   const geometry = decodePolylineAuto(String((raw.legGeometry as { points?: string } | undefined)?.points || ""));
   const colour = hexColour(raw.routeColor);

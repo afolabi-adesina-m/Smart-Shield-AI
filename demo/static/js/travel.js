@@ -200,6 +200,32 @@
     return date.toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit", timeZone: "America/Toronto" });
   }
 
+  function walkNotes(legs) {
+    const notes = [];
+    if (!legs.length) return notes;
+    if (legs[0].mode !== "WALK") notes.push("Transitous did not include the walk to the first stop.");
+    legs.forEach((leg, index) => {
+      const next = legs[index + 1];
+      if (next && leg.mode !== "WALK" && next.mode !== "WALK") {
+        notes.push(`Transitous did not include the walk between ${leg.to_name || "the vehicle"} and ${next.from_name || "the next vehicle"}.`);
+      }
+    });
+    if (legs[legs.length - 1].mode !== "WALK") notes.push("Transitous did not include the walk from the last stop to the destination.");
+    legs.forEach((leg) => {
+      if (leg.mode === "WALK" && (leg.geometry || []).length < 2) {
+        notes.push(`Transitous did not include a path for the walk to ${leg.to_name || "the stop"}.`);
+      }
+    });
+    return notes;
+  }
+
+  function walkCaption(leg) {
+    const stop = leg.to_name || "the stop";
+    const minutes = leg.walk_min != null ? `${leg.walk_min} min` : "time not provided";
+    const distance = leg.distance_m != null ? distanceText(leg.distance_m) : "distance not provided";
+    return `Walk to the stop · ${stop} · ${minutes} · ${distance}`;
+  }
+
   function legTitle(leg) {
     if (!leg) return "";
     if (leg.mode === "WALK") {
@@ -280,19 +306,32 @@
     card.appendChild(head);
     (item.legs || []).forEach((leg) => {
       const row = document.createElement("p");
-      row.className = "transit-leg";
+      row.className = "transit-leg" + (leg.mode === "WALK" ? " is-walk" : "");
       const swatch = document.createElement("i");
-      swatch.style.background = leg.draw_color || leg.color || "#5f6368";
+      if (leg.mode === "WALK") swatch.className = "is-dotted";
+      else swatch.style.background = leg.draw_color || leg.color || "#5f6368";
       const text = document.createElement("span");
-      const pieces = [legTitle(leg)];
-      if (leg.mode !== "WALK" && leg.stop_count) pieces.push(`${leg.stop_count} stops`);
-      if (leg.from_name && leg.to_name) pieces.push(`${leg.from_name} → ${leg.to_name}`);
-      const depart = clock(leg.departure);
-      const arrive = clock(leg.arrival);
-      if (depart && arrive) pieces.push(`${depart}–${arrive}`);
-      text.textContent = pieces.join(" · ");
+      if (leg.mode === "WALK") {
+        text.textContent = walkCaption(leg);
+      } else {
+        const pieces = [legTitle(leg)];
+        if (leg.stop_count) pieces.push(`${leg.stop_count} stops`);
+        if (leg.from_name && leg.to_name) pieces.push(`${leg.from_name} → ${leg.to_name}`);
+        const depart = clock(leg.departure);
+        const arrive = clock(leg.arrival);
+        if (depart && arrive) pieces.push(`${depart}–${arrive}`);
+        text.textContent = pieces.join(" · ");
+      }
       row.append(swatch, text);
       card.appendChild(row);
+    });
+    (item.walk_notes || walkNotes(item.legs || [])).forEach((note) => {
+      const missing = document.createElement("p");
+      missing.className = "transit-colour-note";
+      missing.textContent = note;
+      card.appendChild(missing);
+    });
+    (item.legs || []).forEach((leg) => {
       if (leg.color_missing) {
         const missing = document.createElement("p");
         missing.className = "transit-colour-note";
@@ -343,14 +382,24 @@
       }).length;
       remainingStops = ahead + 1;
     }
+    const last = legs[legs.length - 1] === current;
+    if (current.mode === "WALK") {
+      return {
+        kind: last && remain < 40 ? "arrive" : "walk",
+        distanceM: remain,
+        street: current.to_name || "the stop",
+        shield: null,
+        atLat: 0,
+        atLon: 0,
+      };
+    }
     const title = legTitle(current);
     let street = title;
-    if (current.mode !== "WALK" && remainingStops != null) street = `${title} · get off in ${remainingStops} stops`;
-    else if (current.mode !== "WALK" && current.stop_count) street = `${title} · ${current.stop_count} stops`;
+    if (remainingStops != null) street = `${title} · get off in ${remainingStops} stops`;
+    else if (current.stop_count) street = `${title} · ${current.stop_count} stops`;
     const nextStop = nextStopName(current, into);
-    const last = legs[legs.length - 1] === current;
     return {
-      kind: last && remain < 40 ? "arrive" : "straight",
+      kind: last && remain < 40 ? "arrive" : "bus",
       distanceM: remain,
       street: nextStop ? `${street} · next ${nextStop}` : street,
       shield: null,
@@ -387,7 +436,8 @@
         color: leg.draw_color || leg.color || "#5f6368",
         weight: leg.mode === "WALK" ? 5 : 8,
         opacity: 0.95,
-        dashArray: leg.mode === "WALK" ? "2 8" : null,
+        dashArray: leg.mode === "WALK" ? "1 9" : null,
+        lineCap: leg.mode === "WALK" ? "round" : "butt",
         smoothFactor: 0,
       },
     })).filter((shape) => shape.latlngs.length >= 2);
