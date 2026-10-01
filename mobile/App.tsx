@@ -22,6 +22,7 @@ import {
   suggestPlaces,
 } from "./src/api";
 import { API_BASE, COLD_START_HINT } from "./src/config";
+import { transitSeconds } from "./src/modeRoute";
 import { isNight } from "./src/dayNight";
 import { haversineM, warningFor, type WarningLevel } from "./src/fleetLogic";
 import { getFleetSnapshot, setLiveReader, stopTrip, subscribeFleet } from "./src/fleetStore";
@@ -46,10 +47,10 @@ import {
 } from "./src/navCue";
 import { nearestStep, previewFromStep } from "./src/roadPreview";
 import { alertOverLimit } from "./src/overSpeedAlert";
-import { loadMuted, loadReports, saveMuted, saveReport, type ReportKind, type RoadReport } from "./src/reports";
+import { loadMuted, loadReports, loadVoiceGender, saveMuted, saveReport, saveVoiceGender, type ReportKind, type RoadReport } from "./src/reports";
 import { alertsAhead, CAMERA_DISCLAIMER, loadCameraAlerts, loadEnforcement, saveCameraAlerts, type CameraFeature } from "./src/cameras";
 import { loadSignsNear, lookupStreet, type RoadSign } from "./src/roadSigns";
-import { speakNav, stopSpeech } from "./src/voice";
+import { applyVoiceGender, speakNav, stopSpeech, type VoiceGender } from "./src/voice";
 import type { HeatSpot } from "./src/deliveryLogic";
 import type {
   MapPreview,
@@ -139,6 +140,7 @@ export default function App() {
   const [reportNote, setReportNote] = useState("");
   const [reports, setReports] = useState<RoadReport[]>([]);
   const [muted, setMuted] = useState(false);
+  const [voiceGender, setVoiceGender] = useState<VoiceGender>("female");
   const [headingUp, setHeadingUp] = useState(true);
   const [deviceHeading, setDeviceHeading] = useState<number | null>(null);
   const [signs, setSigns] = useState<RoadSign[]>([]);
@@ -172,6 +174,10 @@ export default function App() {
     })();
     loadReports().then((saved) => { if (!cancelled) setReports(saved); }).catch(() => undefined);
     loadMuted().then((value) => { if (!cancelled) setMuted(value); }).catch(() => undefined);
+    loadVoiceGender().then((value) => {
+      if (!cancelled) setVoiceGender(value);
+      applyVoiceGender(value).catch(() => undefined);
+    }).catch(() => undefined);
     loadCameraAlerts().then((value) => { if (!cancelled) setCameraAlerts(value); }).catch(() => undefined);
     return () => { cancelled = true; };
   }, []);
@@ -441,7 +447,9 @@ export default function App() {
 
   useEffect(() => {
     if (!driving || travelMode !== "transit" || !maneuver?.street) return;
-    const phrase = maneuver.kind === "walk" ? `Walk to the stop. ${maneuver.street}` : maneuver.street;
+    const phrase = maneuver.kind === "walk"
+      ? (maneuver.street && maneuver.street !== "the stop" ? `Walk to the stop, ${maneuver.street}.` : "Walk to the stop.")
+      : maneuver.street;
     const key = phrase.split(" · ")[0];
     if (!key || key === spokenTransit.current) return;
     spokenTransit.current = key;
@@ -886,11 +894,25 @@ export default function App() {
     saveMuted(next).catch(() => undefined);
   }
 
+  function chooseVoice(next: VoiceGender) {
+    setVoiceGender(next);
+    saveVoiceGender(next).catch(() => undefined);
+    applyVoiceGender(next).catch(() => undefined);
+  }
+
   const leg = tripLegs[selected];
   const remainingM = stepGuide.match?.remainingM ?? progress.aheadM;
   const totalM = leg?.distanceM || stepGuide.match?.totalM || progress.aheadM;
   const eta = focus === "nav"
     ? etaCard(remainingM, totalM, leg?.durationS || 0, destination.label)
+    : null;
+  const planSource = travelMode === "transit" && itineraries[0]
+    ? { metres: itineraries[0].distance_m || 0, seconds: transitSeconds(itineraries[0]) || 0 }
+    : tripLegs[selected]
+      ? { metres: tripLegs[selected].distanceM || 0, seconds: tripLegs[selected].durationS || 0 }
+      : null;
+  const planEta = planSource && (planSource.seconds > 0 || planSource.metres > 0)
+    ? etaCard(Math.max(planSource.metres, 1), Math.max(planSource.metres, 1), planSource.seconds, destination.label)
     : null;
   const showExit = driving || focus === "practice" || focus === "fleet";
   const etaTitle = focus === "fleet"
@@ -984,6 +1006,8 @@ export default function App() {
           topInset={118}
           muted={muted}
           onMute={toggleMute}
+          voiceGender={voiceGender}
+          onVoiceGender={chooseVoice}
           onTab={(next) => { if (next === "practice") openPractice(); else if (next !== "settings") setTab(next); }}
           origin={origin}
           destination={destination}
@@ -1071,6 +1095,12 @@ export default function App() {
           summaries={summaries}
           itineraries={itineraries}
           travelNote={travelNote}
+          plan={planEta ? {
+            arrival: planEta.arrival,
+            minutes: planEta.minuteValue,
+            distance: planEta.distanceValue,
+            unit: planEta.distanceUnit,
+          } : null}
         />
     ) : null}
     </View>

@@ -330,11 +330,15 @@
       right: "turn right",
       "slight-left": "bear left",
       "slight-right": "bear right",
+      "sharp-left": "turn sharp left",
+      "sharp-right": "turn sharp right",
       uturn: "make a U-turn",
       merge: "merge",
       roundabout: "enter the roundabout",
       exit: "take the exit",
       arrive: "arrive",
+      walk: "walk",
+      bus: "continue",
     }[kind] || "continue";
   }
 
@@ -343,19 +347,118 @@
     return metres + " metres";
   }
 
+  function sentence(text) {
+    var trimmed = String(text || "").trim();
+    if (!trimmed) return trimmed;
+    return /[.!?]$/.test(trimmed) ? trimmed : trimmed + ".";
+  }
+
   function cuePhrase(maneuver, cue) {
     var street = maneuver.street && maneuver.street !== "Unnamed road" ? maneuver.street : "";
     var kind = maneuver.kind;
+    var onto = street ? " onto " + street : "";
+    var at = street ? " at " + street : "";
+    if (kind === "walk") {
+      var place = street || "the stop";
+      if (cue.id === "now") return sentence("Walk to " + place);
+      return sentence("In " + metresWords(cue.metres) + ", walk to " + place);
+    }
     if (cue.id === "now") {
-      if (kind === "arrive") return street ? "You are arriving at " + street : "You are arriving";
-      if (kind === "exit") return "Take the exit now";
+      if (kind === "arrive") return sentence(street ? "You are arriving at " + street : "You are arriving");
+      if (kind === "exit") return sentence(street ? "Take the exit onto " + street : "Take the exit");
       var spokenVerb = verbFor(kind);
-      return spokenVerb.charAt(0).toUpperCase() + spokenVerb.slice(1) + " now";
+      return sentence(spokenVerb.charAt(0).toUpperCase() + spokenVerb.slice(1) + onto);
     }
     var lead = "In " + metresWords(cue.metres) + ", ";
-    if (kind === "arrive") return lead + "you will arrive" + (street ? " at " + street : "");
-    if (kind === "exit") return lead + "take the exit" + (street ? " onto " + street : "");
-    return lead + verbFor(kind) + (street ? " onto " + street : "");
+    if (kind === "arrive") return sentence(lead + "you will arrive" + at);
+    if (kind === "exit") return sentence(lead + "take the exit" + onto);
+    return sentence(lead + verbFor(kind) + onto);
+  }
+
+  function formatClock(date) {
+    var hour = date.getHours();
+    var minute = String(date.getMinutes()).padStart(2, "0");
+    var suffix = hour >= 12 ? "PM" : "AM";
+    hour = hour % 12 || 12;
+    return hour + ":" + minute + "\u00a0" + suffix;
+  }
+
+  function minutesIn(text) {
+    var raw = String(text || "");
+    var hr = raw.match(/(\d+)\s*hr/);
+    var min = raw.match(/(\d+)\s*min/);
+    if (!hr && !min) return null;
+    return (hr ? Number(hr[1]) * 60 : 0) + (min ? Number(min[1]) : 0);
+  }
+
+  function tripMetricLine(arrival, minutes, distance, unit) {
+    var clock = arrival || "—";
+    var mins = minutes == null || minutes === "" ? "—" : String(minutes);
+    var tail = mins === "Now" ? "" : " min";
+    var dist = distance == null || distance === "" ? "—" : String(distance);
+    var measure = unit || "km";
+    return clock + "\u2003" + mins + tail + "\u2003" + dist + "\u00a0" + measure;
+  }
+
+  function planMetricLine(durationText, distanceKm, nowMs) {
+    var minutes = minutesIn(durationText);
+    var when = nowMs == null ? Date.now() : nowMs;
+    var clock = minutes == null ? "—" : formatClock(new Date(when + minutes * 60000));
+    var duration = durationText || "—";
+    var distance = distanceKm == null || distanceKm === "" ? "—" : String(distanceKm) + "\u00a0km";
+    return clock + "\u2003" + duration + "\u2003" + distance;
+  }
+
+  var FEMALE_VOICES = ["samantha", "allison", "ava", "susan", "zoe", "nicky", "serena", "kate", "martha", "moira", "karen", "tessa", "fiona", "victoria", "stephanie", "veena", "raveena", "sangeeta", "kathy", "flo", "sandy", "shelley"];
+  var MALE_VOICES = ["alex", "daniel", "evan", "nathan", "oliver", "aaron", "arthur", "gordon", "tom", "rishi", "lee", "fred", "reed"];
+  var NOVELTY_VOICES = ["zarvox", "trinoids", "albert", "bad news", "bahh", "bells", "boing", "bubbles", "cellos", "deranged", "hysterical", "jester", "organ", "superstar", "whisper", "wobble", "good news", "pipe organ", "junior", "ralph", "grandma", "grandpa", "eddy"];
+
+  function voiceName(voice) {
+    return String((voice && (voice.name || voice.identifier || voice.voiceURI)) || "");
+  }
+
+  function voiceLang(voice) {
+    return String((voice && (voice.language || voice.lang)) || "").toLowerCase();
+  }
+
+  function qualityRank(voice) {
+    var quality = String((voice && voice.quality) || "").toLowerCase();
+    var name = voiceName(voice).toLowerCase();
+    if (quality === "premium" || name.indexOf("premium") !== -1) return 2;
+    if (quality === "enhanced" || name.indexOf("enhanced") !== -1) return 1;
+    return 0;
+  }
+
+  function noveltyVoice(voice) {
+    var name = voiceName(voice).toLowerCase();
+    return NOVELTY_VOICES.some(function (item) { return name.indexOf(item) !== -1; });
+  }
+
+  function namedVoice(voice, names) {
+    var tokens = voiceName(voice).toLowerCase().split(/[^a-z]+/);
+    return names.some(function (item) { return tokens.indexOf(item) !== -1; });
+  }
+
+  function scoreVoice(voice) {
+    var lang = voiceLang(voice);
+    var score = qualityRank(voice) * 100;
+    if (lang.indexOf("en-ca") === 0) score += 40;
+    else if (lang.indexOf("en-us") === 0) score += 30;
+    else if (lang.indexOf("en-gb") === 0) score += 24;
+    else if (lang.indexOf("en-au") === 0) score += 18;
+    else if (lang.indexOf("en") === 0) score += 8;
+    return score;
+  }
+
+  function pickSpokenVoice(voices, gender) {
+    var want = gender === "male" ? MALE_VOICES : FEMALE_VOICES;
+    var english = (voices || []).filter(function (voice) {
+      return voiceLang(voice).indexOf("en") === 0 && !noveltyVoice(voice);
+    });
+    var pool = english.filter(function (voice) { return namedVoice(voice, want); });
+    if (!pool.length) return null;
+    pool.sort(function (a, b) { return scoreVoice(b) - scoreVoice(a); });
+    return pool[0];
   }
 
   function voiceCue(maneuver, roadMode, spoken, travelMode) {
@@ -440,5 +543,8 @@
     voiceCue: voiceCue,
     signAlert: signAlert,
     speedAlert: speedAlert,
+    tripMetricLine: tripMetricLine,
+    planMetricLine: planMetricLine,
+    pickSpokenVoice: pickSpokenVoice,
   };
 });

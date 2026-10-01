@@ -154,53 +154,53 @@ function remember(cue, flags) {
 
 const city = {};
 const cityFar = progress.voiceCue(maneuver(400), "city", city);
-assert.strictEqual(cityFar.phrase, "In 400 metres, turn right onto Queen Street");
+assert.strictEqual(cityFar.phrase, "In 400 metres, turn right onto Queen Street.");
 remember(cityFar, city);
 assert.strictEqual(progress.voiceCue(maneuver(390), "city", city), null);
 assert.strictEqual(progress.voiceCue(maneuver(450), "city", city), null);
 assert.strictEqual(progress.voiceCue(maneuver(500), "residential", {}), null);
 const cityNear = progress.voiceCue(maneuver(100), "city", city);
-assert.strictEqual(cityNear.phrase, "In 100 metres, turn right onto Queen Street");
+assert.strictEqual(cityNear.phrase, "In 100 metres, turn right onto Queen Street.");
 remember(cityNear, city);
 assert.strictEqual(progress.voiceCue(maneuver(90), "city", city), null);
 const cityNow = progress.voiceCue(maneuver(30), "city", city);
-assert.strictEqual(cityNow.phrase, "Turn right now");
+assert.strictEqual(cityNow.phrase, "Turn right onto Queen Street.");
 remember(cityNow, city);
 assert.strictEqual(progress.voiceCue(maneuver(20), "city", city), null);
 assert.strictEqual(progress.voiceCue(maneuver(80), "city", city), null);
 
 const jumped = {};
 const jumpedNow = progress.voiceCue(maneuver(20), "city", jumped);
-assert.strictEqual(jumpedNow.phrase, "Turn right now");
+assert.strictEqual(jumpedNow.phrase, "Turn right onto Queen Street.");
 remember(jumpedNow, jumped);
 assert.strictEqual(progress.voiceCue(maneuver(90), "city", jumped), null);
 assert.strictEqual(progress.voiceCue(maneuver(40, "straight", "Bay Street"), "city", {}), null);
 
 const nextStep = progress.voiceCue(maneuver(80, "left", "King Street", 43.66, -79.39), "city", city);
-assert.strictEqual(nextStep.phrase, "In 100 metres, turn left onto King Street");
+assert.strictEqual(nextStep.phrase, "In 100 metres, turn left onto King Street.");
 
 const highway = {};
 const exitFar = progress.voiceCue(maneuver(1800, "exit", "Highway 401", 43.7, -79.4), "highway", highway);
-assert.strictEqual(exitFar.phrase, "In 2 kilometres, take the exit onto Highway 401");
+assert.strictEqual(exitFar.phrase, "In 2 kilometres, take the exit onto Highway 401.");
 remember(exitFar, highway);
 assert.strictEqual(progress.voiceCue(maneuver(1900, "exit", "Highway 401", 43.7, -79.4), "motorway", highway), null);
 const exitNear = progress.voiceCue(maneuver(500, "exit", "Highway 401", 43.7, -79.4), "highway", highway);
-assert.strictEqual(exitNear.phrase, "In 500 metres, take the exit onto Highway 401");
+assert.strictEqual(exitNear.phrase, "In 500 metres, take the exit onto Highway 401.");
 remember(exitNear, highway);
 const exitNow = progress.voiceCue(maneuver(40, "exit", "Highway 401", 43.7, -79.4), "highway", highway);
-assert.strictEqual(exitNow.phrase, "Take the exit now");
+assert.strictEqual(exitNow.phrase, "Take the exit onto Highway 401.");
 remember(exitNow, highway);
 assert.strictEqual(progress.voiceCue(maneuver(60, "exit", "Highway 401", 43.7, -79.4), "highway", highway), null);
 
 const walkFar = progress.voiceCue(maneuver(80), "city", {}, "walk");
 assert.strictEqual(walkFar, null);
 const walkNear = progress.voiceCue(maneuver(50), "city", {}, "walk");
-assert.strictEqual(walkNear.phrase, "In 50 metres, turn right onto Queen Street");
+assert.strictEqual(walkNear.phrase, "In 50 metres, turn right onto Queen Street.");
 const walkSpoken = {};
 remember(walkNear, walkSpoken);
 assert.strictEqual(progress.voiceCue(maneuver(40), "city", walkSpoken, "cycle"), null);
 const walkNow = progress.voiceCue(maneuver(10), "city", walkSpoken, "walk");
-assert.strictEqual(walkNow.phrase, "Turn right now");
+assert.strictEqual(walkNow.phrase, "Turn right onto Queen Street.");
 assert.strictEqual(progress.navZoom(30, 400, "walk"), 18);
 assert.strictEqual(progress.navZoom(90, 800), 15);
 
@@ -242,5 +242,27 @@ speedState = speedCue.state;
 speedCue = progress.speedAlert("red", speedState, 22000);
 assert.strictEqual(speedCue.speak, true);
 assert.strictEqual(speedCue.phrase, "You are over the speed limit.");
+
+const metrics = progress.tripMetricLine("1:13\u00a0PM", "50", "6.8", "km");
+assert.strictEqual(metrics, "1:13\u00a0PM\u200350 min\u20036.8\u00a0km");
+assert.strictEqual(metrics.includes("\n"), false);
+const planned = progress.planMetricLine("50 min", 6.8, Date.UTC(2026, 8, 30, 16, 23));
+assert.strictEqual(planned.includes("\n"), false);
+assert.ok(planned.indexOf("50 min") > 0, planned);
+assert.ok(planned.endsWith("6.8\u00a0km"), planned);
+
+const voices = [
+  { name: "Samantha", language: "en-US", quality: "Default", identifier: "samantha" },
+  { name: "Samantha (Enhanced)", language: "en-US", quality: "Enhanced", identifier: "samantha-enhanced" },
+  { name: "Alex", language: "en-US", quality: "Enhanced", identifier: "alex" },
+  { name: "Evan (Premium)", language: "en-US", quality: "Premium", identifier: "evan" },
+  { name: "Zarvox", language: "en-US", quality: "Default", identifier: "zarvox" },
+  { name: "Karen", language: "en-AU", quality: "Default", identifier: "karen" },
+];
+assert.strictEqual(progress.pickSpokenVoice(voices, "female").identifier, "samantha-enhanced");
+assert.strictEqual(progress.pickSpokenVoice(voices, "male").identifier, "evan");
+assert.strictEqual(progress.pickSpokenVoice([{ name: "Alex", language: "en-US", quality: "Default" }, { name: "Samantha", language: "en-US", quality: "Enhanced" }], "male").name, "Alex");
+assert.strictEqual(progress.pickSpokenVoice([{ name: "Samantha", language: "en-US", quality: "Default" }], "male"), null);
+assert.strictEqual(progress.pickSpokenVoice(voices).identifier, "samantha-enhanced");
 
 console.log("nav progress tests passed");

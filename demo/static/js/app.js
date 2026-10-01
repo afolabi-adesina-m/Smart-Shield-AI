@@ -320,11 +320,8 @@ function renderRouteCards(scored) {
         <div class="safety-pill" style="background:${r.tier_color}">S ${scoreLabel(r.safety_score)}</div>
       </div>
       ${highAlert}
-      <div class="route-meta">
-        <span>${r.duration_text}</span>
-        <span>${r.distance_km} km</span>
-        ${speedLine}
-      </div>
+      <div class="trip-metrics">${escapeHtml(window.NavProgress.planMetricLine(r.duration_text, r.distance_km))}</div>
+      <div class="route-meta">${speedLine}</div>
       <details class="route-details">
         <summary>Model details</summary>
         <p class="route-brains">${r.tier} risk · text ${r.T_nlp} · vision ${r.V_vision} · environment ${r.E_index}${r.vision_source === "resnet18_live_cctv" ? " · live camera" : ""}</p>
@@ -339,6 +336,7 @@ function renderRouteCards(scored) {
       drawRoutesOnMap(lastOsrmRoutes, idx);
       updateMapBadge(r);
       publishSpeedContext(true);
+      paintPlanMetrics(r);
     });
 
     container.appendChild(card);
@@ -346,6 +344,19 @@ function renderRouteCards(scored) {
 
   const best = sorted[0];
   if (best) updateMapBadge(best);
+  paintPlanMetrics(sorted.find((route) => route.route_index === selectedIndex) || best);
+}
+
+function paintPlanMetrics(route) {
+  const plan = document.getElementById("nav-plan-metrics");
+  if (!plan || !window.NavProgress) return;
+  if (!route) {
+    plan.textContent = "";
+    plan.hidden = true;
+    return;
+  }
+  plan.textContent = window.NavProgress.planMetricLine(route.duration_text, route.distance_km);
+  plan.hidden = document.body.classList.contains("is-navigating");
 }
 
 function drawRoutesOnMap(routes, activeIndex, origin = null, dest = null) {
@@ -455,7 +466,10 @@ function renderRoutePreview(scored) {
     const title = document.createElement("strong");
     title.textContent = route.duration_text || route.summary || "Route";
     const meta = document.createElement("span");
-    meta.textContent = `${route.distance_km} km · ${route.summary || "Route"}`;
+    meta.className = "trip-metrics";
+    meta.textContent = window.NavProgress
+      ? window.NavProgress.planMetricLine(route.duration_text, route.distance_km)
+      : `${route.distance_km} km · ${route.summary || "Route"}`;
     const chip = document.createElement("em");
     chip.textContent = `Risk ${scoreLabel(route.safety_score)}`;
     copy.appendChild(title);

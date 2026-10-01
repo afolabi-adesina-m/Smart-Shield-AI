@@ -183,37 +183,30 @@ html[data-theme="light"] body.is-navigating .nav-distance { color: #fff; }
 .nav-eta {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
   flex: 1 1 auto;
   min-width: 0;
 }
-.nav-eta-col {
-  flex: 1 1 0;
+.trip-metrics {
+  flex: 1 1 auto;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: flex-start;
-}
-.nav-eta-col strong {
-  display: block;
-  width: 100%;
-  font-size: clamp(15px, 4.4vw, 22px);
+  margin: 0;
+  font-size: 17px;
   font-weight: 800;
-  letter-spacing: -0.03em;
-  line-height: 1.15;
+  line-height: 24px;
+  letter-spacing: -0.02em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
 }
-.nav-eta-col span {
+#nav-plan-metrics[hidden] { display: none !important; }
+.route-card .trip-metrics,
+.route-preview-card .trip-metrics {
   display: block;
-  margin-top: 1px;
-  font-size: 12px;
-  line-height: 1.2;
-  font-weight: 600;
-  color: #c5ced8;
-  white-space: nowrap;
+  margin-top: 6px;
+  font-size: 15px;
+  line-height: 20px;
 }
 .nav-road {
   position: absolute;
@@ -429,13 +422,19 @@ html[data-theme="light"] .nav-report {
   bottom: calc(12px + env(safe-area-inset-bottom, 0px));
   min-height: 88px;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: 8px 12px;
   padding: 12px 12px 12px 18px;
   border-radius: 22px;
   background: #1b1d22;
   color: #fff;
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+}
+#nav-travel-modes,
+#nav-plan-metrics {
+  flex: 1 0 100%;
+  min-width: 0;
 }
 html[data-theme="light"] .nav-card {
   background: #ffffff;
@@ -525,6 +524,20 @@ html[data-theme="light"] .nav-report-row { background: #eef2f7; color: #16191f; 
   margin: 10px 0 4px;
   font-size: 14px;
   font-weight: 650;
+}
+.voice-gender {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 8px 0 4px;
+  font-size: 14px;
+  font-weight: 650;
+}
+.voice-gender label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 .camera-disclaimer {
   position: absolute;

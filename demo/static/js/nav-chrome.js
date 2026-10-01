@@ -3,6 +3,7 @@
 (function () {
   const REPORTS_KEY = "smartshield.reports.v1";
   const MUTE_KEY = "smartshield.navMute.v1";
+  const VOICE_KEY = "smartshield.navVoice.v1";
   const CAMERA_KEY = "smartshield.cameraAlerts.v1";
   const REPORTS = [
     { kind: "hazard", label: "Hazard" },
@@ -26,6 +27,7 @@
     following: false,
     bearing: 0,
     muted: false,
+    voiceGender: "female",
     route: null,
     position: null,
     roadName: "",
@@ -196,12 +198,28 @@
     return `${lead}${turn} onto ${maneuver.street}`.trim();
   }
 
+  function loadVoiceGender() {
+    try { return localStorage.getItem(VOICE_KEY) === "male" ? "male" : "female"; } catch (err) { return "female"; }
+  }
+
+  function saveVoiceGender(gender) {
+    state.voiceGender = gender === "male" ? "male" : "female";
+    try { localStorage.setItem(VOICE_KEY, state.voiceGender); } catch (err) { /* ignore */ }
+  }
+
   function speak(text) {
     if (state.muted || !text || !window.speechSynthesis) return;
     try {
       window.speechSynthesis.cancel();
       const utter = new SpeechSynthesisUtterance(text);
       utter.lang = "en-CA";
+      utter.rate = 0.95;
+      utter.pitch = 1;
+      const api = window.NavProgress;
+      const voice = api && api.pickSpokenVoice
+        ? api.pickSpokenVoice(window.speechSynthesis.getVoices(), state.voiceGender)
+        : null;
+      if (voice) utter.voice = voice;
       window.speechSynthesis.speak(utter);
     } catch (err) {
       /* Autoplay can block speech until a click. The banner still shows the turn. */
@@ -339,11 +357,10 @@
             <span>Search a destination</span>
           </button>
           <div id="nav-eta" class="nav-eta" hidden>
-            <div class="nav-eta-col"><strong id="nav-eta-title">—</strong><span>arrival</span></div>
-            <div class="nav-eta-col"><strong id="nav-eta-mins">—</strong><span>min</span></div>
-            <div class="nav-eta-col"><strong id="nav-eta-km">—</strong><span id="nav-eta-unit">km</span></div>
+            <p id="nav-eta-line" class="trip-metrics">—</p>
             <span id="nav-score" class="nav-score" hidden></span>
           </div>
+          <p id="nav-plan-metrics" class="trip-metrics" hidden></p>
           <button type="button" id="nav-exit" class="nav-exit" hidden>Exit</button>
         </section>
         <div id="nav-report-layer" class="nav-report-layer" hidden>
@@ -491,7 +508,9 @@
     if (state.navigating) {
       renderManeuver(maneuver);
       if (travelMode() === "transit" && maneuver && maneuver.street) {
-        const phrase = maneuver.kind === "walk" ? `Walk to the stop. ${maneuver.street}` : maneuver.street;
+        const phrase = maneuver.kind === "walk"
+          ? (maneuver.street && maneuver.street !== "the stop" ? `Walk to the stop, ${maneuver.street}.` : "Walk to the stop.")
+          : maneuver.street;
         const legKey = phrase.split(" · ")[0];
         if (legKey && legKey !== state.spokenTransit && !state.muted) {
           state.spokenTransit = legKey;
@@ -519,6 +538,8 @@
       where.hidden = true;
       eta.hidden = true;
       exit.hidden = true;
+      const planLine = document.getElementById("nav-plan-metrics");
+      if (planLine) planLine.hidden = !planLine.textContent || planLine.textContent === "—";
       paintRouteProgress(line);
       document.dispatchEvent(new CustomEvent("smartshield:nav-frame", { detail: { navigating: false } }));
       paintFeatures();
@@ -527,13 +548,15 @@
     where.hidden = true;
     eta.hidden = false;
     exit.hidden = false;
-    document.getElementById("nav-eta-title").textContent = clock;
-    const mins = document.getElementById("nav-eta-mins");
-    const km = document.getElementById("nav-eta-km");
-    if (mins) mins.textContent = minuteValue;
-    if (km) km.textContent = distanceValue;
-    const unit = document.getElementById("nav-eta-unit");
-    if (unit) unit.textContent = distanceUnit;
+    const planLine = document.getElementById("nav-plan-metrics");
+    if (planLine) planLine.hidden = true;
+    const etaLine = document.getElementById("nav-eta-line");
+    const api = window.NavProgress;
+    if (etaLine) {
+      etaLine.textContent = api && api.tripMetricLine
+        ? api.tripMetricLine(clock, minuteValue, distanceValue, distanceUnit)
+        : `${clock}   ${minuteValue} min   ${distanceValue} ${distanceUnit}`;
+    }
     const road = document.getElementById("nav-road");
     const roadName = (guide.road && guide.road !== "Unnamed road" ? guide.road : "") || state.roadName || "";
     if (road) {
@@ -965,6 +988,13 @@
 
   function bind() {
     state.muted = loadMuted();
+    state.voiceGender = loadVoiceGender();
+    if (window.speechSynthesis) {
+      window.speechSynthesis.getVoices();
+      window.speechSynthesis.addEventListener("voiceschanged", () => {
+        window.speechSynthesis.getVoices();
+      });
+    }
     const mute = document.getElementById("nav-mute");
     mute.setAttribute("aria-pressed", state.muted ? "true" : "false");
     mute.setAttribute("aria-label", state.muted ? "Unmute voice" : "Mute voice");
@@ -1016,6 +1046,20 @@
         if (state.muted && window.speechSynthesis) window.speechSynthesis.cancel();
       });
     }
+    const femaleVoice = document.getElementById("nav-voice-female");
+    const maleVoice = document.getElementById("nav-voice-male");
+    function paintVoiceGender() {
+      if (femaleVoice) femaleVoice.checked = state.voiceGender !== "male";
+      if (maleVoice) maleVoice.checked = state.voiceGender === "male";
+    }
+    paintVoiceGender();
+    [femaleVoice, maleVoice].forEach((input) => {
+      if (!input) return;
+      input.addEventListener("change", () => {
+        if (!input.checked) return;
+        saveVoiceGender(input.value === "male" ? "male" : "female");
+      });
+    });
     document.getElementById("nav-search").addEventListener("click", () => {
       openTools("directions");
       const input = document.getElementById("map-search-input") || document.getElementById("destination");

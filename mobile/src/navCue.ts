@@ -227,18 +227,31 @@ function metresWords(metres: number): string {
   return `${metres} metres`;
 }
 
+function sentence(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed) return trimmed;
+  return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
+}
+
 function cuePhrase(maneuver: Maneuver, cue: { id: string; metres: number }): string {
   const street = maneuver.street && maneuver.street !== "Unnamed road" ? maneuver.street : "";
+  const onto = street ? ` onto ${street}` : "";
+  const at = street ? ` at ${street}` : "";
+  if (maneuver.kind === "walk") {
+    const place = street || "the stop";
+    if (cue.id === "now") return sentence(`Walk to ${place}`);
+    return sentence(`In ${metresWords(cue.metres)}, walk to ${place}`);
+  }
   if (cue.id === "now") {
-    if (maneuver.kind === "arrive") return street ? `You are arriving at ${street}` : "You are arriving";
-    if (maneuver.kind === "exit") return "Take the exit now";
+    if (maneuver.kind === "arrive") return sentence(street ? `You are arriving at ${street}` : "You are arriving");
+    if (maneuver.kind === "exit") return sentence(street ? `Take the exit onto ${street}` : "Take the exit");
     const spokenVerb = verbFor(maneuver.kind);
-    return `${spokenVerb.charAt(0).toUpperCase()}${spokenVerb.slice(1)} now`;
+    return sentence(`${spokenVerb.charAt(0).toUpperCase()}${spokenVerb.slice(1)}${onto}`);
   }
   const lead = `In ${metresWords(cue.metres)}, `;
-  if (maneuver.kind === "arrive") return `${lead}you will arrive${street ? ` at ${street}` : ""}`;
-  if (maneuver.kind === "exit") return `${lead}take the exit${street ? ` onto ${street}` : ""}`;
-  return `${lead}${verbFor(maneuver.kind)}${street ? ` onto ${street}` : ""}`;
+  if (maneuver.kind === "arrive") return sentence(`${lead}you will arrive${at}`);
+  if (maneuver.kind === "exit") return sentence(`${lead}take the exit${onto}`);
+  return sentence(`${lead}${verbFor(maneuver.kind)}${onto}`);
 }
 
 /** One announcement per maneuver threshold. Spoken flags block GPS jitter. */

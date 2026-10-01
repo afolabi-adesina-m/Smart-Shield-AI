@@ -6,6 +6,7 @@ import type { LaneHint, Maneuver, ManeuverKind } from "./navCue";
 import { REPORT_LABELS, type ReportKind } from "./reports";
 import type { WarningLevel } from "./fleetLogic";
 import { Glass } from "./glass";
+import { TripMetrics } from "./TripMetrics";
 
 export type ToolId = "trip" | "fleet" | "practice" | "delivery" | "settings";
 
@@ -148,18 +149,13 @@ export function NavChrome(props: Props) {
       ) : null}
       {props.showExit && driving ? (
         <Glass night={props.night} style={[styles.etaPill, { bottom: Math.max(12, insets.bottom + 8) }]} testID="eta-card">
-          <View style={styles.etaCol}>
-            <Text style={[styles.etaStrong, { color: ink }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.55}>{props.arrival || "—"}</Text>
-            <Text style={styles.etaHint} numberOfLines={1}>arrival</Text>
-          </View>
-          <View style={styles.etaCol}>
-            <Text style={[styles.etaStrong, { color: ink }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.55}>{props.minutesLabel || "—"}</Text>
-            <Text style={styles.etaHint} numberOfLines={1}>min</Text>
-          </View>
-          <View style={styles.etaCol}>
-            <Text style={[styles.etaStrong, { color: ink }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.55}>{props.distanceLabel || "—"}</Text>
-            <Text style={styles.etaHint} numberOfLines={1}>{props.distanceUnit || "km"}</Text>
-          </View>
+          <TripMetrics
+            arrival={props.arrival}
+            minutes={props.minutesLabel}
+            distance={props.distanceLabel}
+            unit={props.distanceUnit}
+            color={ink}
+          />
           {vehicle && props.risk ? <Text style={styles.riskChip} numberOfLines={1}>Risk {props.risk}</Text> : null}
           {!vehicle && driving ? <Text style={styles.riskChip} numberOfLines={1}>Driving only</Text> : null}
           <Pressable style={styles.exitQuiet} testID="exit-nav" onPress={props.onExit}>
@@ -769,9 +765,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 6,
   },
-  etaCol: { flex: 1, minWidth: 0, alignItems: "flex-start", justifyContent: "center" },
-  etaStrong: { color: "#fff", fontSize: 20, fontWeight: "800", lineHeight: 24, width: "100%" },
-  etaHint: { color: "#c5ced8", fontSize: 12, fontWeight: "600", lineHeight: 16, marginTop: 1 },
   exitQuiet: {
     flexGrow: 0,
     flexShrink: 0,

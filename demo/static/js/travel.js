@@ -60,8 +60,8 @@
         button.className = "travel-mode";
         button.dataset.mode = item.id;
         button.setAttribute("aria-pressed", item.id === mode ? "true" : "false");
-        button.innerHTML = `<span class="travel-mode-icon" aria-hidden="true">${item.icon}</span><span class="travel-mode-label"></span><span class="travel-mode-eta"></span><span class="travel-mode-dist"></span>`;
-        button.querySelector(".travel-mode-label").textContent = item.label;
+        button.innerHTML = `<span class="travel-mode-icon" aria-hidden="true">${item.icon}</span><span class="travel-mode-eta"></span>`;
+        button.setAttribute("aria-label", item.label);
         button.addEventListener("click", () => choose(item.id));
         host.appendChild(button);
       });
@@ -97,15 +97,19 @@
       button.classList.toggle("is-on", on);
       button.setAttribute("aria-pressed", on ? "true" : "false");
       const eta = button.querySelector(".travel-mode-eta");
-      const dist = button.querySelector(".travel-mode-dist");
       const item = summaries[id];
+      const label = (MODES.find((mode) => mode.id === id) || {}).label || id;
       if (!item || item.duration == null) {
         if (eta) eta.textContent = item && item.failed ? "Unavailable" : "";
-        if (dist) dist.textContent = "";
+        button.setAttribute("aria-label", item && item.failed ? `${label}, Unavailable` : label);
         return;
       }
-      if (eta) eta.textContent = durationText(item.duration);
-      if (dist) dist.textContent = item.via === "car" ? "car route" : (item.distance == null ? "" : distanceText(item.distance));
+      const time = durationText(item.duration).replace(/ /g, "\u00a0");
+      const distance = item.distance == null ? "" : distanceText(item.distance).replace(/ /g, "\u00a0");
+      const line = distance ? `${time} · ${distance}` : time;
+      if (eta) eta.textContent = line;
+      const via = item.via === "car" ? ", car route" : "";
+      button.setAttribute("aria-label", `${label}, ${line.replace(/\u00a0/g, " ")}${via}`);
     });
   }
 

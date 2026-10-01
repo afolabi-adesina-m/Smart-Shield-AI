@@ -4,6 +4,8 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Glass } from "./glass";
 import { FleetPanel } from "./FleetPanel";
+import { TripMetrics } from "./TripMetrics";
+import type { VoiceGender } from "./voice";
 import type { ModeSummary, Place, PracticeLoop, RoadStep, ScoredRoute, SpeedReading, Suggestion, TestCentre, TransitItinerary, TravelMode } from "./types";
 import { legTitle, walkCaption, walkNotes } from "./navCue";
 
@@ -33,6 +35,8 @@ type Props = {
   topInset: number;
   muted: boolean;
   onMute: () => void;
+  voiceGender: VoiceGender;
+  onVoiceGender: (gender: VoiceGender) => void;
   onTab: (tab: SheetTab) => void;
   delivery: ReactNode;
   origin: Place;
@@ -117,6 +121,24 @@ export function FeatureSheet(props: Props) {
               <Pressable onPress={props.onMute}>
                 <Text style={styles.link}>{props.muted ? "Unmute voice" : "Mute voice"}</Text>
               </Pressable>
+              <Text style={[styles.kicker, ink]}>Voice</Text>
+              <View style={styles.chips}>
+                {(["female", "male"] as const).map((id) => (
+                  <Pressable
+                    key={id}
+                    testID={`voice-${id}`}
+                    accessibilityRole="button"
+                    accessibilityLabel={id === "female" ? "Female voice" : "Male voice"}
+                    accessibilityState={{ selected: props.voiceGender === id }}
+                    style={[styles.chip, props.voiceGender === id && styles.chipOn]}
+                    onPress={() => props.onVoiceGender(id)}
+                  >
+                    <Text style={[styles.chipText, props.voiceGender === id && styles.chipTextOn]}>
+                      {id === "female" ? "Female" : "Male"}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
               <CameraToggle {...props} />
               <Pressable testID="developer-toggle" onPress={() => setDeveloper((value) => !value)}>
                 <Text style={[styles.kicker, ink]}>{developer ? "Developer ▾" : "Developer ▸"}</Text>
@@ -258,6 +280,7 @@ export function SearchCard(props: {
   summaries: Record<string, ModeSummary>;
   itineraries: TransitItinerary[];
   travelNote: string;
+  plan?: { arrival: string; minutes: string; distance: string; unit: string } | null;
 }) {
   const insets = useSafeAreaInsets();
   const windowH = useWindowDimensions().height;
@@ -305,6 +328,15 @@ export function SearchCard(props: {
         <Text style={[styles.searchPlaceholder, { color: hint }]} numberOfLines={1}>Where to?</Text>
       </Pressable>
       <ModeChips mode={props.travelMode} summaries={props.summaries} night={props.night} onSelect={props.onTravelMode} />
+      {props.plan ? (
+        <TripMetrics
+          arrival={props.plan.arrival}
+          minutes={props.plan.minutes}
+          distance={props.plan.distance}
+          unit={props.plan.unit}
+          color={ink}
+        />
+      ) : null}
       {open ? (
         <ScrollView
           keyboardShouldPersistTaps="handled"
@@ -380,16 +412,27 @@ function ModeChips(props: {
       {TRAVEL.map((item) => {
         const on = item.id === props.mode;
         const summary = props.summaries[item.id];
+        const line = summaryLine(summary);
+        const spoken = summarySpoken(item.label, summary, line);
         return (
           <Pressable
             key={item.id}
             testID={`mode-${item.id}`}
+            accessibilityRole="button"
+            accessibilityLabel={spoken}
+            accessibilityState={{ selected: on }}
             style={[styles.modeChip, on && styles.modeChipOn, props.night && !on && styles.modeChipNight]}
             onPress={() => { Keyboard.dismiss(); props.onSelect(item.id); }}
           >
-            <MaterialCommunityIcons name={item.icon} size={16} color={on ? "#fff" : props.night ? "#f2f2f7" : "#1c1c1e"} />
-            <Text style={[styles.modeLabel, on && styles.modeLabelOn, props.night && !on && styles.modeLabelNight]}>{item.label}</Text>
-            <Text testID={`mode-eta-${item.id}`} style={[styles.modeEta, on && styles.modeLabelOn]}>{summaryText(summary)}</Text>
+            <MaterialCommunityIcons name={item.icon} size={22} color={on ? "#fff" : props.night ? "#f2f2f7" : "#1c1c1e"} />
+            <Text
+              testID={`mode-eta-${item.id}`}
+              numberOfLines={1}
+              allowFontScaling={false}
+              style={[styles.modeEta, on && styles.modeEtaOn, props.night && !on && styles.modeEtaNight]}
+            >
+              {line || " "}
+            </Text>
           </Pressable>
         );
       })}
@@ -397,14 +440,23 @@ function ModeChips(props: {
   );
 }
 
-function summaryText(summary?: ModeSummary): string {
+function summaryLine(summary?: ModeSummary): string {
   if (!summary || summary.durationS == null) return summary?.failed ? "Unavailable" : "";
   const minutes = Math.max(1, Math.round(summary.durationS / 60));
-  const time = minutes < 60 ? `${minutes} min` : `${Math.floor(minutes / 60)} hr ${minutes % 60 || ""}`.trim();
-  if (summary.via === "car") return `${time}\ncar route`;
+  const time = minutes < 60
+    ? `${minutes}\u00a0min`
+    : `${Math.floor(minutes / 60)}\u00a0hr${minutes % 60 ? `\u00a0${minutes % 60}` : ""}`;
   if (summary.distanceM == null) return time;
-  const distance = summary.distanceM < 950 ? `${Math.max(1, Math.round(summary.distanceM))} m` : `${(summary.distanceM / 1000).toFixed(1)} km`;
+  const distance = summary.distanceM < 950
+    ? `${Math.max(1, Math.round(summary.distanceM))}\u00a0m`
+    : `${(summary.distanceM / 1000).toFixed(1)}\u00a0km`;
   return `${time} · ${distance}`;
+}
+
+function summarySpoken(label: string, summary: ModeSummary | undefined, line: string): string {
+  const readable = line.replace(/\u00a0/g, " ");
+  const via = summary?.via === "car" ? ", car route" : "";
+  return readable ? `${label}, ${readable}${via}` : label;
 }
 
 function ItineraryCard(props: { item: TransitItinerary; onStart?: () => void }) {
@@ -561,20 +613,23 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   searchField: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 36 },
-  modeRow: { gap: 4, paddingVertical: 8 },
+  modeRow: { flexDirection: "row", alignItems: "stretch", gap: 6, paddingVertical: 8 },
   modeChip: {
-    width: 66,
-    borderRadius: 16,
-    paddingHorizontal: 6,
-    paddingVertical: 8,
+    height: 58,
+    minWidth: 76,
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 2,
     backgroundColor: "rgba(255,255,255,0.72)",
   },
   modeChipNight: { backgroundColor: "rgba(44,44,46,0.9)" },
   modeChipOn: { backgroundColor: "#1a73e8" },
-  modeLabel: { fontSize: 11, fontWeight: "700", color: "#1c1c1e", marginTop: 2, lineHeight: 13 },
-  modeLabelNight: { color: "#f2f2f7" },
-  modeLabelOn: { color: "#fff" },
-  modeEta: { fontSize: 11, color: "#526072" },
+  modeEta: { fontSize: 12, lineHeight: 16, fontWeight: "600", color: "#526072", textAlign: "center" },
+  modeEtaNight: { color: "#aeaeb2" },
+  modeEtaOn: { color: "#fff" },
   legRow: { flexDirection: "row", gap: 8, alignItems: "flex-start" },
   swatch: { width: 8, height: 8, borderRadius: 4, marginTop: 5 },
   swatchWalk: { borderWidth: 2, borderStyle: "dashed" },
