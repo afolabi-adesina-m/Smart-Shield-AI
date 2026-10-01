@@ -2,6 +2,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const REPORTS_KEY = "smartshield.reports.v1";
 const MUTE_KEY = "smartshield.navMute.v1";
+const VOICE_KEY = "smartshield.navVoice.v1";
+
+export type VoiceGender = "female" | "male";
 
 export type ReportKind = "hazard" | "police" | "crash" | "closure" | "camera";
 
@@ -52,4 +55,16 @@ export async function loadMuted(): Promise<boolean> {
 
 export async function saveMuted(muted: boolean): Promise<void> {
   await AsyncStorage.setItem(MUTE_KEY, muted ? "1" : "0");
+}
+
+export async function loadVoiceGender(): Promise<VoiceGender> {
+  try {
+    return (await AsyncStorage.getItem(VOICE_KEY)) === "male" ? "male" : "female";
+  } catch {
+    return "female";
+  }
+}
+
+export async function saveVoiceGender(gender: VoiceGender): Promise<void> {
+  await AsyncStorage.setItem(VOICE_KEY, gender === "male" ? "male" : "female");
 }

@@ -356,20 +356,42 @@ def register_api_routes(app: Flask) -> None:
         except (KeyError, ValueError):
             return jsonify({"error": "Need from_lat, from_lon, to_lat, to_lon"}), 400
 
+        mode = (request.args.get("mode") or "drive").strip().lower()
+        if mode not in ("drive", "motorcycle", "cycle", "walk", "transit"):
+            return jsonify({"error": "Unknown travel mode"}), 400
+        summary = request.args.get("summary") == "1"
+        if mode in ("cycle", "walk", "transit"):
+            from travel_modes import directions_for_mode
+            try:
+                return jsonify(directions_for_mode(
+                    mode, from_lat, from_lon, to_lat, to_lon, summary,
+                ))
+            except LookupError as exc:
+                return jsonify({"error": str(exc)}), 404
+            except Exception as exc:
+                return jsonify({"error": str(exc)}), 502
+
         coords = f"{from_lon},{from_lat};{to_lon},{to_lat}"
         url = f"{OSRM_URL}/{coords}"
         try:
             data = _osm_get(url, {
-                "alternatives": "true",
-                "overview": "full",
+                "alternatives": "false" if summary else "true",
+                "overview": "false" if summary else "full",
                 "geometries": "geojson",
-                "steps": "true",
+                "steps": "false" if summary else "true",
             })
             if data.get("code") != "Ok":
                 return jsonify({"error": data.get("message", "Routing failed")}), 404
 
             routes = []
             for i, route in enumerate(data.get("routes", [])[:3]):
+                if summary:
+                    routes.append({
+                        "distance": route["distance"],
+                        "duration": route["duration"],
+                        "summary": _route_label(i, route["distance"] / 1000, route["duration"] / 60),
+                    })
+                    continue
                 geom = route["geometry"]["coordinates"]
                 mid = geom[len(geom) // 2] if geom else None
                 routes.append({
@@ -384,7 +406,13 @@ def register_api_routes(app: Flask) -> None:
                     "mid_lat": mid[1] if mid else None,
                     "steps": steps_from_route(route),
                 })
-            return jsonify({"routes": routes})
+            body = {
+                "routes": routes,
+                "mode": "motorcycle" if mode == "motorcycle" else "drive",
+            }
+            if mode == "motorcycle":
+                body["note"] = "Motorcycle uses the car route. Motorways are allowed in Ontario."
+            return jsonify(body)
         except Exception as exc:
             return jsonify({"error": str(exc)}), 502
 

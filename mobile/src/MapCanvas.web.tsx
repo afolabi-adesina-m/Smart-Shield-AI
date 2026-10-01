@@ -8,6 +8,7 @@ type Props = {
   scene: MapScene;
   onRoutePoint?: (lat: number, lon: number) => void;
   onPan?: () => void;
+  onMapPress?: () => void;
 };
 
 type Frame = {
@@ -15,7 +16,7 @@ type Frame = {
 };
 
 /** The computer preview uses OpenStreetMap in an iframe. Phones use the native map. */
-export function MapCanvas({ scene, onRoutePoint, onPan }: Props) {
+export function MapCanvas({ scene, onRoutePoint, onPan, onMapPress }: Props) {
   const frameRef = useRef<Frame | null>(null);
   const latest = useRef(scene);
   latest.current = scene;
@@ -23,6 +24,8 @@ export function MapCanvas({ scene, onRoutePoint, onPan }: Props) {
   pointRef.current = onRoutePoint;
   const panRef = useRef(onPan);
   panRef.current = onPan;
+  const pressRef = useRef(onMapPress);
+  pressRef.current = onMapPress;
 
   useEffect(() => {
     function onMessage(event: MessageEvent) {
@@ -30,6 +33,10 @@ export function MapCanvas({ scene, onRoutePoint, onPan }: Props) {
       if (!data) return;
       if (data.type === "smartshield-map-pan") {
         panRef.current?.();
+        return;
+      }
+      if (data.type === "smartshield-map-press") {
+        pressRef.current?.();
         return;
       }
       if (data.type !== "smartshield-route-press") return;

@@ -1,7 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Platform, StyleSheet, Text, View } from "react-native";
-import MapView, { Circle, Marker, Polyline, PROVIDER_DEFAULT, PROVIDER_GOOGLE } from "react-native-maps";
+import MapView, { Circle, Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
+import { WebView } from "react-native-webview";
 import { DARK_MAP_STYLE } from "./darkMapStyle";
+import { MAP_HTML } from "./mapHtml";
 import { StopSign } from "./StopSign";
 import { stopLayout } from "./stopSign";
 import type { MapScene, MapSign } from "./types";
@@ -10,19 +12,58 @@ type Props = {
   scene: MapScene;
   onRoutePoint?: (lat: number, lon: number) => void;
   onPan?: () => void;
+  onHeading?: (heading: number) => void;
+  onMapPress?: () => void;
 };
 
+/** MapKit ignores `zoom`. Altitude is the distance that keeps a street in view. */
+export function altitudeForZoom(zoom: number, latitude: number): number {
+  const spanM = 800 * Math.pow(2, 16 - zoom);
+  const fov = (30 * Math.PI) / 180;
+  const altitude = (spanM / 2) / Math.tan(fov / 2);
+  const latScale = Math.max(0.35, Math.cos((latitude * Math.PI) / 180));
+  return Math.max(120, altitude * latScale);
+}
+
+const STREET_DELTA = 0.008;
+
 /**
- * Phone map inside Expo Go. iPhone uses Apple Maps. Android uses Google Maps
- * with Expo Go's built-in development key. The browser uses MapCanvas.web.tsx.
+ * Phone map inside Expo Go. iPhone uses Apple MapKit (no API key). Android uses
+ * Google Maps with Expo Go's development key. The OpenStreetMap page in mapHtml
+ * is only used if the native map fails to mount. The browser uses MapCanvas.web.tsx.
  */
-export function MapCanvas({ scene, onRoutePoint, onPan }: Props) {
+export function MapCanvas({ scene, onRoutePoint, onPan, onHeading, onMapPress }: Props) {
+  const [nativeFailed, setNativeFailed] = useState(false);
+  if (nativeFailed) {
+    return <WebMapFallback scene={scene} onRoutePoint={onRoutePoint} onPan={onPan} onMapPress={onMapPress} />;
+  }
+  return (
+    <NativeMap
+      scene={scene}
+      onRoutePoint={onRoutePoint}
+      onPan={onPan}
+      onHeading={onHeading}
+      onMapPress={onMapPress}
+      onNativeError={() => setNativeFailed(true)}
+    />
+  );
+}
+
+function NativeMap({ scene, onRoutePoint, onPan, onHeading, onMapPress, onNativeError }: Props & { onNativeError: () => void }) {
   const mapRef = useRef<MapView>(null);
   const latest = useRef(scene);
   latest.current = scene;
   const held = useRef(false);
   const token = useRef(scene.followToken || 0);
+  const northToken = useRef(scene.northToken || 0);
+  const centered = useRef(false);
+  const [tracking, setTracking] = useState(true);
   const user = scene.user;
+  const driving = !!scene.driving;
+  const failRef = useRef(onNativeError);
+  failRef.current = onNativeError;
+  const headingRef = useRef(onHeading);
+  headingRef.current = onHeading;
 
   useEffect(() => {
     const next = latest.current;
@@ -30,9 +71,14 @@ export function MapCanvas({ scene, onRoutePoint, onPan }: Props) {
     if ((next.followToken || 0) !== token.current) {
       token.current = next.followToken || 0;
       held.current = false;
+      centered.current = false;
+      setTracking(true);
+    }
+    if ((next.northToken || 0) !== northToken.current) {
+      northToken.current = next.northToken || 0;
+      map?.animateCamera({ heading: 0, pitch: next.driving ? (next.pitch ?? 52) : 0 }, { duration: 280 });
     }
     if (!map || !next.user) return;
-    if (next.camera === "follow" && held.current) return;
     if (next.camera === "fit") {
       const points = next.routes.flatMap((route) => route.coords.map(([lat, lon]) => ({
         latitude: lat,
@@ -41,18 +87,37 @@ export function MapCanvas({ scene, onRoutePoint, onPan }: Props) {
       if (next.user) points.push({ latitude: next.user.lat, longitude: next.user.lon });
       if (points.length > 1) {
         map.fitToCoordinates(points, {
-          edgePadding: { top: 140, right: 72, bottom: 160, left: 40 },
+          edgePadding: { top: 140, right: 72, bottom: 180, left: 40 },
           animated: false,
         });
       }
       return;
     }
-    map.animateCamera({
-      center: { latitude: next.user.lat, longitude: next.user.lon },
-      heading: next.headingUp ? next.user.heading : 0,
-      pitch: 0,
-      zoom: 16,
-    }, { duration: 280 });
+    if (held.current && !next.driving) return;
+    const drivingNow = !!next.driving;
+    if (!drivingNow) {
+      if (centered.current) return;
+      centered.current = true;
+      map.animateToRegion({
+        latitude: next.user.lat,
+        longitude: next.user.lon,
+        latitudeDelta: STREET_DELTA,
+        longitudeDelta: STREET_DELTA,
+      }, 280);
+      return;
+    }
+    const zoom = next.zoom ?? 17;
+    try {
+      map.animateCamera({
+        center: { latitude: next.user.lat, longitude: next.user.lon },
+        heading: next.headingUp ? next.user.heading : 0,
+        pitch: next.pitch ?? 52,
+        zoom,
+        altitude: altitudeForZoom(zoom, next.user.lat),
+      }, { duration: 700 });
+    } catch {
+      failRef.current();
+    }
   }, [scene]);
 
   return (
@@ -60,25 +125,45 @@ export function MapCanvas({ scene, onRoutePoint, onPan }: Props) {
       <MapView
         ref={mapRef}
         style={styles.map}
-        provider={Platform.OS === "android" ? PROVIDER_GOOGLE : PROVIDER_DEFAULT}
+        provider={Platform.OS === "android" ? PROVIDER_GOOGLE : undefined}
         userInterfaceStyle={scene.night ? "dark" : "light"}
         customMapStyle={Platform.OS === "android" ? (scene.night ? DARK_MAP_STYLE : []) : undefined}
-        showsUserLocation
-        followsUserLocation={scene.camera === "follow" && !scene.headingUp}
+        mapType={scene.mapType || "standard"}
+        showsUserLocation={!driving}
+        followsUserLocation={!driving && tracking}
         showsCompass={false}
+        showsBuildings
+        showsPointsOfInterests
         toolbarEnabled={false}
         rotateEnabled
-        pitchEnabled={false}
+        pitchEnabled
+        onMapReady={() => {
+          const here = latest.current.user;
+          if (!here || latest.current.driving) return;
+          mapRef.current?.animateToRegion({
+            latitude: here.lat,
+            longitude: here.lon,
+            latitudeDelta: STREET_DELTA,
+            longitudeDelta: STREET_DELTA,
+          }, 0);
+        }}
+        onPress={() => onMapPress?.()}
         onPanDrag={() => {
           held.current = true;
+          setTracking(false);
           onPan?.();
         }}
-        mapPadding={{ top: 108, right: 64, bottom: 120, left: 12 }}
+        onRegionChangeComplete={() => {
+          mapRef.current?.getCamera().then((camera) => {
+            if (camera && typeof camera.heading === "number") headingRef.current?.(camera.heading);
+          }).catch(() => undefined);
+        }}
+        mapPadding={{ top: 108, right: 64, bottom: 140, left: 12 }}
         initialRegion={{
           latitude: user?.lat ?? 43.6532,
           longitude: user?.lon ?? -79.3832,
-          latitudeDelta: 0.02,
-          longitudeDelta: 0.02,
+          latitudeDelta: STREET_DELTA,
+          longitudeDelta: STREET_DELTA,
         }}
       >
         {scene.heat.map((spot, index) => (
@@ -92,20 +177,37 @@ export function MapCanvas({ scene, onRoutePoint, onPan }: Props) {
             strokeColor="transparent"
           />
         ))}
-        {scene.routes.map((route, index) => (
-          <Polyline
-            key={`route-${index}`}
-            coordinates={route.coords.map(([lat, lon]) => ({ latitude: lat, longitude: lon }))}
-            strokeColor={route.active ? "#ffffff" : route.color}
-            strokeWidth={route.active ? 12 : 5}
-          />
-        ))}
+        {scene.routes.map((route, index) => {
+          if (route.dashed) return null;
+          const coords = route.coords.map(([lat, lon]) => ({ latitude: lat, longitude: lon }));
+          const traveled = !route.active && route.color === "#9bb0c9";
+          if (!route.active) {
+            return (
+              <Polyline
+                key={`route-${index}`}
+                coordinates={coords}
+                strokeColor={route.color}
+                strokeWidth={traveled ? 8 : 5}
+              />
+            );
+          }
+          return (
+            <Polyline
+              key={`route-case-${index}`}
+              coordinates={coords}
+              strokeColor="#123a66"
+              strokeWidth={14}
+            />
+          );
+        })}
         {scene.routes.map((route, index) => route.active ? (
           <Polyline
             key={`route-core-${index}`}
             coordinates={route.coords.map(([lat, lon]) => ({ latitude: lat, longitude: lon }))}
             strokeColor={route.color || "#4da3ff"}
-            strokeWidth={7}
+            strokeWidth={route.dashed ? 5 : 8}
+            lineCap={route.dashed ? "round" : "butt"}
+            lineDashPattern={route.dashed ? [2, 10] : undefined}
           />
         ) : null)}
         {scene.routes.map((route, index) => route.active ? (
@@ -157,19 +259,21 @@ export function MapCanvas({ scene, onRoutePoint, onPan }: Props) {
               anchor={{ x: stop ? stop.anchorX : 0.5, y: stop ? stop.anchorY : 0.5 }}
               tracksViewChanges={stop != null}
             >
-              <SignView sign={sign} />
+              <View style={styles.signScale}>
+                <SignView sign={sign} />
+              </View>
             </Marker>
           );
         })}
-        {user ? (
+        {driving && user ? (
           <Marker
             coordinate={{ latitude: user.lat, longitude: user.lon }}
             anchor={{ x: 0.5, y: 0.5 }}
-            flat={false}
+            flat
             rotation={scene.headingUp ? 0 : user.heading}
             zIndex={8}
           >
-            <Puck />
+            <Puck mode={scene.travelMode} />
           </Marker>
         ) : null}
       </MapView>
@@ -182,11 +286,51 @@ export function MapCanvas({ scene, onRoutePoint, onPan }: Props) {
   );
 }
 
-function Puck() {
+function WebMapFallback({ scene, onRoutePoint, onPan, onMapPress }: Props) {
+  const webRef = useRef<WebView>(null);
+  const latest = useRef(scene);
+  latest.current = scene;
+
+  function push(next: MapScene) {
+    const payload = JSON.stringify(next).replace(/</g, "\\u003c");
+    webRef.current?.injectJavaScript(`window.applyScene && window.applyScene(${payload}); true;`);
+  }
+
+  useEffect(() => {
+    push(scene);
+  }, [scene]);
+
+  return (
+    <View style={styles.wrap}>
+      <WebView
+        ref={webRef}
+        originWhitelist={["*"]}
+        source={{ html: MAP_HTML }}
+        onLoadEnd={() => push(latest.current)}
+        onMessage={(event) => {
+          try {
+            const data = JSON.parse(event.nativeEvent.data) as { type?: string; lat?: number; lon?: number };
+            if (data.type === "smartshield-map-pan") onPan?.();
+            if (data.type === "smartshield-map-press") onMapPress?.();
+            if (data.type === "smartshield-route-press" && data.lat != null && data.lon != null) {
+              onRoutePoint?.(data.lat, data.lon);
+            }
+          } catch {
+            /* Ignore a frame that is not a map event. */
+          }
+        }}
+      />
+    </View>
+  );
+}
+
+function Puck({ mode }: { mode?: string }) {
+  if (mode === "walk" || mode === "cycle") {
+    return <View style={[styles.person, mode === "cycle" && styles.cyclePuck]} />;
+  }
   return (
     <View style={styles.puck}>
       <View style={styles.arrow} />
-      <View style={styles.dot} />
     </View>
   );
 }
@@ -230,26 +374,27 @@ function SignView({ sign }: { sign: MapSign }) {
 const styles = StyleSheet.create({
   wrap: { flex: 1 },
   map: { flex: 1 },
-  puck: { width: 36, height: 36, alignItems: "center" },
-  arrow: {
-    width: 0,
-    height: 0,
-    borderLeftWidth: 8,
-    borderRightWidth: 8,
-    borderBottomWidth: 14,
-    borderLeftColor: "transparent",
-    borderRightColor: "transparent",
-    borderBottomColor: "#1a73e8",
-  },
-  dot: {
+  puck: { width: 28, height: 28, alignItems: "center", justifyContent: "flex-start" },
+  person: {
     width: 18,
     height: 18,
     borderRadius: 9,
     backgroundColor: "#1a73e8",
     borderWidth: 3,
     borderColor: "#fff",
-    marginTop: -4,
   },
+  cyclePuck: { borderRadius: 4, backgroundColor: "#188038" },
+  arrow: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 10,
+    borderRightWidth: 10,
+    borderBottomWidth: 22,
+    borderLeftColor: "transparent",
+    borderRightColor: "transparent",
+    borderBottomColor: "#1a73e8",
+  },
+  signScale: { transform: [{ scale: 0.72 }] },
   subtleDot: {
     width: 8,
     height: 8,

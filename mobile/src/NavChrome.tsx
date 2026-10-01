@@ -1,8 +1,14 @@
 import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import type { Maneuver, ManeuverKind } from "./navCue";
+import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import type { LaneHint, Maneuver, ManeuverKind } from "./navCue";
 import { REPORT_LABELS, type ReportKind } from "./reports";
 import type { WarningLevel } from "./fleetLogic";
+import { Glass } from "./glass";
+import { TripMetrics } from "./TripMetrics";
+
+export type ToolId = "trip" | "fleet" | "practice" | "delivery" | "settings";
 
 type Props = {
   maneuver: Maneuver | null;
@@ -19,12 +25,15 @@ type Props = {
   reportOpen: boolean;
   reportNote: string;
   onCompass: () => void;
-  onSearch: () => void;
   onMute: () => void;
-  onRoutes: () => void;
-  onDelivery: () => void;
-  estimateNote: string;
   onReport: () => void;
+  onGear: () => void;
+  menuOpen: boolean;
+  onMenu: (id: ToolId) => void;
+  onLocate: () => void;
+  onLayers: () => void;
+  onNorth: () => void;
+  mapRotated: boolean;
   onCloseReport: () => void;
   onSaveReport: (kind: ReportKind) => void;
   onExit: () => void;
@@ -34,86 +43,136 @@ type Props = {
   risk?: string;
   showRecenter?: boolean;
   onRecenter?: () => void;
+  driving?: boolean;
+  travelMode?: "drive" | "motorcycle" | "cycle" | "walk" | "transit";
+  arrival?: string;
+  minutesLabel?: string;
+  distanceLabel?: string;
+  distanceUnit?: string;
+  roadName?: string;
 };
 
+// Expo Go draws its own dev button in the top-right, over the status bar.
+// Start our column a full tap target plus a gap below the safe area so both can be pressed.
+const EXPO_CORNER_CLEARANCE = 72;
+
+const TOOLS: { id: ToolId; label: string }[] = [
+  { id: "trip", label: "Trip" },
+  { id: "fleet", label: "Fleet" },
+  { id: "practice", label: "Practice" },
+  { id: "delivery", label: "Delivery" },
+  { id: "settings", label: "Settings" },
+];
+
 export function NavChrome(props: Props) {
-  const ink = props.night ? "#ffffff" : "#16191f";
-  const tileTone = props.level === "red" ? styles.tileRed : props.level === "amber" ? styles.tileAmber : props.night ? styles.tileOk : styles.tileDay;
+  const insets = useSafeAreaInsets();
+  const ink = props.night ? "#f2f2f7" : "#1c1c1e";
   const speedLabel = `speed ${props.current ?? "none"} posted ${props.posted ?? "none"} safe ${props.safe ?? "none"} ${props.level}`;
-  const numDark = props.level === "amber" || (!props.night && props.level !== "red");
+  const driving = !!props.driving;
+  const vehicle = props.travelMode == null || props.travelMode === "drive" || props.travelMode === "motorcycle";
+  const speedText = props.current == null ? "—" : String(Math.round(props.current));
   return (
     <View style={styles.overlay} pointerEvents="box-none">
-      {props.maneuver ? <Banner maneuver={props.maneuver} thenManeuver={props.thenManeuver} night={props.night} /> : null}
+      {props.maneuver ? (
+        <View style={{ top: insets.top + 8, position: "absolute", left: 12, right: 72 }}>
+          <Banner maneuver={props.maneuver} thenManeuver={props.thenManeuver} night={props.night} />
+        </View>
+      ) : null}
       {props.cameraNote ? (
-        <View style={styles.cameraNote} pointerEvents="none">
+        <View style={[styles.cameraNote, { top: insets.top + 8 }]} pointerEvents="none">
           <Text style={styles.cameraNoteText}>{props.cameraNote}</Text>
         </View>
       ) : null}
-      {props.estimateNote ? (
-        <View style={[styles.estimate, props.maneuver ? styles.estimateBelow : null, !props.night && styles.estimateDay]} testID="delivery-map-label">
-          <Text style={[styles.estimateText, !props.night && styles.ink]}>{props.estimateNote}</Text>
+      <View style={[styles.side, { top: Math.max(insets.top, 20) + EXPO_CORNER_CLEARANCE }]} pointerEvents="box-none">
+        <Glass night={props.night} style={styles.controlGroup}>
+          {driving ? null : (
+            <Pressable accessibilityLabel="Trip tools" testID="tool-gear" onPress={props.onGear} style={styles.iconButton}>
+              <Ionicons name="settings-sharp" size={22} color="#0a84ff" />
+            </Pressable>
+          )}
+          <Pressable
+            accessibilityLabel={props.muted ? "Unmute voice" : "Mute voice"}
+            accessibilityState={{ selected: props.muted }}
+            testID="mute-voice"
+            onPress={props.onMute}
+            style={styles.iconButton}
+          >
+            <SpeakerIcon muted={props.muted} color={ink} />
+          </Pressable>
+          <IconButton label="Locate" name="locate" color="#0a84ff" onPress={props.onLocate} />
+          {props.mapRotated ? (
+            <IconButton label="Compass" name="compass" color={ink} onPress={props.onNorth} />
+          ) : null}
+          <IconButton label="Map layers" name="layers" color={ink} onPress={props.onLayers} />
+          {driving ? <IconButton label="Report" name="warning" color="#f5c542" onPress={props.onReport} /> : null}
+        </Glass>
+        {props.menuOpen ? (
+          <Glass night={props.night} style={styles.menu}>
+            <View testID="tool-menu">
+              {TOOLS.map((item) => (
+                <Pressable key={item.id} testID={`tool-${item.id}`} style={styles.menuRow} onPress={() => props.onMenu(item.id)}>
+                  <Text style={[styles.menuText, { color: ink }]}>{item.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </Glass>
+        ) : null}
+      </View>
+      {driving ? null : (
+        <Pressable
+          accessibilityLabel="Report"
+          onPress={props.onReport}
+          style={[styles.reportFloat, { bottom: Math.max(insets.bottom, 8) + 78, right: 12 }]}
+        >
+          <Glass night={props.night} style={styles.report}>
+            <Ionicons name="warning" size={16} color="#f5c542" />
+            <Text style={[styles.reportText, { color: ink }]}>Report</Text>
+          </Glass>
+        </Pressable>
+      )}
+      {vehicle ? <View style={[styles.speedRow, { bottom: Math.max(insets.bottom, 8) + (driving ? 78 : 86) }]} pointerEvents="none">
+        <View style={styles.maxSign} testID="limit-sign">
+          <Text style={styles.maxWord} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>MAX</Text>
+          <Text style={styles.maxNum} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>{props.posted == null ? "—" : String(props.posted)}</Text>
+        </View>
+        <View style={[styles.speedTile, props.night && styles.speedTileNight]} testID="speed-tile" accessibilityLabel={speedLabel}>
+          <Text style={[styles.speedNum, props.night && styles.speedNumNight, props.level === "red" && styles.speedHot, props.level === "amber" && styles.speedWarm]} numberOfLines={1}>
+            {speedText}
+          </Text>
+          <Text style={[styles.speedUnit, props.night && styles.speedNumNight, props.level === "red" && styles.speedHot, props.level === "amber" && styles.speedWarm]}>km/h</Text>
+        </View>
+      </View> : null}
+      {driving && props.roadName ? (
+        <View style={styles.roadPill} pointerEvents="none">
+          <Text style={styles.roadPillText} numberOfLines={1}>{props.roadName}</Text>
         </View>
       ) : null}
-      <View style={styles.side} pointerEvents="box-none">
-        <View style={styles.sideStack}>
-          <RoundButton label="Compass" night={props.night} onPress={props.onCompass}>
-            <View style={{ transform: [{ rotate: `${-props.heading}deg` }] }}>
-              <NorthNeedle south={ink} />
-            </View>
-          </RoundButton>
-          {props.showRecenter ? (
-            <RoundButton label="Recenter" night={props.night} onPress={props.onRecenter || props.onCompass}>
-              <Text style={[styles.recenterMark, { color: ink }]}>◎</Text>
-            </RoundButton>
-          ) : null}
-          <RoundButton label="Search" night={props.night} onPress={props.onSearch}>
-            <SearchIcon color={ink} />
-          </RoundButton>
-          <RoundButton label={props.muted ? "Unmute voice" : "Mute voice"} night={props.night} onPress={props.onMute}>
-            <SpeakerIcon muted={props.muted} color={ink} />
-          </RoundButton>
-          <RoundButton label="Route options" night={props.night} onPress={props.onRoutes}>
-            <ForkIcon color={ink} />
-          </RoundButton>
-          <RoundButton label="Delivery" night={props.night} onPress={props.onDelivery}>
-            <BagIcon color={ink} />
-          </RoundButton>
-        </View>
-        <Pressable style={[styles.report, !props.night && styles.reportDay]} accessibilityLabel="Report" onPress={props.onReport}>
-          <WarningIcon />
-          <Text style={[styles.reportText, !props.night && styles.reportTextDay]}>Report</Text>
-        </Pressable>
-      </View>
-      <View style={styles.speedRow} pointerEvents="none">
-        <View style={styles.sign} testID="limit-sign">
-          <Text style={styles.signNum}>{props.posted == null ? "—" : String(props.posted)}</Text>
-        </View>
-        <View style={[styles.tile, tileTone]} testID="speed-tile" accessibilityLabel={speedLabel}>
-          <Text style={[styles.tileNum, numDark && styles.tileNumDark]}>
-            {props.current == null ? "—" : String(props.current)}
-          </Text>
-          <Text style={[styles.tileUnit, numDark && styles.tileNumDark]}>km/h</Text>
-        </View>
-      </View>
-      {props.showExit ? (
-        <View style={[styles.card, !props.night && styles.cardDay]} testID="eta-card">
+      {props.showExit && driving ? (
+        <Glass night={props.night} style={[styles.etaPill, { bottom: Math.max(12, insets.bottom + 8) }]} testID="eta-card">
+          <TripMetrics
+            arrival={props.arrival}
+            minutes={props.minutesLabel}
+            distance={props.distanceLabel}
+            unit={props.distanceUnit}
+            color={ink}
+          />
+          {vehicle && props.risk ? <Text style={styles.riskChip} numberOfLines={1}>Risk {props.risk}</Text> : null}
+          {!vehicle && driving ? <Text style={styles.riskChip} numberOfLines={1}>Driving only</Text> : null}
+          <Pressable style={styles.exitQuiet} testID="exit-nav" onPress={props.onExit}>
+            <Text style={[styles.exitQuietText, { color: ink }]} numberOfLines={1}>Exit</Text>
+          </Pressable>
+        </Glass>
+      ) : props.showExit ? (
+        <Glass night={props.night} style={[styles.card, { bottom: Math.max(12, insets.bottom + 8) }]} testID="eta-card">
           <View style={styles.cardText}>
-            <Text style={[styles.cardTitle, !props.night && styles.ink]}>{props.etaTitle}</Text>
-            <Text style={[styles.cardSub, !props.night && styles.subDay]}>{props.etaSubtitle}</Text>
-            {props.risk ? <Text style={[styles.riskChip, !props.night && styles.riskChipDay]}>Risk {props.risk}</Text> : null}
+            <Text style={[styles.cardTitle, { color: ink }]}>{props.etaTitle}</Text>
+            <Text style={styles.cardSub}>{props.etaSubtitle}</Text>
           </View>
           <Pressable style={styles.exit} testID="exit-nav" onPress={props.onExit}>
             <Text style={styles.exitText}>Exit</Text>
           </Pressable>
-        </View>
-      ) : (
-        <Pressable style={[styles.card, !props.night && styles.cardDay]} testID="where-to" onPress={props.onWhereTo}>
-          <View style={styles.cardText}>
-            <Text style={[styles.cardTitle, !props.night && styles.ink]}>Where to?</Text>
-            <Text style={[styles.cardSub, !props.night && styles.subDay]}>Search a destination</Text>
-          </View>
-        </Pressable>
-      )}
+        </Glass>
+      ) : null}
       {props.reportOpen ? (
         <View style={styles.reportLayer} pointerEvents="box-none">
           <Pressable style={styles.backdrop} onPress={props.onCloseReport} />
@@ -133,6 +192,14 @@ export function NavChrome(props: Props) {
   );
 }
 
+function IconButton(props: { name: keyof typeof Ionicons.glyphMap; label: string; color: string; onPress: () => void }) {
+  return (
+    <Pressable accessibilityLabel={props.label} onPress={props.onPress} style={styles.iconButton}>
+      <Ionicons name={props.name} size={22} color={props.color} />
+    </Pressable>
+  );
+}
+
 function BagIcon({ color }: { color: string }) {
   return (
     <View style={styles.bag}>
@@ -143,12 +210,13 @@ function BagIcon({ color }: { color: string }) {
 }
 
 function Banner({ maneuver, thenManeuver, night }: { maneuver: Maneuver; thenManeuver?: Maneuver | null; night: boolean }) {
-  const ink = "#ffffff";
+  const ink = night ? "#ffffff" : "#1c1c1e";
   return (
-    <View style={[styles.banner, styles.bannerNav]} testID="nav-banner">
+    <Glass night={night} style={styles.banner} testID="nav-banner">
       <TurnGlyph kind={maneuver.kind} color={ink} />
       <View style={styles.bannerText}>
-        <Text style={styles.bannerDistance}>{maneuver.kind === "arrive" ? "Arrive" : maneuver.distanceM < 30 ? "Now" : distancePhrase(maneuver)}</Text>
+        <Text style={[styles.bannerDistance, { color: ink }]}>{maneuver.kind === "arrive" ? "Arrive" : maneuver.distanceM < 30 ? "Now" : distancePhrase(maneuver)}</Text>
+        {maneuver.kind === "walk" ? <Text style={[styles.bannerKicker, { color: ink }]}>Walk to the stop</Text> : null}
         <View style={styles.bannerStreetRow}>
           {maneuver.shield ? (
             <View style={styles.shield}>
@@ -157,25 +225,44 @@ function Banner({ maneuver, thenManeuver, night }: { maneuver: Maneuver; thenMan
           ) : null}
           <Text style={[styles.bannerStreet, { color: ink }]} numberOfLines={1}>{maneuver.street}</Text>
         </View>
+        <LaneRow lanes={maneuver.lanes} />
         {thenManeuver ? (
           <View style={styles.thenRow}>
-            <Text style={styles.thenLabel}>Then</Text>
-            <Text style={styles.thenArrow}>{thenArrow(thenManeuver.kind)}</Text>
-            <Text style={styles.thenText} numberOfLines={1}>{thenManeuver.street}</Text>
+            <Text style={[styles.thenLabel, { color: ink }]}>Then</Text>
+            <Text style={[styles.thenArrow, { color: ink }]}>{thenArrow(thenManeuver.kind)}</Text>
+            <Text style={[styles.thenText, { color: ink }]} numberOfLines={1}>{thenManeuver.street}</Text>
           </View>
         ) : null}
       </View>
+    </Glass>
+  );
+}
+
+function LaneRow({ lanes }: { lanes?: LaneHint[] }) {
+  const shown = (lanes || []).filter((lane) => (lane.indications || []).length);
+  if (!shown.length) return null;
+  return (
+    <View style={styles.lanes}>
+      {shown.map((lane, index) => {
+        const hint = (lane.indications || [])[0] || "straight";
+        const arrow = hint.includes("left") ? "←" : hint.includes("right") ? "→" : hint.includes("uturn") ? "↩" : "↑";
+        return (
+          <Text key={`${hint}-${index}`} style={[styles.lane, lane.valid ? styles.laneOn : styles.laneOff]}>{arrow}</Text>
+        );
+      })}
     </View>
   );
 }
 
 function thenArrow(kind: ManeuverKind): string {
-  if (kind === "left" || kind === "slight-left") return "←";
-  if (kind === "right" || kind === "slight-right" || kind === "exit") return "→";
+  if (kind === "left" || kind === "slight-left" || kind === "sharp-left") return "←";
+  if (kind === "right" || kind === "slight-right" || kind === "sharp-right" || kind === "exit") return "→";
   if (kind === "uturn") return "↩";
   if (kind === "roundabout") return "↻";
   if (kind === "merge") return "↗";
   if (kind === "arrive") return "●";
+  if (kind === "walk") return "🚶";
+  if (kind === "bus") return "🚌";
   return "↑";
 }
 
@@ -187,25 +274,65 @@ function distancePhrase(maneuver: Maneuver): string {
 }
 
 function TurnGlyph({ kind, color }: { kind: ManeuverKind; color: string }) {
+  if (kind === "arrive") return <View style={[styles.arriveDot, { backgroundColor: color }]} />;
+  if (kind === "walk") return <WalkGlyph color={color} />;
+  if (kind === "bus") return <BusGlyph color={color} />;
+  if (kind === "uturn") return <UturnGlyph color={color} />;
+  if (kind === "roundabout") return <RoundaboutGlyph color={color} />;
   const rotate = {
     straight: "0deg",
     left: "-90deg",
     right: "90deg",
-    "slight-left": "-40deg",
-    "slight-right": "40deg",
-    uturn: "180deg",
-    arrive: "0deg",
-    merge: "-20deg",
-    roundabout: "40deg",
-    exit: "28deg",
-  }[kind];
-  if (kind === "arrive") {
-    return <View style={[styles.arriveDot, { backgroundColor: color }]} />;
-  }
+    "slight-left": "-32deg",
+    "slight-right": "32deg",
+    "sharp-left": "-135deg",
+    "sharp-right": "135deg",
+    merge: "-22deg",
+    exit: "48deg",
+  }[kind] || "0deg";
   return (
     <View style={[styles.turnWrap, { transform: [{ rotate }] }]}>
-      <View style={[styles.turnStem, { backgroundColor: color }]} />
       <View style={[styles.turnHead, { borderBottomColor: color }]} />
+      <View style={[styles.turnStem, { backgroundColor: color }]} />
+    </View>
+  );
+}
+
+function WalkGlyph({ color }: { color: string }) {
+  return (
+    <View style={styles.walkGlyph}>
+      <View style={[styles.walkHead, { backgroundColor: color }]} />
+      <View style={[styles.walkBody, { backgroundColor: color }]} />
+    </View>
+  );
+}
+
+function BusGlyph({ color }: { color: string }) {
+  return (
+    <View style={[styles.busGlyph, { borderColor: color }]}>
+      <View style={[styles.busWindow, { backgroundColor: color }]} />
+      <View style={styles.busWheels}>
+        <View style={[styles.busWheel, { backgroundColor: color }]} />
+        <View style={[styles.busWheel, { backgroundColor: color }]} />
+      </View>
+    </View>
+  );
+}
+
+function UturnGlyph({ color }: { color: string }) {
+  return (
+    <View style={styles.uturnGlyph}>
+      <View style={[styles.uturnStem, { backgroundColor: color }]} />
+      <View style={[styles.uturnCap, { borderColor: color }]} />
+      <View style={[styles.uturnHead, { borderTopColor: color }]} />
+    </View>
+  );
+}
+
+function RoundaboutGlyph({ color }: { color: string }) {
+  return (
+    <View style={[styles.roundGlyph, { borderColor: color }]}>
+      <View style={[styles.roundHead, { borderBottomColor: color }]} />
     </View>
   );
 }
@@ -288,34 +415,55 @@ const styles = StyleSheet.create({
   bag: { width: 18, height: 18, alignItems: "center" },
   bagHandle: { width: 8, height: 5, borderWidth: 2, borderBottomWidth: 0, borderRadius: 4, marginBottom: 1 },
   bagBody: { width: 14, height: 11, borderWidth: 2, borderRadius: 2 },
+  controlGroup: {
+    borderRadius: 16,
+    overflow: "hidden",
+    width: 44,
+  },
+  iconButton: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  menu: {
+    width: 220,
+    borderRadius: 14,
+    overflow: "hidden",
+    marginTop: 8,
+  },
+  menuRow: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  menuText: { fontSize: 17, fontWeight: "600" },
   banner: {
-    position: "absolute",
-    top: 10,
-    left: 12,
-    right: 12,
-    backgroundColor: "#14685c",
-    borderRadius: 18,
+    borderRadius: 16,
+    overflow: "hidden",
     paddingHorizontal: 14,
     paddingVertical: 12,
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
   },
-  bannerNav: { backgroundColor: "#137a5a" },
+  bannerNav: { backgroundColor: "rgba(16,20,26,0.9)" },
   bannerDay: { backgroundColor: "#ffffff" },
   bannerDistanceDay: { color: "#3d6b62" },
   bannerText: { flex: 1, gap: 2 },
   bannerDistance: { color: "#ffffff", fontSize: 26, fontWeight: "700" },
+  bannerKicker: { fontSize: 15, fontWeight: "700" },
   thenRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 },
   thenLabel: { color: "#ffffff", fontSize: 14, fontWeight: "600", opacity: 0.9 },
   thenArrow: { color: "#ffffff", fontSize: 14, fontWeight: "700" },
   thenText: { color: "#ffffff", fontSize: 14, fontWeight: "600", flex: 1 },
   recenterMark: { fontSize: 18, fontWeight: "700" },
   riskChip: {
-    alignSelf: "flex-start",
-    marginTop: 6,
+    flexGrow: 0,
+    flexShrink: 0,
+    alignSelf: "center",
+    marginTop: 0,
     paddingHorizontal: 8,
-    paddingVertical: 2,
+    paddingVertical: 4,
     borderRadius: 999,
     overflow: "hidden",
     backgroundColor: "rgba(255,255,255,0.16)",
@@ -335,16 +483,29 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   shieldText: { color: "#142033", fontWeight: "800", fontSize: 13 },
-  turnWrap: { width: 36, height: 36, alignItems: "center" },
-  turnStem: { width: 5, height: 16, backgroundColor: "#fff", borderRadius: 2, marginTop: 12 },
+  lanes: { flexDirection: "row", gap: 4, marginTop: 6 },
+  lane: {
+    minWidth: 22,
+    height: 26,
+    borderRadius: 4,
+    overflow: "hidden",
+    textAlign: "center",
+    lineHeight: 26,
+    fontWeight: "800",
+    fontSize: 14,
+  },
+  laneOn: { backgroundColor: "#ffffff", color: "#142033" },
+  laneOff: { backgroundColor: "rgba(255,255,255,0.16)", color: "rgba(255,255,255,0.45)" },
+  turnWrap: { width: 64, height: 64, alignItems: "center", justifyContent: "center", position: "relative" },
+  turnStem: { width: 8, height: 28, backgroundColor: "#fff", borderRadius: 3, marginTop: -4 },
   turnHead: {
     position: "absolute",
-    top: 4,
+    top: 2,
     width: 0,
     height: 0,
-    borderLeftWidth: 9,
-    borderRightWidth: 9,
-    borderBottomWidth: 12,
+    borderLeftWidth: 12,
+    borderRightWidth: 12,
+    borderBottomWidth: 16,
     borderLeftColor: "transparent",
     borderRightColor: "transparent",
     borderBottomColor: "#fff",
@@ -356,19 +517,52 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     marginHorizontal: 9,
   },
+  walkGlyph: { width: 28, height: 44, alignItems: "center" },
+  walkHead: { width: 12, height: 12, borderRadius: 6 },
+  walkBody: { width: 4, height: 22, borderRadius: 2, marginTop: 3 },
+  busGlyph: { width: 32, height: 36, borderWidth: 3, borderRadius: 6, alignItems: "center", justifyContent: "space-between", paddingVertical: 4 },
+  busWindow: { width: 18, height: 8, borderRadius: 2 },
+  busWheels: { width: 24, flexDirection: "row", justifyContent: "space-between" },
+  busWheel: { width: 6, height: 6, borderRadius: 3 },
+  uturnGlyph: { width: 36, height: 44 },
+  uturnStem: { position: "absolute", left: 4, top: 8, width: 6, height: 28, borderRadius: 3 },
+  uturnCap: { position: "absolute", left: 4, top: 4, width: 22, height: 16, borderTopWidth: 6, borderRightWidth: 6, borderTopRightRadius: 12 },
+  uturnHead: {
+    position: "absolute",
+    right: 2,
+    bottom: 2,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 7,
+    borderRightWidth: 7,
+    borderTopWidth: 10,
+    borderLeftColor: "transparent",
+    borderRightColor: "transparent",
+  },
+  roundGlyph: { width: 36, height: 36, borderWidth: 6, borderRadius: 18, borderRightColor: "transparent" },
+  roundHead: {
+    position: "absolute",
+    right: -4,
+    top: 16,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 7,
+    borderRightWidth: 7,
+    borderBottomWidth: 10,
+    borderLeftColor: "transparent",
+    borderRightColor: "transparent",
+  },
   side: {
     position: "absolute",
-    top: 108,
     right: 12,
-    bottom: 118,
     alignItems: "flex-end",
-    justifyContent: "space-between",
+    gap: 10,
   },
   sideStack: { gap: 12 },
   round: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     backgroundColor: "rgba(28,31,36,0.94)",
     alignItems: "center",
     justifyContent: "center",
@@ -414,7 +608,7 @@ const styles = StyleSheet.create({
     bottom: 3,
     transform: [{ rotate: "45deg" }],
   },
-  speaker: { width: 22, height: 18, justifyContent: "center" },
+  speaker: { width: 22, height: 18, justifyContent: "center", position: "relative" },
   speakerBody: { width: 6, height: 8, backgroundColor: "#fff", marginLeft: 2 },
   speakerCone: {
     position: "absolute",
@@ -468,16 +662,16 @@ const styles = StyleSheet.create({
     left: 4,
     transform: [{ rotate: "35deg" }],
   },
+  reportFloat: { position: "absolute" },
   report: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    backgroundColor: "rgba(28,31,36,0.94)",
-    borderRadius: 22,
+    borderRadius: 16,
+    overflow: "hidden",
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    paddingVertical: 8,
+    marginTop: 8,
   },
   warnTri: {
     width: 0,
@@ -500,6 +694,89 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
+  maxSign: {
+    width: 42,
+    height: 46,
+    borderRadius: 8,
+    backgroundColor: "#fff",
+    borderWidth: 2,
+    borderColor: "#111",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 2,
+  },
+  maxWord: { color: "#111", fontSize: 8, fontWeight: "800", letterSpacing: 0.3, width: "100%", textAlign: "center" },
+  maxNum: { color: "#111", fontSize: 16, fontWeight: "800", lineHeight: 18, width: "100%", textAlign: "center" },
+  speedTile: {
+    width: 46,
+    height: 46,
+    borderRadius: 12,
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "rgba(22,25,31,0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  speedTileNight: { backgroundColor: "#1c2128", borderColor: "rgba(255,255,255,0.12)" },
+  speedNum: { color: "#16191f", fontSize: 16, fontWeight: "800", lineHeight: 18 },
+  speedUnit: { color: "#636366", fontSize: 9, fontWeight: "700" },
+  speedNumNight: { color: "#f4f7fb" },
+  speedHot: { color: "#d93025" },
+  speedWarm: { color: "#c47b00" },
+  roadPill: {
+    position: "absolute",
+    left: 72,
+    right: 72,
+    bottom: 78,
+    alignItems: "center",
+  },
+  roadPillText: {
+    backgroundColor: "rgba(16,20,26,0.78)",
+    color: "#fff",
+    overflow: "hidden",
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    fontSize: 13,
+    fontWeight: "700",
+    maxWidth: "100%",
+  },
+  overSpeed: {
+    minWidth: 48,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    alignItems: "center",
+  },
+  overNum: { color: "#fff", fontSize: 16, fontWeight: "800" },
+  overUnit: { color: "#fff", fontSize: 10, fontWeight: "700" },
+  speedHidden: { width: 1, height: 1, opacity: 0 },
+  etaPill: {
+    position: "absolute",
+    left: 12,
+    right: 12,
+    bottom: 12,
+    minHeight: 64,
+    borderRadius: 16,
+    overflow: "hidden",
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  exitQuiet: {
+    flexGrow: 0,
+    flexShrink: 0,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.35)",
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  exitQuietText: { color: "#e8eef4", fontSize: 14, fontWeight: "700" },
   sign: {
     width: 72,
     height: 72,
@@ -531,9 +808,9 @@ const styles = StyleSheet.create({
     left: 12,
     right: 12,
     bottom: 12,
-    minHeight: 88,
-    backgroundColor: "#1b1d22",
-    borderRadius: 22,
+    minHeight: 72,
+    borderRadius: 16,
+    overflow: "hidden",
     paddingLeft: 18,
     paddingRight: 12,
     paddingVertical: 12,

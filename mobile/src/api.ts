@@ -1,8 +1,10 @@
 import { API_BASE } from "./config";
 import type { StreetRules } from "./fleetLogic";
 import type { PlayableRoute } from "./samplePlayback";
+import { adjustPlan, echoesMode, fetchDirectPlan, summaryOf } from "./modeRoute";
 import type {
   Health,
+  ModeSummary,
   OsrmRoute,
   Place,
   PracticeLoop,
@@ -10,6 +12,8 @@ import type {
   SpeedReading,
   Suggestion,
   TestCentre,
+  TravelMode,
+  TravelPlan,
 } from "./types";
 
 const ATTEMPTS = 3;
@@ -108,16 +112,67 @@ export function geocodePlace(query: string): Promise<Place> {
   );
 }
 
-export function fetchDirections(from: Place, to: Place): Promise<OsrmRoute[]> {
+async function fetchServerDirections(from: Place, to: Place, mode: TravelMode, summary: boolean): Promise<TravelPlan> {
   const params = new URLSearchParams({
     from_lat: String(from.lat),
     from_lon: String(from.lon),
     to_lat: String(to.lat),
     to_lon: String(to.lon),
+    mode,
   });
-  return apiFetch(`/api/directions?${params.toString()}`).then((response) =>
-    readJson<{ routes?: OsrmRoute[] }>(response).then((data) => data.routes || []),
-  );
+  if (summary) params.set("summary", "1");
+  const data = await apiFetch(`/api/directions?${params.toString()}`).then((response) => readJson<TravelPlan>(response));
+  return {
+    ...data,
+    routes: data.routes || [],
+    itineraries: data.itineraries || [],
+  };
+}
+
+export async function fetchDirections(from: Place, to: Place, mode: TravelMode = "drive", summary = false): Promise<TravelPlan> {
+  if (mode === "cycle" || mode === "walk" || mode === "transit") {
+    try {
+      const plan = await fetchServerDirections(from, to, mode, summary);
+      if (echoesMode(plan, mode)) return adjustPlan(plan, mode);
+    } catch {
+      /* The live server may still be the driving-only API. */
+    }
+    try {
+      return await fetchDirectPlan(from, to, mode, summary);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "That travel mode is unavailable.";
+      throw new ApiError(message);
+    }
+  }
+  const plan = await fetchServerDirections(from, to, mode === "motorcycle" ? "drive" : mode, summary);
+  if (mode === "motorcycle") {
+    return {
+      ...plan,
+      mode: "motorcycle",
+      note: plan.note || "Motorcycle uses the car route. Motorways are allowed in Ontario.",
+    };
+  }
+  return { ...plan, mode: plan.mode || "drive" };
+}
+
+export async function fetchModeSummaries(from: Place, to: Place, skip: TravelMode): Promise<Record<string, ModeSummary>> {
+  const modes: TravelMode[] = ["drive", "cycle", "walk", "transit"];
+  const out: Record<string, ModeSummary> = {};
+  await Promise.all(modes.filter((mode) => mode !== skip).map(async (mode) => {
+    try {
+      const plan = await fetchDirections(from, to, mode, true);
+      out[mode] = summaryOf(plan, mode);
+      if (mode === "drive") {
+        out.motorcycle = out.drive.durationS == null
+          ? { durationS: null, distanceM: null, failed: true }
+          : { ...out.drive, via: "car" };
+      }
+    } catch {
+      out[mode] = { durationS: null, distanceM: null, failed: true };
+      if (mode === "drive") out.motorcycle = { durationS: null, distanceM: null, failed: true };
+    }
+  }));
+  return out;
 }
 
 export function scoreRoutes(
