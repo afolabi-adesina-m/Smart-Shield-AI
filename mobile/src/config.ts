@@ -1,5 +1,10 @@
-/** Live site by default. Override with EXPO_PUBLIC_API_BASE for a local Flask server. */
-const fromEnv = (process.env.EXPO_PUBLIC_API_BASE || "").trim().replace(/\/$/, "");
+/**
+ * Live Render site by default, so a phone does not need the laptop's Flask process.
+ * Override with EXPO_PUBLIC_API_BASE or EXPO_PUBLIC_API_URL for a computer on the same Wi-Fi.
+ */
+const fromEnv = (process.env.EXPO_PUBLIC_API_BASE || process.env.EXPO_PUBLIC_API_URL || "")
+  .trim()
+  .replace(/\/$/, "");
 
 export const API_BASE = fromEnv || "https://smart-shield-ai.onrender.com";
 

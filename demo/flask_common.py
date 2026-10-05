@@ -78,6 +78,57 @@ def _route_label(index: int, km: float, minutes: float) -> str:
 
 
 def register_api_routes(app: Flask) -> None:
+    from auth_gate import (
+        check_password,
+        client_ip,
+        configure_auth,
+        current_user,
+        enforced,
+        guard,
+        issue_token,
+        login_blocked,
+        note_failure,
+    )
+
+    configure_auth()
+
+    @app.before_request
+    def _require_sign_in():
+        return guard()
+
+    @app.get("/api/auth/status")
+    def auth_status():
+        user = current_user() or ""
+        return jsonify({
+            "auth_required": enforced(),
+            "authenticated": bool(user),
+            "user": user,
+        })
+
+    @app.post("/api/auth/login")
+    def auth_login():
+        if not enforced():
+            return jsonify({"auth_required": False, "token": "", "user": ""})
+        ip = client_ip()
+        if login_blocked(ip):
+            return jsonify({"error": "Too many sign-in attempts. Wait a few minutes."}), 429
+        body = request.get_json(force=True, silent=True) or {}
+        username = str(body.get("username") or "")
+        password = str(body.get("password") or "")
+        if not check_password(username, password):
+            note_failure(ip)
+            return jsonify({"error": "Wrong username or password."}), 401
+        return jsonify({
+            "auth_required": True,
+            "token": issue_token(username),
+            "user": username,
+        })
+
+    @app.post("/api/auth/logout")
+    def auth_logout():
+        # The token is kept on the client. Signing out deletes it there.
+        return jsonify({"ok": True})
+
     @app.get("/api/health")
     def health():
         models_dir = Path(__file__).resolve().parent.parent / "models"

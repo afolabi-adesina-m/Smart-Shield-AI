@@ -4,6 +4,8 @@ This is the Enterprise edition: the navigation map, posted and safe speeds, stre
 
 The submitted academic capstone stays fully readable and unencrypted for teammates. It is the branch `capstone-submitted` and the tag `v1.0-capstone-submitted` (commit `754ef29a315a1a5c984632311fe6f7abe33a33a4`, 27 August 2026). Do not encrypt that branch or move that tag.
 
+Security notes for the public demo: [SECURITY.md](SECURITY.md). What a later hosted product still needs: [docs/PHASE2_CHECKLIST.md](docs/PHASE2_CHECKLIST.md).
+
 Multimodal highway safety scoring: **NLP alerts** + **vision road conditions** + **tabular collision risk** -> fused Smart-Shield score.
 
 > **Full file-by-file guide:** see [`PROJECT_FILES.md`](PROJECT_FILES.md) for an explanation of every folder and file in this repository.
@@ -79,6 +81,11 @@ Both can run simultaneously - they use different ports and share the same scorin
 The desktop server also serves the mobile layout at `/mobile` on the same port. That is the URL to use on a public host. `mobile_server.py` is only needed when you want a second local port for a phone on the same Wi-Fi.
 
 **iPhone Home Screen.** The site is an installable web app. On the phone, open the site in Safari, then Share, then Add to Home Screen. The icon is Smart-Shield. It opens full screen, without the Safari toolbar, and keeps working on mobile data. The saved shell is the map page and its buttons. Live routes and speeds need a connection; if the phone is offline, the page says you're offline instead of calling the server. API answers are not saved on the phone.
+
+**Laptop off.** You do not need the Windows computer running Flask.
+
+- Website, including the Home Screen icon: open `https://smart-shield-ai.onrender.com` or `https://smart-shield-ai.onrender.com/mobile` in the phone browser. Add to Home Screen from there. The first open after the free server has slept can take about a minute.
+- Expo Go: the app calls that same Render site unless `EXPO_PUBLIC_API_BASE` (or `EXPO_PUBLIC_API_URL`) points somewhere else. The laptop is only needed while Metro is serving the JavaScript bundle. If the phone is not on the same Wi-Fi, start Metro with `--tunnel` (see [mobile/README.md](mobile/README.md)). When you want the phone to work with the laptop powered off, use the Home Screen website.
 
 Requires trained models in `../models/` for the tabular and ResNet brains. If those files are missing, route scoring still runs: NLP uses the in-repo TF-IDF fallback and vision uses the preset proxy. The speed panel does not need the model files.
 
@@ -173,6 +180,27 @@ Model files (`models/*.joblib`, `models/*.pt`) are gitignored and also excluded 
 6. Health check: `GET /api/health`.
 
 The free instance sleeps when idle; the first request after sleep can take a minute. Overpass and OSRM are public services and can rate-limit; the speed panel falls back to an estimated limit if they fail.
+
+### Sign-in (optional)
+
+The demo is open by default. `AUTH_REQUIRED` is false, and the server logs that scoring and navigation are open. Teammates can demo with no password.
+
+To turn the gate on for one admin account:
+
+1. Pick a username, for example `demo-admin`. Do not commit it if you do not want it public; the class deploy can leave it unset.
+2. Hash a password on your own machine. The password is not printed:
+
+   ```bash
+   pip install bcrypt
+   ADMIN_PASSWORD='choose-a-password' python demo/hash_password.py
+   ```
+
+3. In the host's secret store (Render → Environment), set `ADMIN_USER`, `ADMIN_PASSWORD_HASH` to the printed hash, and `AUTH_SECRET` to a long random string. Then set `AUTH_REQUIRED` to `true` and redeploy.
+4. Remove `ADMIN_PASSWORD` if you used it. If the hash variable is empty and `ADMIN_PASSWORD` is set, the process hashes it in memory at boot and prints the hash in the log. That is a one-time setup aid. Do not leave the plaintext password on the host.
+
+`/api/health` stays public. Scoring, directions, road context, and the practice loop then require `Authorization: Bearer <token>` from `POST /api/auth/login`. The website shows a sign-in card. The Expo app shows the same card and stores the token in AsyncStorage (a later change can move it to the device keychain). If `AUTH_REQUIRED` is true but the user or hash is missing, the server stays open and logs a warning so a demo does not break.
+
+This is one env-seeded account. It is not a production identity provider. See [SECURITY.md](SECURITY.md).
 
 ### Railway
 

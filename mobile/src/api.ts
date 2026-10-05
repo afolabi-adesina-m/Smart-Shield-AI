@@ -1,3 +1,4 @@
+import { getAuthToken, noteUnauthorized } from "./auth";
 import { API_BASE } from "./config";
 import type { StreetRules } from "./fleetLogic";
 import type { PlayableRoute } from "./samplePlayback";
@@ -44,11 +45,16 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
       if (init?.body && !headers.has("Content-Type")) {
         headers.set("Content-Type", "application/json");
       }
+      const token = getAuthToken();
+      if (token && !headers.has("Authorization")) headers.set("Authorization", `Bearer ${token}`);
       const response = await fetch(`${API_BASE}${path}`, {
         ...init,
         headers,
         signal: controller.signal,
       });
+      if (response.status === 401 && !path.includes("/api/auth/login")) {
+        noteUnauthorized().catch(() => undefined);
+      }
       if (response.status >= 500 && attempt < ATTEMPTS - 1) {
         const preview = await response.clone().text();
         const rateLimited = /too many requests/i.test(preview);
