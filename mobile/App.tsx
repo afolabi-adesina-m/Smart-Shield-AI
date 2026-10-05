@@ -19,7 +19,10 @@ import {
   fetchModeSummaries,
   fetchRoadContext,
   fetchSpeed,
+  cachedSuggestions,
+  exactSuggestions,
   geocodePlace,
+  reverseGeocode,
   scoreRoutes,
   suggestPlaces,
 } from "./src/api";
@@ -95,6 +98,7 @@ export default function App() {
   const [destination, setDestination] = useState<Place>(BARRIE);
   const [activeField, setActiveField] = useState<"origin" | "destination" | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [locationNote, setLocationNote] = useState("");
   const [weather, setWeather] = useState<string>("auto");
   const [status, setStatus] = useState("Set a start and a destination.");
   const [busy, setBusy] = useState(false);
@@ -128,6 +132,8 @@ export default function App() {
   const [loop, setLoop] = useState<PracticeLoop | null>(null);
   const [disclaimer, setDisclaimer] = useState("");
   const suggestTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const locationToken = useRef(0);
+  const fixRef = useRef<GpsFix | null>(null);
   const [focus, setFocus] = useState<Focus>("idle");
   const [driving, setDriving] = useState(false);
   const [simCursor, setSimCursor] = useState<GpsFix | null>(null);
@@ -248,17 +254,34 @@ export default function App() {
     };
   }, []);
 
+  fixRef.current = fix;
+
   useEffect(() => {
     const place = activeField === "destination" ? destination : origin;
-    if (!activeField || place.label.trim().length < 3 || place.lat != null) {
+    const query = place.label.trim();
+    if (!activeField || query.length < 3 || place.lat != null) {
       setSuggestions([]);
       return;
     }
+    const live = fixRef.current;
+    const bias = live ? { lat: live.lat, lon: live.lon } : undefined;
+    const exact = exactSuggestions(query, bias);
+    const cached = exact || cachedSuggestions(query, bias);
+    if (cached) setSuggestions(cached);
+    if (exact) return;
+    const controller = new AbortController();
     if (suggestTimer.current) clearTimeout(suggestTimer.current);
     suggestTimer.current = setTimeout(() => {
-      suggestPlaces(place.label).then(setSuggestions).catch(() => setSuggestions([]));
-    }, 300);
+      if (controller.signal.aborted) return;
+      suggestPlaces(query, bias, controller.signal).then((items) => {
+        if (!controller.signal.aborted) setSuggestions(items);
+      }).catch(() => {
+        if (controller.signal.aborted || cached) return;
+        setSuggestions([]);
+      });
+    }, 200);
     return () => {
+      controller.abort();
       if (suggestTimer.current) clearTimeout(suggestTimer.current);
     };
   }, [activeField, origin, destination]);
@@ -669,22 +692,80 @@ export default function App() {
     setActiveField(null);
   }
 
-  async function useMyLocation() {
-    setStatus("Asking for your location…");
-    const permission = await Location.requestForegroundPermissionsAsync();
-    if (!permission.granted) {
-      setStatus("Location is off. Type a start address instead.");
-      return;
-    }
-    const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-    const place: Place = {
-      label: "My location",
-      lat: position.coords.latitude,
-      lon: position.coords.longitude,
+  function placeFromGps(which: "origin" | "destination", lat: number, lon: number, label: string) {
+    const place: Place = { label, lat, lon };
+    if (which === "destination") setDestination(place);
+    else setOrigin(place);
+    setSuggestions([]);
+    setActiveField(null);
+  }
+
+  async function useMyLocation(which: "origin" | "destination") {
+    const token = ++locationToken.current;
+    const denied = which === "destination"
+      ? "Location is off. Type a destination instead."
+      : "Location is off. Type a start address instead.";
+    const fill = (lat: number, lon: number) => {
+      if (locationToken.current !== token) return;
+      placeFromGps(which, lat, lon, "Current location");
+      setLocationNote((which === "destination" ? "To" : "From") + " set to your location.");
+      if (which === "origin") loadSpeed(lat, lon);
+      reverseGeocode(lat, lon).then((hit) => {
+        if (locationToken.current !== token || !hit.label) return;
+        placeFromGps(which, lat, lon, hit.label);
+      }).catch(() => undefined);
     };
-    setOrigin(place);
-    setStatus("Start set to your location.");
-    loadSpeed(place.lat as number, place.lon as number);
+    try {
+      const current = await Location.getForegroundPermissionsAsync();
+      let granted = current.granted;
+      if (!granted && locationToken.current === token) {
+        const asked = await Location.requestForegroundPermissionsAsync();
+        granted = asked.granted;
+      }
+      if (locationToken.current !== token) return;
+      if (!granted) {
+        setLocationNote(denied);
+        return;
+      }
+      const live = fixRef.current;
+      let lat = live?.lat ?? null;
+      let lon = live?.lon ?? null;
+      if (lat == null || lon == null) {
+        try {
+          const last = await Location.getLastKnownPositionAsync();
+          if (last) {
+            lat = last.coords.latitude;
+            lon = last.coords.longitude;
+          }
+        } catch {
+          /* A fresh fix below still covers this. */
+        }
+      }
+      if (locationToken.current !== token) return;
+      if (lat != null && lon != null) {
+        fill(lat, lon);
+        return;
+      }
+      setLocationNote("Looking for GPS…");
+      const pending = Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const timed = await Promise.race([
+        pending,
+        new Promise<null>((resolve) => { setTimeout(() => resolve(null), 2500); }),
+      ]);
+      if (locationToken.current !== token) return;
+      if (timed) {
+        fill(timed.coords.latitude, timed.coords.longitude);
+        return;
+      }
+      setLocationNote("Still waiting for GPS. You can type the address.");
+      pending.then((position) => {
+        fill(position.coords.latitude, position.coords.longitude);
+      }).catch(() => {
+        if (locationToken.current === token) setLocationNote("Could not read GPS. Type the address instead.");
+      });
+    } catch {
+      if (locationToken.current === token) setLocationNote(denied);
+    }
   }
 
   async function loadSpeed(lat: number, lon: number, tier?: string, recommendedKmh?: number | null) {
@@ -1014,13 +1095,14 @@ export default function App() {
           onTab={(next) => { if (next === "practice") openPractice(); else if (next !== "settings") setTab(next); }}
           origin={origin}
           destination={destination}
-          onOrigin={(label) => { setOrigin({ label, lat: null, lon: null }); setActiveField("origin"); }}
-          onDestination={(label) => { setDestination({ label, lat: null, lon: null }); setActiveField("destination"); }}
+          onOrigin={(label) => { setLocationNote(""); setOrigin({ label, lat: null, lon: null }); setActiveField("origin"); }}
+          onDestination={(label) => { setLocationNote(""); setDestination({ label, lat: null, lon: null }); setActiveField("destination"); }}
           onFocusField={setActiveField}
           activeField={activeField}
           suggestions={suggestions}
           onPick={(item) => { Keyboard.dismiss(); pickSuggestion(item); }}
-          onUseLocation={() => { useMyLocation().catch(() => setStatus("Location is off. Type a start address instead.")); }}
+          onUseLocation={(which) => { useMyLocation(which).catch(() => setLocationNote("Location is off. Type the address instead.")); }}
+          locationNote={locationNote}
           weather={weather}
           onWeather={setWeather}
           busy={busy}
@@ -1080,13 +1162,14 @@ export default function App() {
           night={night}
           origin={origin}
           destination={destination}
-          onOrigin={(label) => { setOrigin({ label, lat: null, lon: null }); setActiveField("origin"); }}
-          onDestination={(label) => { setDestination({ label, lat: null, lon: null }); setActiveField("destination"); }}
+          onOrigin={(label) => { setLocationNote(""); setOrigin({ label, lat: null, lon: null }); setActiveField("origin"); }}
+          onDestination={(label) => { setLocationNote(""); setDestination({ label, lat: null, lon: null }); setActiveField("destination"); }}
           onFocusField={setActiveField}
           activeField={activeField}
           suggestions={suggestions}
           onPick={(item) => { Keyboard.dismiss(); pickSuggestion(item); }}
-          onUseLocation={() => { useMyLocation().catch(() => setStatus("Location is off. Type a start address instead.")); }}
+          onUseLocation={(which) => { useMyLocation(which).catch(() => setLocationNote("Location is off. Type the address instead.")); }}
+          locationNote={locationNote}
           busy={busy}
           onFind={() => { Keyboard.dismiss(); findRoute().catch(() => undefined); }}
           onTravelMode={chooseMode}

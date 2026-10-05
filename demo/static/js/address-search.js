@@ -1,8 +1,50 @@
-/* Address autocomplete. Debounced 300 ms, at least 3 characters. */
+/* Address autocomplete. Debounced, cancelled, and cached. At least 3 characters. */
 
 const SUGGEST_MIN = 3;
-const SUGGEST_WAIT_MS = 300;
+const SUGGEST_WAIT_MS = 200;
+const SUGGEST_TIMEOUT_MS = 4500;
+const suggestCache = new Map();
 let suggestUid = 0;
+let hereToken = 0;
+
+function biasPart(center) {
+  if (!center || center.lat == null || center.lon == null) return "";
+  return Number(center.lat).toFixed(1) + "," + Number(center.lon).toFixed(1);
+}
+
+function suggestKey(query, center) {
+  return query.trim().toLowerCase() + "|" + biasPart(center);
+}
+
+function rememberSuggest(query, center, items) {
+  suggestCache.set(suggestKey(query, center), items);
+  while (suggestCache.size > 40) {
+    const first = suggestCache.keys().next().value;
+    suggestCache.delete(first);
+  }
+}
+
+function cachedSuggest(query, center) {
+  const q = query.trim().toLowerCase();
+  const bias = biasPart(center);
+  let best = null;
+  let bestLen = 0;
+  suggestCache.forEach((items, key) => {
+    const bar = key.lastIndexOf("|");
+    const text = key.slice(0, bar);
+    const part = key.slice(bar + 1);
+    if (part !== bias || !items.length) return;
+    if (q.startsWith(text) && text.length >= SUGGEST_MIN && text.length > bestLen) {
+      best = items;
+      bestLen = text.length;
+    }
+  });
+  return best;
+}
+
+function mapCenter() {
+  return window.SmartShieldMapCenter ? window.SmartShieldMapCenter() : null;
+}
 
 function blurSearchFields() {
   ["origin", "destination", "map-search-input"].forEach((id) => {
@@ -102,6 +144,64 @@ function mountMapSearch() {
     focusPlace(place);
     field.close();
   });
+}
+
+function useDeviceLocation(which) {
+  const token = ++hereToken;
+  const status = document.getElementById("status");
+  const say = (text) => { if (status) status.textContent = text; };
+  if (!navigator.geolocation) {
+    say("This browser has no location. Type the address instead.");
+    return;
+  }
+  const fieldId = which === "destination" ? "destination" : "origin";
+  navigator.geolocation.getCurrentPosition((pos) => {
+    if (token !== hereToken) return;
+    const lat = pos.coords.latitude;
+    const lon = pos.coords.longitude;
+    const input = document.getElementById(fieldId);
+    if (input) input.dataset.hereToken = String(token);
+    const rough = { label: "Current location", lat: lat, lon: lon };
+    writeEndpoint(which, rough);
+    focusPlace(rough);
+    const params = new URLSearchParams({ lat: String(lat), lon: String(lon) });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+    fetch("/api/reverse?" + params.toString(), { signal: controller.signal })
+      .then((resp) => resp.json().then((data) => ({ ok: resp.ok, data: data })))
+      .then((result) => {
+        if (token !== hereToken) return;
+        const field = document.getElementById(fieldId);
+        if (!field || field.dataset.hereToken !== String(token)) return;
+        if (result.ok && result.data && result.data.label) {
+          const named = { label: result.data.label, lat: lat, lon: lon };
+          writeEndpoint(which, named);
+          if (field) field.dataset.hereToken = String(token);
+          focusPlace(named);
+        }
+      })
+      .catch(() => undefined)
+      .finally(() => clearTimeout(timer));
+  }, (err) => {
+    if (token !== hereToken) return;
+    if (err && err.code === 1) say("Location is off. Type the address instead.");
+    else say("Could not read GPS. Type the address instead.");
+  }, { enableHighAccuracy: false, maximumAge: 15000, timeout: 4000 });
+}
+
+function mountHereButton(input, which) {
+  if (!which || document.getElementById("here-" + which)) return;
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.id = "here-" + which;
+  btn.className = "here-btn";
+  btn.textContent = "Use my location";
+  btn.setAttribute("aria-label", which === "destination" ? "Use my location as To" : "Use my location as From");
+  const anchor = input.parentElement && input.parentElement.classList.contains("address-field")
+    ? input.parentElement
+    : input;
+  anchor.insertAdjacentElement("afterend", btn);
+  btn.addEventListener("click", () => useDeviceLocation(which));
 }
 
 function writeEndpoint(which, place) {
@@ -267,25 +367,36 @@ function attachAddressField(input, options) {
   async function fetchSuggest(query) {
     if (state.controller) state.controller.abort();
     state.controller = new AbortController();
-    const center = window.SmartShieldMapCenter ? window.SmartShieldMapCenter() : null;
+    let timedOut = false;
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      if (state.controller) state.controller.abort();
+    }, SUGGEST_TIMEOUT_MS);
+    const center = mapCenter();
     const params = new URLSearchParams({ q: query });
     if (center) {
       params.set("lat", String(center.lat));
       params.set("lon", String(center.lon));
     }
-    render("Searching…");
+    if (!state.items.length) render("Searching…");
     try {
       const resp = await fetch("/api/suggest?" + params.toString(), { signal: state.controller.signal });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || "Search failed");
       if (input.value.trim() !== query) return;
       state.items = data.suggestions || [];
+      rememberSuggest(query, center, state.items);
       state.active = 0;
       if (!state.items.length) render("No matching places");
       else render();
     } catch (err) {
-      if (err.name === "AbortError") return;
-      render(err.message || "Search failed");
+      if (err.name === "AbortError") {
+        if (timedOut && input.value.trim() === query && !state.items.length) render("Search timed out. Try again.");
+        return;
+      }
+      if (!state.items.length) render(err.message || "Search failed");
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
@@ -297,12 +408,31 @@ function attachAddressField(input, options) {
       state.items = [];
       return;
     }
+    const center = mapCenter();
+    if (suggestCache.has(suggestKey(query, center))) {
+      state.items = suggestCache.get(suggestKey(query, center));
+      state.active = 0;
+      if (state.items.length) render();
+      else close();
+      return;
+    }
+    const hit = cachedSuggest(query, center);
+    if (hit) {
+      state.items = hit;
+      state.active = 0;
+      render();
+    }
     state.timer = setTimeout(() => fetchSuggest(query), SUGGEST_WAIT_MS);
+  }
+
+  if (options.assign === "origin" || options.assign === "destination") {
+    mountHereButton(input, options.assign);
   }
 
   input.addEventListener("input", () => {
     delete input.dataset.lat;
     delete input.dataset.lon;
+    delete input.dataset.hereToken;
     schedule();
   });
   input.addEventListener("focus", () => {
