@@ -17,3 +17,13 @@ services:
       # Leave it empty while the plaintext engine is still what the image runs.
       - key: SMART_SHIELD_KEY
         sync: false
+      # Sign-in stays off on the class deploy. Set the three secrets in the
+      # dashboard, then set AUTH_REQUIRED to true, if you want the gate on.
+      - key: AUTH_REQUIRED
+        value: "false"
+      - key: ADMIN_USER
+        sync: false
+      - key: ADMIN_PASSWORD_HASH
+        sync: false
+      - key: AUTH_SECRET
+        sync: false

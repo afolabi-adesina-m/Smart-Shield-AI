@@ -539,6 +539,39 @@ html[data-theme="light"] .nav-report-row { background: #eef2f7; color: #16191f; 
   align-items: center;
   gap: 6px;
 }
+.auth-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  padding: 24px;
+}
+.auth-gate[hidden] { display: none; }
+.auth-card {
+  width: min(360px, 100%);
+  background: #fff;
+  color: #16191f;
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+.auth-card h2 { margin: 0 0 8px; font-size: 18px; }
+.auth-card p { margin: 0 0 12px; color: #526072; font-size: 14px; }
+.auth-card label { display: block; font-size: 13px; font-weight: 650; margin: 8px 0 4px; }
+.auth-card input {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 40px;
+  border-radius: 10px;
+  border: 1px solid #d5dde6;
+  padding: 8px 10px;
+  font: inherit;
+}
+.auth-card .auth-error { color: #b42318; }
+.auth-card button { margin-top: 12px; }
 .camera-disclaimer {
   position: absolute;
   left: 50%;

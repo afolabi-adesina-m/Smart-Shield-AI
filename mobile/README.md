@@ -6,6 +6,15 @@ https://smart-shield-ai.onrender.com
 
 You can try it on a real phone with **Expo Go** from the store. This project uses **Expo SDK 57**, which matches the current App Store Expo Go (SDK 57) and the current Play Store Expo Go (57.0.9).
 
+## Laptop off
+
+The phone does not need the Windows laptop's Flask server.
+
+- **Home Screen website (laptop powered off).** On the phone, open `https://smart-shield-ai.onrender.com/mobile` in Safari or Chrome. Share, then Add to Home Screen. That icon opens the map on mobile data or any Wi-Fi. The free Render service sleeps when idle, so the first open can take about a minute. This is the path that works with the laptop shut down.
+- **Expo Go.** The app's API base defaults to `https://smart-shield-ai.onrender.com`. `EXPO_PUBLIC_API_URL` is an alias for `EXPO_PUBLIC_API_BASE`. You only change it to a `http://192.168…:5050` address when you are running Flask on a computer. Metro still has to be running to load the JavaScript into Expo Go, so the computer that started Expo cannot be off. If the phone is not on the same Wi-Fi as that computer, use the tunnel command below. The API calls still go to Render.
+
+Sign-in is off on the class server. If someone sets `AUTH_REQUIRED=true` there, the app shows a username and password card and keeps the token on the phone. See the README section "Sign-in (optional)".
+
 - **iPhone:** install Expo Go from the App Store. You do not need a Mac or an Apple Developer account for that test.
 - **Android:** install Expo Go from the Play Store.
 
@@ -58,6 +67,8 @@ The first time Node starts, Windows may ask for network access. Allow **Node.js*
 The first time you tap **Find safest route**, wait. The free server sleeps when it is idle, and the first answer can take about a minute. The app says so on screen and tries again by itself.
 
 ### Use your own server
+
+Skip this when the phone should use Render. The default API host is already `https://smart-shield-ai.onrender.com`.
 
 Copy `.env.example` to `.env` and set the address of the Flask demo. Use the computer's network address, not `localhost`, so the phone can reach it:
 

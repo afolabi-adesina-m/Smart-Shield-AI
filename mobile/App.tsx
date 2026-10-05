@@ -4,6 +4,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import * as Location from "expo-location";
+import { AuthGate } from "./src/AuthGate";
+import { refreshAuth } from "./src/auth";
 import { MapCanvas } from "./src/MapCanvas";
 import { DeliveryPanel } from "./src/DeliveryPanel";
 import { FeatureSheet, SearchCard } from "./src/FeatureSheet";
@@ -178,6 +180,7 @@ export default function App() {
       if (!cancelled) setVoiceGender(value);
       applyVoiceGender(value).catch(() => undefined);
     }).catch(() => undefined);
+    refreshAuth().catch(() => undefined);
     loadCameraAlerts().then((value) => { if (!cancelled) setCameraAlerts(value); }).catch(() => undefined);
     return () => { cancelled = true; };
   }, []);
@@ -1103,6 +1106,7 @@ export default function App() {
           } : null}
         />
     ) : null}
+      <AuthGate />
     </View>
     </SafeAreaProvider>
   );

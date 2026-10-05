@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
 import { ActivityIndicator, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { signOut, useAuthSession } from "./auth";
 import { Glass } from "./glass";
 import { FleetPanel } from "./FleetPanel";
 import { TripMetrics } from "./TripMetrics";
@@ -94,6 +95,7 @@ const PANEL_TITLE: Record<SheetTab, string> = {
 
 export function FeatureSheet(props: Props) {
   const [developer, setDeveloper] = useState(false);
+  const auth = useAuthSession();
   const night = props.night;
   const ink = night ? styles.inkNight : null;
   const card = [styles.sheet, night && styles.sheetNight, { marginTop: props.topInset }];
@@ -121,6 +123,11 @@ export function FeatureSheet(props: Props) {
               <Pressable onPress={props.onMute}>
                 <Text style={styles.link}>{props.muted ? "Unmute voice" : "Mute voice"}</Text>
               </Pressable>
+              {auth.required && auth.authed ? (
+                <Pressable onPress={() => { signOut().catch(() => undefined); }}>
+                  <Text style={styles.link}>Sign out</Text>
+                </Pressable>
+              ) : null}
               <Text style={[styles.kicker, ink]}>Voice</Text>
               <View style={styles.chips}>
                 {(["female", "male"] as const).map((id) => (
