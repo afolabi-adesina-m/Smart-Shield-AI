@@ -48,7 +48,8 @@ type Props = {
   activeField: "origin" | "destination" | null;
   suggestions: Suggestion[];
   onPick: (item: Suggestion) => void;
-  onUseLocation: () => void;
+  onUseLocation: (which: "origin" | "destination") => void;
+  locationNote?: string;
   weather: string;
   onWeather: (id: string) => void;
   busy: boolean;
@@ -154,9 +155,13 @@ export function FeatureSheet(props: Props) {
             </>
           ) : props.tab === "trip" ? (
             <>
-              <Pressable onPress={props.onUseLocation}>
-                <Text style={styles.link}>Use my location as start</Text>
+              <Pressable testID="use-location-from" onPress={() => props.onUseLocation("origin")}>
+                <Text style={styles.link}>Use my location as From</Text>
               </Pressable>
+              <Pressable testID="use-location-to" onPress={() => props.onUseLocation("destination")}>
+                <Text style={styles.link}>Use my location as To</Text>
+              </Pressable>
+              {props.locationNote ? <Text style={styles.note}>{props.locationNote}</Text> : null}
               <Text style={[styles.kicker, ink]}>Road conditions</Text>
               <View style={styles.chips}>
                 {WEATHER.map((item) => (
@@ -275,7 +280,8 @@ export function SearchCard(props: {
   activeField: "origin" | "destination" | null;
   suggestions: Suggestion[];
   onPick: (item: Suggestion) => void;
-  onUseLocation: () => void;
+  onUseLocation: (which: "origin" | "destination") => void;
+  locationNote?: string;
   busy: boolean;
   onFind: () => void;
   routes: ScoredRoute[];
@@ -374,9 +380,13 @@ export function SearchCard(props: {
             onSubmitEditing={runSearch}
           />
           {props.activeField === "destination" ? <SuggestList items={props.suggestions} onPick={pickSuggestion} /> : null}
-          <Pressable onPress={props.onUseLocation}>
-            <Text style={styles.link}>Use my location as start</Text>
+          <Pressable testID="use-location-from" onPress={() => props.onUseLocation("origin")}>
+            <Text style={styles.link}>Use my location as From</Text>
           </Pressable>
+          <Pressable testID="use-location-to" onPress={() => props.onUseLocation("destination")}>
+            <Text style={styles.link}>Use my location as To</Text>
+          </Pressable>
+          {props.locationNote ? <Text style={styles.note}>{props.locationNote}</Text> : null}
           <Pressable style={[styles.primary, props.busy && styles.disabled]} disabled={props.busy} onPress={runSearch}>
             {props.busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryText}>{props.travelMode === "drive" || props.travelMode === "motorcycle" ? "Find safest route" : "Find route"}</Text>}
           </Pressable>

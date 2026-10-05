@@ -19,6 +19,7 @@ from geocode_suggest import (
     configured_provider,
     provider_ready,
     resolve_place,
+    reverse_place,
     suggest_places,
 )
 from place_geocode import FRIENDLY_UNAVAILABLE, GeocodeLookupError, geocode_place
@@ -181,6 +182,21 @@ def register_api_routes(app: Flask) -> None:
             return jsonify({"error": "lat and lon must be numeric"}), 400
         try:
             return jsonify(suggest_places(q, lat=lat, lon=lon))
+        except Exception as exc:
+            return jsonify({"error": _public_geocode_error(exc)}), 502
+
+    @app.get("/api/reverse")
+    def reverse_lookup():
+        """Readable label for a GPS point. The phone and website do not call Photon directly."""
+        try:
+            lat = float(request.args["lat"])
+            lon = float(request.args["lon"])
+        except (KeyError, ValueError):
+            return jsonify({"error": "Need numeric lat and lon"}), 400
+        if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+            return jsonify({"error": "lat/lon out of range"}), 400
+        try:
+            return jsonify(reverse_place(lat, lon))
         except Exception as exc:
             return jsonify({"error": _public_geocode_error(exc)}), 502
 
