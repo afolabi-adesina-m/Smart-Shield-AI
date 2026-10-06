@@ -172,7 +172,8 @@ Model files (`models/*.joblib`, `models/*.pt`) are gitignored and also excluded 
 2. In Render: **New → Blueprint** (uses `render.yaml`) or **New → Web Service**, connect the GitHub repo, and set **Runtime** to **Docker**. Root directory stays the repo root (`Dockerfile` is there).
 3. Leave the start command empty so the image `CMD` runs: `gunicorn` on `0.0.0.0:$PORT`.
 4. Environment variables (optional; defaults are fine):
-   - `SMART_SHIELD_CORS_ORIGINS` = `*`
+   - `ALLOWED_ORIGINS` defaults to the Render site plus localhost and Expo dev ports. Set it to `*` only if a browser on another origin must call the API. The Expo phone app does not send an Origin header.
+   - `RATE_LIMIT_PER_MIN` defaults to 120 per limited route per IP. `/api/health` is not limited.
    - `OVERPASS_URL` = `https://overpass.openstreetmap.fr/api/interpreter`
    - `OSRM_URL` = `https://router.project-osrm.org/route/v1/driving`
    - `NOMINATIM_URL` = `https://nominatim.openstreetmap.org/search`

@@ -265,4 +265,12 @@ assert.strictEqual(progress.pickSpokenVoice([{ name: "Alex", language: "en-US", 
 assert.strictEqual(progress.pickSpokenVoice([{ name: "Samantha", language: "en-US", quality: "Default" }], "male"), null);
 assert.strictEqual(progress.pickSpokenVoice(voices).identifier, "samantha-enhanced");
 
+assert.strictEqual(progress.typingLocked(11, "drive", true, false), true);
+assert.strictEqual(progress.typingLocked(10, "drive", true, false), false);
+assert.strictEqual(progress.typingLocked(40, "motorcycle", true, false), true);
+assert.strictEqual(progress.typingLocked(40, "walk", true, false), false);
+assert.strictEqual(progress.typingLocked(40, "drive", true, true), false);
+assert.strictEqual(progress.typingLocked(40, "drive", false, false), false);
+assert.strictEqual(progress.typingLocked(null, "drive", true, false), false);
+
 console.log("nav progress tests passed");

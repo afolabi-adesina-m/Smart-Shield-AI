@@ -9,8 +9,15 @@ services:
     envVars:
       - key: SMART_SHIELD_HOST
         value: 0.0.0.0
-      - key: SMART_SHIELD_CORS_ORIGINS
-        value: "*"
+      # Browser origins. Native Expo sends no Origin header and is not blocked.
+      # Remove a leftover SMART_SHIELD_CORS_ORIGINS=* in the dashboard if it is still set;
+      # ALLOWED_ORIGINS wins when both are present.
+      - key: ALLOWED_ORIGINS
+        value: "https://smart-shield-ai.onrender.com,http://localhost:5050,http://127.0.0.1:5050,http://localhost:5051,http://127.0.0.1:5051,http://localhost:8081,http://127.0.0.1:8081,http://localhost:19006,http://127.0.0.1:19006"
+      - key: RATE_LIMIT_ENABLED
+        value: "true"
+      - key: RATE_LIMIT_PER_MIN
+        value: "120"
       - key: PYTHONUNBUFFERED
         value: "1"
       # Set this in the Render dashboard after you encrypt the engine.

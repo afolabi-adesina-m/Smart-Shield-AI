@@ -505,6 +505,17 @@
     return found;
   }
 
+  var TYPING_LOCK_KMH = 10;
+
+  function typingLocked(speedKmh, travelMode, navigating, passenger) {
+    if (passenger || !navigating) return false;
+    var mode = travelMode || "drive";
+    if (mode !== "drive" && mode !== "motorcycle") return false;
+    var speed = Number(speedKmh);
+    if (!isFinite(speed)) return false;
+    return speed > TYPING_LOCK_KMH;
+  }
+
   function speedAlert(warning, state, nowMs) {
     var current = state || { spoken: false, at: 0 };
     var spokenFlag = !!current.spoken;
@@ -543,6 +554,8 @@
     voiceCue: voiceCue,
     signAlert: signAlert,
     speedAlert: speedAlert,
+    typingLocked: typingLocked,
+    TYPING_LOCK_KMH: TYPING_LOCK_KMH,
     tripMetricLine: tripMetricLine,
     planMetricLine: planMetricLine,
     pickSpokenVoice: pickSpokenVoice,

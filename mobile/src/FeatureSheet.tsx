@@ -50,6 +50,8 @@ type Props = {
   onPick: (item: Suggestion) => void;
   onUseLocation: (which: "origin" | "destination") => void;
   locationNote?: string;
+  typingLocked?: boolean;
+  onPassenger?: () => void;
   weather: string;
   onWeather: (id: string) => void;
   busy: boolean;
@@ -161,6 +163,7 @@ export function FeatureSheet(props: Props) {
               <Pressable testID="use-location-to" onPress={() => props.onUseLocation("destination")}>
                 <Text style={styles.link}>Use my location as To</Text>
               </Pressable>
+              {props.typingLocked ? <TypingLock note="Pull over to search" onPassenger={props.onPassenger} /> : null}
               {props.locationNote ? <Text style={styles.note}>{props.locationNote}</Text> : null}
               <Text style={[styles.kicker, ink]}>Road conditions</Text>
               <View style={styles.chips}>
@@ -282,6 +285,9 @@ export function SearchCard(props: {
   onPick: (item: Suggestion) => void;
   onUseLocation: (which: "origin" | "destination") => void;
   locationNote?: string;
+  typingLocked?: boolean;
+  onPassenger?: () => void;
+  dockLift?: number;
   busy: boolean;
   onFind: () => void;
   routes: ScoredRoute[];
@@ -317,7 +323,7 @@ export function SearchCard(props: {
   }, []);
   const ink = props.night ? "#f2f2f7" : "#1c1c1e";
   const hint = props.night ? "#aeaeb2" : "#636366";
-  const restingBottom = keyboardHeight > 0 ? keyboardHeight + 8 : Math.max(12, insets.bottom + 8);
+  const restingBottom = keyboardHeight > 0 ? keyboardHeight + 8 : Math.max(12, insets.bottom + 8) + (props.dockLift || 0);
   const scrollMax = keyboardHeight > 0
     ? Math.max(120, windowH - keyboardHeight - insets.top - 210)
     : 320;
@@ -361,6 +367,7 @@ export function SearchCard(props: {
             label="From"
             testID="field-from"
             value={props.origin.label}
+            editable={!props.typingLocked}
             onChangeText={props.onOrigin}
             onFocus={() => props.onFocusField("origin")}
             returnKeyType="next"
@@ -373,6 +380,7 @@ export function SearchCard(props: {
             testID="field-to"
             inputRef={toRef}
             value={props.destination.label}
+            editable={!props.typingLocked}
             onChangeText={props.onDestination}
             onFocus={() => props.onFocusField("destination")}
             returnKeyType="search"
@@ -386,6 +394,7 @@ export function SearchCard(props: {
           <Pressable testID="use-location-to" onPress={() => props.onUseLocation("destination")}>
             <Text style={styles.link}>Use my location as To</Text>
           </Pressable>
+          {props.typingLocked ? <TypingLock note="Pull over to search" onPassenger={props.onPassenger} /> : null}
           {props.locationNote ? <Text style={styles.note}>{props.locationNote}</Text> : null}
           <Pressable style={[styles.primary, props.busy && styles.disabled]} disabled={props.busy} onPress={runSearch}>
             {props.busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.primaryText}>{props.travelMode === "drive" || props.travelMode === "motorcycle" ? "Find safest route" : "Find route"}</Text>}
@@ -504,9 +513,23 @@ function ItineraryCard(props: { item: TransitItinerary; onStart?: () => void }) 
   );
 }
 
+function TypingLock(props: { note: string; onPassenger?: () => void }) {
+  return (
+    <View>
+      <Text style={styles.note}>{props.note}</Text>
+      {props.onPassenger ? (
+        <Pressable onPress={props.onPassenger} testID="passenger-override">
+          <Text style={styles.link}>I'm a passenger</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
 function Field(props: {
   label: string;
   value: string;
+  editable?: boolean;
   onChangeText: (value: string) => void;
   onFocus: () => void;
   inputRef?: Ref<TextInput>;
@@ -522,7 +545,8 @@ function Field(props: {
         ref={props.inputRef}
         testID={props.testID}
         value={props.value}
-        onChangeText={props.onChangeText}
+        editable={props.editable !== false}
+        onChangeText={props.editable === false ? undefined : props.onChangeText}
         onFocus={props.onFocus}
         onSubmitEditing={props.onSubmitEditing}
         returnKeyType={props.returnKeyType}

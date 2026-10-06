@@ -50,6 +50,8 @@ type Props = {
   distanceLabel?: string;
   distanceUnit?: string;
   roadName?: string;
+  typingLocked?: boolean;
+  onPassenger?: () => void;
 };
 
 // Expo Go draws its own dev button in the top-right, over the status bar.
@@ -145,6 +147,16 @@ export function NavChrome(props: Props) {
       {driving && props.roadName ? (
         <View style={styles.roadPill} pointerEvents="none">
           <Text style={styles.roadPillText} numberOfLines={1}>{props.roadName}</Text>
+        </View>
+      ) : null}
+      {props.typingLocked ? (
+        <View style={[styles.lockNote, { bottom: Math.max(12, insets.bottom + 8) + 78 }]} pointerEvents="box-none">
+          <Glass night={props.night} style={styles.lockCard}>
+            <Text style={[styles.lockText, { color: ink }]}>Pull over to search</Text>
+            <Pressable testID="passenger-override" onPress={props.onPassenger}>
+              <Text style={styles.lockLink}>I'm a passenger</Text>
+            </Pressable>
+          </Glass>
         </View>
       ) : null}
       {props.showExit && driving ? (
@@ -751,6 +763,21 @@ const styles = StyleSheet.create({
   overNum: { color: "#fff", fontSize: 16, fontWeight: "800" },
   overUnit: { color: "#fff", fontSize: 10, fontWeight: "700" },
   speedHidden: { width: 1, height: 1, opacity: 0 },
+  lockNote: {
+    position: "absolute",
+    left: 12,
+    right: 12,
+  },
+  lockCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 14,
+  },
+  lockText: { fontSize: 14, fontWeight: "700" },
+  lockLink: { color: "#1a56db", fontSize: 14, fontWeight: "700" },
   etaPill: {
     position: "absolute",
     left: 12,

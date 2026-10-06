@@ -20,9 +20,23 @@ The first admin password is hashed with bcrypt. Commit only the setup script (`d
 
 ## CORS and rate limits
 
-`SMART_SHIELD_CORS_ORIGINS` defaults to `*`, so a page on another origin can call the API. Set it to a comma-separated list of origins if you want to narrow that.
+Browser calls are limited to `ALLOWED_ORIGINS`. When that is unset, the list is the Render site (`https://smart-shield-ai.onrender.com`) plus localhost and the usual Expo dev ports (5050, 5051, 8081, 19006). `SMART_SHIELD_CORS_ORIGINS` is the older name and is used only when `ALLOWED_ORIGINS` is empty. Set either one to `*` to opt back into an open policy. The Expo native app sends no `Origin` header, so this list does not block it.
 
-Upstream map services are rate-limited by those providers. This app caches some of those answers and slows repeat calls so a demo does not hammer them. The app itself does not throttle general API traffic. Sign-in, when enabled, allows a short run of failed attempts per address and then waits. A real rate limit for the whole API is still future work.
+The Flask process caps score, directions, road context, suggest, reverse, cameras, and the practice loop. Each of those routes allows `RATE_LIMIT_PER_MIN` requests per IP per minute (default 120). `/api/health` is not capped. A limit returns HTTP 429 and `{"error": "Too many requests. Wait a moment and try again."}`. Set `RATE_LIMIT_ENABLED=false` to turn the cap off. The counter is in memory on the one gunicorn worker. It is not a shared limiter across many servers. Sign-in, when enabled, still has its own short run of failed attempts per address.
+
+Upstream map services have their own limits. This app caches some of those answers.
+
+## Response headers
+
+Every response sends `Strict-Transport-Security`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `X-Frame-Options: SAMEORIGIN`, and a content security policy. The policy allows this site's scripts, Leaflet and MapLibre from unpkg, the Inter font from Google Fonts, OpenStreetMap tiles, OpenFreeMap vector tiles, and the public Overpass hosts the page already calls. Browsers ignore HSTS on plain HTTP, so a local `http://localhost` demo is unchanged.
+
+## Request limits
+
+`MAX_CONTENT_LENGTH` defaults to 1 MB. A larger body is HTTP 400 with a short JSON error. Suggest queries are capped at 120 characters, `custom_alert` at 280, and coordinates must be real latitudes and longitudes. A score request may include at most 8 routes and 25 waypoints. These checks reject the shape of the request. They do not change how a valid route is scored.
+
+## Driving
+
+While a drive or motorcycle trip is moving faster than 10 km/h, the From and To fields (and any text field in the report sheet) do not take typing. The screen says "Pull over to search". Voice, mute, and Exit stay available. "I'm a passenger" turns the lock off for that session. Walk, cycle, and transit are not locked. Reports are still one-tap categories. The server does not store them.
 
 ## Accounts
 
@@ -32,7 +46,7 @@ The optional sign-in is one admin user from environment variables, a bcrypt hash
 
 ## Dependencies
 
-Python and JavaScript dependencies are pinned loosely in `requirements.txt`, `demo/requirements-demo.txt`, and `mobile/package.json`. GitHub Dependabot is not enabled. Review alerts by hand until that is turned on.
+Python and JavaScript dependencies are pinned loosely in `requirements.txt`, `demo/requirements-demo.txt`, and `mobile/package.json`. `.github/dependabot.yml` asks GitHub for weekly updates of the demo's pip packages and the Expo app's npm packages. That file takes effect when it is on the default branch. It does not by itself upgrade anything. Review each alert. Do not run `npm audit fix --force`.
 
 ## Penetration tests
 

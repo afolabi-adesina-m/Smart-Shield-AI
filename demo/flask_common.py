@@ -8,8 +8,25 @@ from pathlib import Path
 
 import requests
 from flask import Flask, jsonify, request
+from werkzeug.exceptions import RequestEntityTooLarge
 
 from flask_cors import CORS
+
+from http_guard import (
+    MAX_ALERT_CHARS,
+    MAX_GEOMETRY_POINTS,
+    MAX_QUERY_CHARS,
+    MAX_ROUTES,
+    MAX_SUMMARY_CHARS,
+    MAX_WAYPOINTS,
+    check_point,
+    configured_origins,
+    max_body_bytes,
+    security_headers,
+    text_field,
+    valid_lat_lon,
+)
+from rate_limit import allow as rate_limit_allow
 
 from engine_loader import engine_status
 from inference import WEATHER_PRESETS, score_routes_batch, DEFAULT_VISION_MODE
@@ -35,17 +52,20 @@ USER_AGENT = "SmartShieldCapstone/1.0 (Sheridan PAIDA academic demo)"
 
 
 def apply_public_cors(app: Flask) -> None:
-    """Allow the map API to be called when the page is hosted on another origin.
+    """Allow the listed browser origins to call the API.
 
-    Default remains open (``*``), matching the previous demo. Set
-    SMART_SHIELD_CORS_ORIGINS to a comma-separated list to restrict it.
+    The default is the Render site plus localhost and Expo dev ports.
+    Set ALLOWED_ORIGINS (or SMART_SHIELD_CORS_ORIGINS) to a comma-separated
+    list, or to ``*`` to opt back into an open policy. Requests with no
+    Origin header, including the Expo native app, are not blocked.
     """
-    raw = os.getenv("SMART_SHIELD_CORS_ORIGINS", "*").strip()
-    if not raw or raw == "*":
+    origins = configured_origins()
+    if origins == "*":
         CORS(app)
         return
-    origins = [part.strip() for part in raw.split(",") if part.strip()]
-    CORS(app, origins=origins)
+    # Only echo an allowed Origin. A request with no Origin (the Expo app)
+    # is left alone instead of listing every dev origin on the response.
+    CORS(app, origins=origins, always_send=False)
 
 
 def _public_geocode_error(exc: Exception) -> str:
@@ -92,10 +112,27 @@ def register_api_routes(app: Flask) -> None:
     )
 
     configure_auth()
+    app.config["MAX_CONTENT_LENGTH"] = max_body_bytes()
+
+    @app.before_request
+    def _limit_public_api():
+        if rate_limit_allow(client_ip(), request.method, request.path):
+            return None
+        return jsonify({"error": "Too many requests. Wait a moment and try again."}), 429
 
     @app.before_request
     def _require_sign_in():
         return guard()
+
+    @app.after_request
+    def _security_headers(response):
+        for name, value in security_headers().items():
+            response.headers.setdefault(name, value)
+        return response
+
+    @app.errorhandler(RequestEntityTooLarge)
+    def _body_too_large(_exc):
+        return jsonify({"error": "Request is too large."}), 400
 
     @app.get("/api/auth/status")
     def auth_status():
@@ -170,7 +207,7 @@ def register_api_routes(app: Flask) -> None:
     def suggest():
         """Address autocomplete. Proxied so the browser does not call Photon directly."""
         q = (request.args.get("q") or "").strip()
-        if len(q) > 120:
+        if len(q) > MAX_QUERY_CHARS:
             return jsonify({"error": "Query is too long"}), 400
         lat = lon = None
         try:
@@ -180,6 +217,10 @@ def register_api_routes(app: Flask) -> None:
                 lon = float(request.args["lon"])
         except ValueError:
             return jsonify({"error": "lat and lon must be numeric"}), 400
+        if (lat is None) != (lon is None):
+            return jsonify({"error": "Provide both lat and lon"}), 400
+        if lat is not None and not valid_lat_lon(lat, lon):
+            return jsonify({"error": "lat/lon out of range"}), 400
         try:
             return jsonify(suggest_places(q, lat=lat, lon=lon))
         except Exception as exc:
@@ -258,6 +299,10 @@ def register_api_routes(app: Flask) -> None:
     @app.post("/api/test-loop")
     def test_loop():
         body = request.get_json(force=True, silent=True) or {}
+        centre_error = text_field(body.get("centre_id"), 80)
+        level_error = text_field(body.get("level") or "G2", 8)
+        if centre_error or level_error:
+            return jsonify({"error": centre_error or level_error}), 400
         try:
             payload = build_practice_loop(
                 body.get("centre_id"),
@@ -297,8 +342,14 @@ def register_api_routes(app: Flask) -> None:
             lon = float(body["lon"])
         except (KeyError, TypeError, ValueError):
             return jsonify({"error": "Need numeric lat and lon"}), 400
-        if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        if not valid_lat_lon(lat, lon):
             return jsonify({"error": "lat/lon out of range"}), 400
+        geometry = body.get("geometry")
+        if isinstance(geometry, list) and len(geometry) > MAX_GEOMETRY_POINTS:
+            return jsonify({"error": "Too many points in geometry"}), 400
+        weather_error = text_field(body.get("weather"), 40)
+        if weather_error:
+            return jsonify({"error": weather_error}), 400
         recommended = body.get("recommended_kmh")
         try:
             if recommended is not None and recommended != "":
@@ -422,8 +473,12 @@ def register_api_routes(app: Flask) -> None:
             to_lon = float(request.args["to_lon"])
         except (KeyError, ValueError):
             return jsonify({"error": "Need from_lat, from_lon, to_lat, to_lon"}), 400
+        if not (valid_lat_lon(from_lat, from_lon) and valid_lat_lon(to_lat, to_lon)):
+            return jsonify({"error": "lat/lon out of range"}), 400
 
         mode = (request.args.get("mode") or "drive").strip().lower()
+        if len(mode) > 16:
+            return jsonify({"error": "Unknown travel mode"}), 400
         if mode not in ("drive", "motorcycle", "cycle", "walk", "transit"):
             return jsonify({"error": "Unknown travel mode"}), 400
         summary = request.args.get("summary") == "1"
@@ -512,11 +567,45 @@ def register_api_routes(app: Flask) -> None:
     def score_routes():
         body = request.get_json(force=True, silent=True) or {}
         routes = body.get("routes", [])
+        if not isinstance(routes, list):
+            return jsonify({"error": "routes must be a list"}), 400
         if not routes:
             return jsonify({"error": "No routes provided"}), 400
+        if len(routes) > MAX_ROUTES:
+            return jsonify({"error": "Too many routes"}), 400
+        for route in routes:
+            if not isinstance(route, dict):
+                return jsonify({"error": "Each route must be an object"}), 400
+            summary_error = text_field(route.get("summary"), MAX_SUMMARY_CHARS)
+            if summary_error:
+                return jsonify({"error": summary_error}), 400
+            if route.get("mid_lat") is not None or route.get("mid_lon") is not None:
+                try:
+                    mid_lat = float(route["mid_lat"])
+                    mid_lon = float(route["mid_lon"])
+                except (KeyError, TypeError, ValueError):
+                    return jsonify({"error": "mid_lat and mid_lon must be numeric"}), 400
+                if not valid_lat_lon(mid_lat, mid_lon):
+                    return jsonify({"error": "lat/lon out of range"}), 400
+            geometry = route.get("geometry")
+            if isinstance(geometry, list) and len(geometry) > MAX_GEOMETRY_POINTS:
+                return jsonify({"error": "Too many points in geometry"}), 400
+        waypoints = body.get("waypoints")
+        if waypoints is not None:
+            if not isinstance(waypoints, list) or len(waypoints) > MAX_WAYPOINTS:
+                return jsonify({"error": "Too many waypoints"}), 400
+            for point in waypoints:
+                point_error = check_point(point)
+                if point_error:
+                    return jsonify({"error": point_error}), 400
+        weather_error = text_field(body.get("weather"), 40)
+        alert_error = text_field(body.get("custom_alert") or "", MAX_ALERT_CHARS)
+        mode_error = text_field(body.get("vision_mode"), 32)
+        if weather_error or alert_error or mode_error:
+            return jsonify({"error": weather_error or alert_error or mode_error}), 400
 
         weather = body.get("weather", "auto")
-        custom_alert = body.get("custom_alert", "")
+        custom_alert = body.get("custom_alert", "") or ""
         # Legacy flag only. UI removed Force checkbox: Auto → live,
         # named presets → that scenario only (see inference.score_route).
         force_preset = bool(body.get("force_preset", False))
