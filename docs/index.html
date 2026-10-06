@@ -3,12 +3,21 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Smart-Shield AI — Highway Safety Score</title>
-  <meta name="description" content="Ontario Smart-Shield AI: multimodal highway safety scoring with NLP alerts, vision road conditions, and collision-risk fusion for Ontario highways and 400-series corridors." />
+  <title>Smart-Shield AI | Highway Safety Score</title>
+  <meta name="description" content="Interactive Safety Score explorer and documentation for Smart-Shield AI, a Sheridan College team project on Ontario highway risk. The map demo runs locally." />
+  <meta property="og:title" content="Smart-Shield AI | Highway Safety Score" />
+  <meta property="og:description" content="Interactive Safety Score explorer and documentation for Smart-Shield AI. The map demo runs locally." />
+  <meta property="og:image" content="https://afolabi-adesina-m.github.io/Smart-Shield-AI/assets/og-image.jpg" />
+  <meta property="og:url" content="https://afolabi-adesina-m.github.io/Smart-Shield-AI/" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Smart-Shield AI | Highway Safety Score" />
+  <meta name="twitter:description" content="Interactive Safety Score explorer and documentation for Smart-Shield AI. The map demo runs locally." />
+  <meta name="twitter:image" content="https://afolabi-adesina-m.github.io/Smart-Shield-AI/assets/og-image.jpg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Sora:wght@600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/site.css?v=20250827" />
+  <link rel="stylesheet" href="css/site.css?v=20261006" />
 </head>
 <body>
   <div class="page-bg" aria-hidden="true"></div>
@@ -17,6 +26,7 @@
     <div class="wrap nav-inner">
       <a class="brand" href="#top">Smart<span class="brand-accent">-Shield</span> AI</a>
       <nav class="nav-links" aria-label="Primary">
+        <a href="#about">About</a>
         <a href="#pillars">Pillars</a>
         <a href="#live-score">Live score</a>
         <a href="#status-snapshot">Status</a>
@@ -35,7 +45,7 @@
           <h1>Highway risk you can read before you drive.</h1>
           <p class="lead">
             Smart-Shield fuses Ontario 511-style alerts (NLP), road-surface vision, and
-            environmental collision risk into one Safety Score <strong>S</strong> — with
+            environmental collision risk into one Safety Score <strong>S</strong>, with
             speed guidance for Ontario highways and 400-series corridors.
           </p>
           <div class="cta-row">
@@ -59,9 +69,24 @@
       </div>
     </section>
 
+    <section class="wrap" id="about">
+      <div class="section-head">
+        <h2>About this project</h2>
+        <p>
+          Smart-Shield AI is a Sheridan College team project (Team 2B).
+          Author: Afolabi Adesina.
+        </p>
+        <!-- PLACEHOLDER: My role. Replace this comment and the line below with a short factual note about what you did. Do not invent specific contributions. -->
+        <p>My role: Team member, Sheridan College applied AI project</p>
+        <p>
+          <a href="https://afolabi-adesina-m.github.io/NA-Skills-Portfolio/">Back to the portfolio hub</a>
+        </p>
+      </div>
+    </section>
+
     <section class="wrap" id="pillars">
       <div class="section-head">
-        <h2>Three-brain architecture</h2>
+        <h2>Three model inputs</h2>
         <p>Each pillar outputs a 0–1 risk signal. Fusion weights produce the operational Safety Score.</p>
       </div>
       <div class="pillars">
@@ -87,7 +112,7 @@
       <div class="section-head">
         <h2>Interactive Safety Score</h2>
         <p>
-          Drag the sliders — <strong>S</strong>, risk band, and speed advice update live.
+          Drag the sliders to update S, the risk band and speed advice.
           Formula:
           <code class="formula" style="display:inline;padding:0.15rem 0.4rem;">S = (w<sub>T</sub>·T + w<sub>V</sub>·V + w<sub>E</sub>·E) × 100</code>
           <br />
@@ -142,7 +167,10 @@
     <section class="wrap" id="status-snapshot">
       <div class="section-head">
         <h2>Latest Validation Snapshot</h2>
-        <p>Values below are synced to the latest notebook outputs and D3 evidence pack.</p>
+        <p>
+          Values below are synced to the latest notebook outputs and D3 evidence pack.
+          The model was tuned to catch rare high-risk events (recall) at the cost of many false alarms (low precision), which is typical for rare-event safety screening.
+        </p>
       </div>
       <div class="table-wrap">
         <table>
@@ -162,7 +190,7 @@
     <section class="wrap" id="pipeline">
       <div class="section-head">
         <h2>How to run the project</h2>
-        <p>Prefer the split notebooks under <code>notebooks/parts/</code> — cleaner than one giant Run All.</p>
+        <p>Prefer the split notebooks under <code>notebooks/parts/</code>. They are easier to run than one giant Run All.</p>
       </div>
       <div class="table-wrap">
         <table>
@@ -181,12 +209,10 @@
 
     <section class="wrap" id="run">
       <div class="section-head">
-        <h2>Links &amp; local demo</h2>
+        <h2>Links and local demo</h2>
         <p>
-          This GitHub Pages site is <strong>static only</strong> (formula explorer + docs).
-          The map demo with live Ontario 511 CCTV, Open-Meteo, and ResNet scoring needs a
-          Python/Flask process — run it on your GPU machine or any always-on host, then
-          optionally link that URL here.
+          This hosted page is an interactive Safety Score explorer and documentation.
+          The map demo runs locally.
         </p>
       </div>
       <div class="links">
@@ -196,7 +222,7 @@
         </a>
         <a class="link-card" href="https://github.com/afolabi-adesina-m/Smart-Shield-AI/blob/master/PROJECT_FILES.md">
           <b>File guide</b>
-          <span>PROJECT_FILES.md — every folder explained.</span>
+          <span>PROJECT_FILES.md, with every folder explained.</span>
         </a>
         <a class="link-card" href="https://github.com/afolabi-adesina-m/Smart-Shield-AI/tree/master/notebooks/parts">
           <b>Notebook parts</b>
@@ -208,7 +234,7 @@
         </a>
         <a class="link-card" href="https://github.com/afolabi-adesina-m/Smart-Shield-AI/tree/master/docs/D3_assets">
           <b>D3 evidence pack</b>
-          <span>Exported figures, metrics tables, and draft outline for Week 12 report prep.</span>
+          <span>Exported figures and metrics tables.</span>
         </a>
       </div>
       <div class="card stack" style="margin-top:1.25rem;">
@@ -219,10 +245,7 @@ python api_server.py
 # → http://127.0.0.1:5050
 # Real Vision mode: nearest Ontario 511 CCTV → ResNet18 → V in Safety Score S</pre>
         <p class="demo-note">
-          This live demo runs locally because GitHub Pages serves static files only — it cannot
-          host Flask, GPU inference (CUDA), or private model weights. To share a public demo from
-          this site, deploy the API on a VPS, campus GPU machine, or secure tunnel (for example
-          ngrok), then add that URL as a link above.
+          The map demo runs locally. This page does not run Flask, GPU inference, or the model weights.
         </p>
       </div>
     </section>
@@ -238,8 +261,8 @@ python api_server.py
       by
       <a href="https://commons.wikimedia.org/wiki/User:Haljackey" rel="noopener">Haljackey</a>
       /
-      <a href="https://creativecommons.org/licenses/by-sa/3.0/" rel="noopener">CC BY-SA 3.0</a>
-      — used as a visual example; the project covers Ontario highway safety broadly.
+      <a href="https://creativecommons.org/licenses/by-sa/3.0/" rel="noopener">CC BY-SA 3.0</a>.
+      Used as a visual example. The project covers Ontario highway safety broadly.
     </div>
   </footer>
 
