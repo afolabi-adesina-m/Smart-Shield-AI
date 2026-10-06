@@ -305,6 +305,20 @@ section {
   font-weight: 500;
 }
 
+.section-head ul {
+  margin: 0.45rem 0 0;
+  padding-left: 1.2rem;
+  color: var(--muted-strong);
+  max-width: 46rem;
+  font-size: 1.02rem;
+  line-height: 1.55;
+  font-weight: 500;
+}
+
+.section-head li + li {
+  margin-top: 0.25rem;
+}
+
 .section-head code.formula,
 .section-head .formula {
   display: inline-block;
