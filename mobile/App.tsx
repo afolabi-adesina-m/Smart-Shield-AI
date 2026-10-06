@@ -55,6 +55,7 @@ import { alertOverLimit } from "./src/overSpeedAlert";
 import { loadMuted, loadReports, loadVoiceGender, saveMuted, saveReport, saveVoiceGender, type ReportKind, type RoadReport } from "./src/reports";
 import { alertsAhead, CAMERA_DISCLAIMER, loadCameraAlerts, loadEnforcement, saveCameraAlerts, type CameraFeature } from "./src/cameras";
 import { loadSignsNear, lookupStreet, type RoadSign } from "./src/roadSigns";
+import { typingLocked } from "./src/driverLock";
 import { applyVoiceGender, speakNav, stopSpeech, type VoiceGender } from "./src/voice";
 import type { HeatSpot } from "./src/deliveryLogic";
 import type {
@@ -136,6 +137,7 @@ export default function App() {
   const fixRef = useRef<GpsFix | null>(null);
   const [focus, setFocus] = useState<Focus>("idle");
   const [driving, setDriving] = useState(false);
+  const [passenger, setPassenger] = useState(false);
   const [simCursor, setSimCursor] = useState<GpsFix | null>(null);
   const [mapHeld, setMapHeld] = useState(false);
   const [followToken, setFollowToken] = useState(0);
@@ -497,6 +499,12 @@ export default function App() {
     : fix
       ? Math.max(0, Math.round(fix.speedKmh ?? 0))
       : null;
+  const handsBusy = typingLocked(shownKmh, travelMode, driving, passenger);
+  const showSearch = focus !== "practice" && focus !== "fleet" && !handsBusy && (
+    !driving
+    || passenger
+    || ((travelMode === "drive" || travelMode === "motorcycle") && shownKmh != null && shownKmh <= 10)
+  );
   const posted = speed?.posted_kmh ?? null;
   const safe = speed?.safe_kmh ?? null;
   const speedLevel: WarningLevel = warningFor(shownKmh, posted, safe);
@@ -950,6 +958,7 @@ export default function App() {
     spokenCues.current = {};
     spokenSigns.current = {};
     setDriving(false);
+    setPassenger(false);
     setSimCursor(null);
     setMapHeld(false);
     setFocus("idle");
@@ -1075,6 +1084,8 @@ export default function App() {
         driving={driving}
         travelMode={travelMode}
         roadName={(stepGuide.road && stepGuide.road !== "Unnamed road" ? stepGuide.road : "") || (speed?.road_name && speed.road_name !== "Unnamed road" ? speed.road_name : "")}
+        typingLocked={handsBusy}
+        onPassenger={() => setPassenger(true)}
         arrival={eta?.arrival || ""}
         minutesLabel={eta?.minuteValue || ""}
         distanceLabel={eta?.distanceValue || ""}
@@ -1103,6 +1114,8 @@ export default function App() {
           onPick={(item) => { Keyboard.dismiss(); pickSuggestion(item); }}
           onUseLocation={(which) => { useMyLocation(which).catch(() => setLocationNote("Location is off. Type the address instead.")); }}
           locationNote={locationNote}
+          typingLocked={handsBusy}
+          onPassenger={() => setPassenger(true)}
           weather={weather}
           onWeather={setWeather}
           busy={busy}
@@ -1157,7 +1170,7 @@ export default function App() {
     </View>
     </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
-    {!driving && focus !== "practice" && focus !== "fleet" ? (
+    {showSearch ? (
         <SearchCard
           night={night}
           origin={origin}
@@ -1170,6 +1183,9 @@ export default function App() {
           onPick={(item) => { Keyboard.dismiss(); pickSuggestion(item); }}
           onUseLocation={(which) => { useMyLocation(which).catch(() => setLocationNote("Location is off. Type the address instead.")); }}
           locationNote={locationNote}
+          typingLocked={handsBusy}
+          onPassenger={() => setPassenger(true)}
+          dockLift={driving ? 96 : 0}
           busy={busy}
           onFind={() => { Keyboard.dismiss(); findRoute().catch(() => undefined); }}
           onTravelMode={chooseMode}

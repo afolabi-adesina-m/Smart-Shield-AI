@@ -97,6 +97,34 @@
 
 .address-field input { font-size: 16px; }
 
+.driver-lock {
+  position: fixed;
+  z-index: 40;
+  left: 12px;
+  right: 12px;
+  bottom: 96px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--card-solid, #fff);
+  color: var(--text);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.driver-lock[hidden] { display: none !important; }
+
+.driver-lock button {
+  margin-left: 8px;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-weight: 700;
+  cursor: pointer;
+}
+
 .here-btn {
   display: inline-block;
   margin: 2px 0 8px;

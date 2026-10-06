@@ -1,0 +1,2 @@
+# Dependabot reads this name. The demo install list stays in requirements-demo.txt.
+-r requirements-demo.txt
