@@ -4,20 +4,20 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Smart-Shield AI | Highway Safety Score</title>
-  <meta name="description" content="Interactive Safety Score explorer and documentation for Smart-Shield AI, a Sheridan College team project on Ontario highway risk. The map demo runs locally." />
+  <meta name="description" content="Interactive Safety Score explorer and live map demo for Smart-Shield AI, a Sheridan College team project on Ontario highway risk." />
   <meta property="og:title" content="Smart-Shield AI | Highway Safety Score" />
-  <meta property="og:description" content="Interactive Safety Score explorer and documentation for Smart-Shield AI. The map demo runs locally." />
+  <meta property="og:description" content="Interactive Safety Score explorer and live map demo for Smart-Shield AI on Render." />
   <meta property="og:image" content="https://afolabi-adesina-m.github.io/Smart-Shield-AI/assets/og-image.jpg" />
   <meta property="og:url" content="https://afolabi-adesina-m.github.io/Smart-Shield-AI/" />
   <meta property="og:type" content="website" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Smart-Shield AI | Highway Safety Score" />
-  <meta name="twitter:description" content="Interactive Safety Score explorer and documentation for Smart-Shield AI. The map demo runs locally." />
+  <meta name="twitter:description" content="Interactive Safety Score explorer and live map demo for Smart-Shield AI on Render." />
   <meta name="twitter:image" content="https://afolabi-adesina-m.github.io/Smart-Shield-AI/assets/og-image.jpg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Sora:wght@600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/site.css?v=20261006b" />
+  <link rel="stylesheet" href="css/site.css?v=20261006c" />
 </head>
 <body>
   <div class="page-bg" aria-hidden="true"></div>
@@ -31,6 +31,7 @@
         <a href="#live-score">Live score</a>
         <a href="#status-snapshot">Status</a>
         <a href="#pipeline">Pipeline</a>
+        <a href="#see-it">Live map</a>
         <a href="#run">Run locally</a>
         <a href="https://github.com/afolabi-adesina-m/Smart-Shield-AI">GitHub</a>
       </nav>
@@ -49,9 +50,15 @@
             speed guidance for Ontario highways and 400-series corridors.
           </p>
           <div class="cta-row">
-            <a class="btn btn-primary" href="#live-score">Try the Safety Score</a>
+            <a class="btn btn-primary" href="https://smart-shield-ai.onrender.com" target="_blank" rel="noopener">See it in action</a>
+            <a class="btn btn-ghost" href="#live-score">Try the Safety Score</a>
             <a class="btn btn-ghost" href="https://github.com/afolabi-adesina-m/Smart-Shield-AI">View repository</a>
           </div>
+          <p class="hero-demo-hint">
+            Live map on Render. On a phone, use
+            <a href="https://smart-shield-ai.onrender.com/mobile" target="_blank" rel="noopener">/mobile</a>.
+            Free hosting may take about a minute to wake on first open.
+          </p>
         </div>
         <aside class="hero-panel" aria-label="Current fused score preview">
           <div class="score-ring" id="scoreRing" style="--pct: 43; --score-color: #f0b429;">
@@ -113,6 +120,48 @@
           <h3>Environment</h3>
           <p>Weather / surface / lighting signals calibrated to literature → environmental index <strong>E</strong>.</p>
         </article>
+      </div>
+    </section>
+
+    <section class="wrap" id="see-it">
+      <div class="section-head">
+        <h2>See it in action</h2>
+        <p>
+          Open the live map demo on Render. This is the map-in-action view with routes,
+          the 403 exit demo, and settings. The Safety Score sliders below stay on this page.
+        </p>
+        <div class="cta-row" style="margin-top:1rem;">
+          <a class="btn btn-primary" href="https://smart-shield-ai.onrender.com" target="_blank" rel="noopener">Open live map demo</a>
+          <a class="btn btn-ghost" href="https://smart-shield-ai.onrender.com/mobile" target="_blank" rel="noopener">Open phone layout (/mobile)</a>
+        </div>
+        <p class="demo-tip" style="margin-top:0.9rem;">
+          <strong>Try this first:</strong> tap Play 403 exit demo.
+        </p>
+        <p style="margin-top:0.55rem;">
+          Cold start: free hosting may take about a minute to wake on first open.
+        </p>
+      </div>
+      <div class="card stack find-guide">
+        <div class="kicker">What you will find</div>
+        <ul class="find-list">
+          <li>
+            <strong>Find safest route:</strong> enter start and destination.
+            Safety ratings: 0–30 low, 31–70 medium, 71–100 high.
+            Turn-by-turn directions are included.
+          </li>
+          <li>
+            <strong>Play 403 exit demo:</strong> simulated drive with trip and driver safety scores.
+            Export CSV when you are done.
+          </li>
+          <li>
+            <strong>Settings:</strong> road conditions (clear, wet, blizzard, ice storm),
+            day or night, camera alerts, voice guidance, and how camera images are scored.
+          </li>
+          <li>
+            <strong>Data:</strong> OpenStreetMap and City of Toronto open data.
+            Not official MTO or 511 guidance.
+          </li>
+        </ul>
       </div>
     </section>
 
@@ -220,7 +269,11 @@
         <h2>Links and local demo</h2>
         <p>
           This hosted page is an interactive Safety Score explorer and documentation.
-          The map demo runs locally.
+          The map demo also runs live on
+          <a href="https://smart-shield-ai.onrender.com" target="_blank" rel="noopener">Render</a>
+          (phone layout at
+          <a href="https://smart-shield-ai.onrender.com/mobile" target="_blank" rel="noopener">/mobile</a>).
+          You can still run the Flask demo on your machine if you want the full local stack.
         </p>
       </div>
       <div class="links">
@@ -246,14 +299,17 @@
         </a>
       </div>
       <div class="card stack" style="margin-top:1.25rem;">
-        <div class="kicker">Local map demo (live CCTV + models)</div>
+        <div class="kicker">Optional local map demo (live CCTV + models)</div>
         <pre class="formula" style="margin:0;">cd demo
 pip install -r requirements-demo.txt
 python api_server.py
 # → http://127.0.0.1:5050
 # Real Vision mode: nearest Ontario 511 CCTV → ResNet18 → V in Safety Score S</pre>
         <p class="demo-note">
-          The map demo runs locally. This page does not run Flask, GPU inference, or the model weights.
+          Prefer the live
+          <a href="https://smart-shield-ai.onrender.com" target="_blank" rel="noopener">Render demo</a>
+          for a quick look. This GitHub Pages site does not run Flask, GPU inference, or the model weights.
+          Local setup is for development with the trained models folder.
         </p>
       </div>
     </section>
