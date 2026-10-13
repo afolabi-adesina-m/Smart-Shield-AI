@@ -623,3 +623,9 @@ footer {
     align-items: flex-start;
   }
 }
+
+/* Home button back to the portfolio */
+.nav-links { align-items: center; }
+.nav-links a.nav-home { display: inline-flex; align-items: center; gap: .35rem; padding: .3rem .75rem; border: 1px solid var(--amber); border-radius: 999px; color: var(--amber); font-weight: 600; white-space: nowrap; }
+.nav-links a.nav-home svg { width: 15px; height: 15px; fill: currentColor; }
+.nav-links a.nav-home:hover { background: rgba(245, 200, 66, 0.14); color: var(--amber); }
