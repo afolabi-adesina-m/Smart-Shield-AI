@@ -1,0 +1,25 @@
+{
+  "kind": "score",
+  "note": "Each penalty is past its cap: brake 40, turn 20, speed 30. Score 10.",
+  "input": {
+    "vehicle": "car",
+    "tripKm": 10,
+    "tripMinutes": 30,
+    "movingSeconds": 600,
+    "hardBrakes": 0,
+    "harshBrakes": 6,
+    "sharpTurns": 10,
+    "speedingSeconds": 600,
+    "speedingEpisodes": 20,
+    "lightsPassed": 0,
+    "fullStops": 0
+  },
+  "expected": {
+    "score": 10,
+    "band": "Needs work",
+    "scorable": true,
+    "pBrake": 40,
+    "pTurn": 20,
+    "pSpeed": 30
+  }
+}

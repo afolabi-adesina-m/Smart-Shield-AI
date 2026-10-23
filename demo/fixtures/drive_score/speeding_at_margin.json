@@ -1,0 +1,147 @@
+{
+  "kind": "detect",
+  "note": "Speed equal to posted_kmh + margin is not speeding.",
+  "vehicle": "car",
+  "motion": [],
+  "gps": [
+    {
+      "t": 0,
+      "lat": 43.65,
+      "lon": -79.38,
+      "speed": 55,
+      "accuracy": 5,
+      "posted_kmh": 50
+    },
+    {
+      "t": 1,
+      "lat": 43.650137,
+      "lon": -79.38,
+      "speed": 55,
+      "accuracy": 5,
+      "posted_kmh": 50
+    },
+    {
+      "t": 2,
+      "lat": 43.650274,
+      "lon": -79.38,
+      "speed": 55,
+      "accuracy": 5,
+      "posted_kmh": 50
+    },
+    {
+      "t": 3,
+      "lat": 43.650412,
+      "lon": -79.38,
+      "speed": 55,
+      "accuracy": 5,
+      "posted_kmh": 50
+    },
+    {
+      "t": 4,
+      "lat": 43.650549,
+      "lon": -79.38,
+      "speed": 55,
+      "accuracy": 5,
+      "posted_kmh": 50
+    },
+    {
+      "t": 5,
+      "lat": 43.650686,
+      "lon": -79.38,
+      "speed": 55,
+      "accuracy": 5,
+      "posted_kmh": 50
+    },
+    {
+      "t": 6,
+      "lat": 43.650823,
+      "lon": -79.38,
+      "speed": 55,
+      "accuracy": 5,
+      "posted_kmh": 50
+    },
+    {
+      "t": 7,
+      "lat": 43.650961,
+      "lon": -79.38,
+      "speed": 55,
+      "accuracy": 5,
+      "posted_kmh": 50
+    },
+    {
+      "t": 8,
+      "lat": 43.651098,
+      "lon": -79.38,
+      "speed": 55,
+      "accuracy": 5,
+      "posted_kmh": 50
+    },
+    {
+      "t": 9,
+      "lat": 43.651235,
+      "lon": -79.38,
+      "speed": 55,
+      "accuracy": 5,
+      "posted_kmh": 50
+    },
+    {
+      "t": 10,
+      "lat": 43.651372,
+      "lon": -79.38,
+      "speed": 55,
+      "accuracy": 5,
+      "posted_kmh": 50
+    },
+    {
+      "t": 11,
+      "lat": 43.65151,
+      "lon": -79.38,
+      "speed": 55,
+      "accuracy": 5,
+      "posted_kmh": 50
+    },
+    {
+      "t": 12,
+      "lat": 43.651647,
+      "lon": -79.38,
+      "speed": 55,
+      "accuracy": 5,
+      "posted_kmh": 50
+    },
+    {
+      "t": 13,
+      "lat": 43.651784,
+      "lon": -79.38,
+      "speed": 55,
+      "accuracy": 5,
+      "posted_kmh": 50
+    },
+    {
+      "t": 14,
+      "lat": 43.651921,
+      "lon": -79.38,
+      "speed": 55,
+      "accuracy": 5,
+      "posted_kmh": 50
+    },
+    {
+      "t": 15,
+      "lat": 43.652059,
+      "lon": -79.38,
+      "speed": 55,
+      "accuracy": 5,
+      "posted_kmh": 50
+    }
+  ],
+  "lights": [],
+  "expected": {
+    "hardBrakes": 0,
+    "harshBrakes": 0,
+    "unconfirmedBrakes": 0,
+    "sharpTurns": 0,
+    "lightsPassed": 0,
+    "fullStops": 0,
+    "speedingSeconds": 0,
+    "speedingEpisodes": 0
+  }
+}

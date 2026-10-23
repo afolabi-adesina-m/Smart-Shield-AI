@@ -1,0 +1,22 @@
+{
+  "kind": "score",
+  "note": "Under the 1 km and 3 min minimum. Not a perfect 100.",
+  "input": {
+    "vehicle": "car",
+    "tripKm": 0,
+    "tripMinutes": 0,
+    "movingSeconds": 0,
+    "hardBrakes": 2,
+    "harshBrakes": 0,
+    "sharpTurns": 0,
+    "speedingSeconds": 0,
+    "speedingEpisodes": 0,
+    "lightsPassed": 1,
+    "fullStops": 1
+  },
+  "expected": {
+    "score": null,
+    "band": null,
+    "scorable": false
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "kind": "score-pair",
+  "note": "Full stops and lights passed are information only.",
+  "trip": {
+    "vehicle": "car",
+    "tripKm": 12,
+    "tripMinutes": 20,
+    "movingSeconds": 1080,
+    "hardBrakes": 2,
+    "harshBrakes": 1,
+    "sharpTurns": 3,
+    "speedingSeconds": 54,
+    "speedingEpisodes": 1
+  },
+  "withLights": {
+    "lightsPassed": 9,
+    "fullStops": 4
+  },
+  "withoutLights": {
+    "lightsPassed": 0,
+    "fullStops": 0
+  },
+  "expectedScore": 76
+}
