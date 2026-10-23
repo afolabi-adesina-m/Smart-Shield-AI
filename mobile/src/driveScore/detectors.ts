@@ -1,87 +1,46 @@
-/**
- * Hard and harsh braking, sharp turns, and speeding. Spec §2.
- * Lights are counted by lightMatch.ts and are not score events.
- */
+/** Spec §2. Hard/harsh braking, sharp turns, speeding against posted_kmh. */
 
 import { haversineM, matchLights, type LightNode } from "./lightMatch";
 import { orientTrip, type MotionSample } from "./orientation";
 import { G_MPS2, limitsFor, type Limits, type VehicleKind } from "./thresholds";
 
 export type { MotionSample } from "./orientation";
+export type { LightNode } from "./lightMatch";
 
 export type GpsSample = {
   t: number;
   lat: number;
   lon: number;
-  /** Kilometres per hour. Null when coords.speed was missing; distance/time is used instead. */
   speed: number | null;
-  /** Metres. Fixes worse than the accuracy cut-off are dropped. */
   accuracy: number | null;
   posted_kmh?: number | null;
 };
 
-export type TripTrace = {
-  vehicle: VehicleKind;
-  motion: MotionSample[];
-  gps: GpsSample[];
-  lights?: LightNode[];
-};
+type Fix = GpsSample & { speed: number | null };
 
-export type BrakeEvent = {
-  type: "hard_brake" | "harsh_brake";
-  t: number;
-  peakG: number;
-  confirmed: boolean;
-};
-
-export type TurnEvent = {
-  type: "sharp_turn";
-  t: number;
-  peakG: number;
-};
-
-export type Detection = {
-  hardBrakes: number;
-  harshBrakes: number;
-  unconfirmedBrakes: number;
-  sharpTurns: number;
-  speedingSeconds: number;
-  speedingEpisodes: number;
-  movingSeconds: number;
-  lightsPassed: number;
-  fullStops: number;
-  brakes: BrakeEvent[];
-  turns: TurnEvent[];
-};
-
-type AcceptedFix = GpsSample & { speed: number | null };
-
-function finite(value: number | null | undefined): value is number {
+function ok(value: number | null | undefined): value is number {
   return value != null && Number.isFinite(value);
 }
 
-/** Drop poor fixes and impossible jumps. Fill a missing speed from the previous good fix. Spec §2 speed row. */
-export function acceptFixes(gps: GpsSample[], limits: Limits): AcceptedFix[] {
-  const ordered = [...gps].sort((a, b) => a.t - b.t);
-  const kept: AcceptedFix[] = [];
-  for (const fix of ordered) {
-    if (finite(fix.accuracy) && fix.accuracy > limits.gpsAccuracyM) continue;
-    let speed = finite(fix.speed) ? fix.speed : null;
-    if (kept.length > 0) {
-      const prev = kept[kept.length - 1];
-      const dt = fix.t - prev.t;
-      if (dt > 0) {
-        const implied = (haversineM(prev.lat, prev.lon, fix.lat, fix.lon) / dt) * 3.6;
-        if (implied > limits.maxSpeedKmh * limits.jumpFactor) continue;
-        if (speed == null) speed = implied;
-      }
+/** Spec §2: drop a fix worse than the accuracy cut-off, or a jump over 1.5× max speed. */
+export function acceptFixes(gps: GpsSample[], limits: Limits): Fix[] {
+  const kept: Fix[] = [];
+  for (const fix of [...gps].sort((a, b) => a.t - b.t)) {
+    if (ok(fix.accuracy) && fix.accuracy > limits.gpsAccuracyM) continue;
+    let speed = ok(fix.speed) ? fix.speed : null;
+    const prev = kept[kept.length - 1];
+    const dt = prev ? fix.t - prev.t : 0;
+    if (prev && dt > 0) {
+      const implied = (haversineM(prev.lat, prev.lon, fix.lat, fix.lon) / dt) * 3.6;
+      if (implied > limits.maxSpeedKmh * limits.jumpFactor) continue;
+      if (speed == null) speed = implied;
     }
     kept.push({ ...fix, speed });
   }
   return kept;
 }
 
-export function smooth(values: number[], times: number[], windowS: number): number[] {
+function smooth(values: number[], times: number[], windowS: number): number[] {
   const out: number[] = [];
   let start = 0;
   let sum = 0;
@@ -96,65 +55,27 @@ export function smooth(values: number[], times: number[], windowS: number): numb
   return out;
 }
 
-/** Exactly the threshold counts; just below does not. Speed must also clear the minimum. */
-export function classifyBrake(
-  peakG: number,
-  aboveHardS: number,
-  speedKmh: number | null,
-  limits: Limits,
-): "harsh_brake" | "hard_brake" | null {
+/** Spec §2 brake rule. Exactly at the threshold counts; just below does not. */
+export function classifyBrake(peakG: number, aboveS: number, speedKmh: number | null, limits: Limits) {
   if (speedKmh == null || speedKmh + 1e-9 < limits.minEventSpeedKmh) return null;
-  if (aboveHardS + 1e-9 < limits.minEventS) return null;
-  if (peakG + 1e-9 < limits.brakeHardG) return null;
-  if (peakG + 1e-9 >= limits.brakeHarshG) return "harsh_brake";
-  return "hard_brake";
+  if (aboveS + 1e-9 < limits.minEventS || peakG + 1e-9 < limits.brakeHardG) return null;
+  return peakG + 1e-9 >= limits.brakeHarshG ? "harsh_brake" : "hard_brake";
 }
 
+/** Spec §2 sharp-turn rule. */
 export function classifyTurn(peakG: number, aboveS: number, speedKmh: number | null, limits: Limits): boolean {
   if (speedKmh == null || speedKmh + 1e-9 < limits.minEventSpeedKmh) return false;
-  if (aboveS + 1e-9 < limits.minEventS) return false;
-  return peakG + 1e-9 >= limits.turnG;
+  return aboveS + 1e-9 >= limits.minEventS && peakG + 1e-9 >= limits.turnG;
 }
 
-/** Speeding second: strictly over posted_kmh plus the margin. A missing limit is ignored. */
+/** Spec §2: speeding is strictly over posted_kmh plus the margin. */
 export function isSpeeding(speedKmh: number | null, postedKmh: number | null | undefined, marginKmh: number): boolean {
-  if (!finite(speedKmh) || !finite(postedKmh)) return false;
-  return speedKmh > postedKmh + marginKmh;
+  return ok(speedKmh) && ok(postedKmh) && speedKmh > postedKmh + marginKmh;
 }
 
-function speedAt(fixes: AcceptedFix[], t: number): number | null {
-  let speed: number | null = null;
-  for (const fix of fixes) {
-    if (fix.t <= t + 1e-9) speed = fix.speed;
-    else break;
-  }
-  return speed;
-}
+type Pulse = { t: number; end: number; peak: number; aboveS: number; speed: number | null };
 
-function gpsConfirms(fixes: AcceptedFix[], start: number, end: number, rateKmhPerS: number): boolean {
-  for (let i = 0; i < fixes.length; i += 1) {
-    for (let j = i + 1; j < fixes.length; j += 1) {
-      const dt = fixes[j].t - fixes[i].t;
-      if (dt < 1.5 || dt > 2.5) continue;
-      if (fixes[j].t < start - 0.5 || fixes[i].t > end + 0.5) continue;
-      const drop = (fixes[i].speed ?? 0) - (fixes[j].speed ?? 0);
-      if (drop / dt + 1e-9 >= rateKmhPerS) return true;
-    }
-  }
-  return false;
-}
-
-type Pulse = { t: number; peak: number; aboveS: number; end: number; speed: number | null };
-
-function collectPulses(
-  times: number[],
-  values: number[],
-  speeds: Array<number | null>,
-  threshold: number,
-  endBelow: number,
-  endHoldS: number,
-  minSpeed: number,
-): Pulse[] {
+function pulses(times: number[], values: number[], speeds: Array<number | null>, level: number, endBelow: number, endHoldS: number, minSpeed: number): Pulse[] {
   const found: Pulse[] = [];
   let open = false;
   let start = 0;
@@ -165,37 +86,53 @@ function collectPulses(
   const close = (end: number) => {
     if (open) found.push({ t: start, end, peak, aboveS: above, speed });
     open = false;
-    peak = 0;
-    above = 0;
-    below = 0;
-    speed = null;
   };
   for (let i = 0; i < values.length; i += 1) {
     const dt = i === 0 ? 0 : times[i] - times[i - 1];
     const value = values[i];
-    if (!open && value >= threshold) {
+    if (!open && value >= level) {
       open = true;
       start = times[i];
-      peak = value;
+      peak = 0;
       above = 0;
       below = 0;
       speed = null;
     }
     if (!open) continue;
     peak = Math.max(peak, value);
-    if (value >= threshold && speeds[i] != null && speeds[i]! + 1e-9 >= minSpeed) {
+    if (value >= level && speeds[i] != null && speeds[i]! + 1e-9 >= minSpeed) {
       above += dt;
       if (speed == null || speeds[i]! < speed) speed = speeds[i];
     }
-    if (value < endBelow) below += dt;
-    else below = 0;
+    below = value < endBelow ? below + dt : 0;
     if (endHoldS <= 0 ? value < endBelow : below + 1e-9 >= endHoldS) close(times[i]);
   }
   if (open) close(times[times.length - 1] ?? start);
   return found;
 }
 
-function speedingTotals(fixes: AcceptedFix[], limits: Limits): { seconds: number; episodes: number; movingSeconds: number } {
+function speedAt(fixes: Fix[], t: number): number | null {
+  let speed: number | null = null;
+  for (const fix of fixes) {
+    if (fix.t <= t + 1e-9) speed = fix.speed;
+    else break;
+  }
+  return speed;
+}
+
+function gpsConfirms(fixes: Fix[], start: number, end: number, rate: number): boolean {
+  for (let i = 0; i < fixes.length; i += 1) {
+    for (let j = i + 1; j < fixes.length; j += 1) {
+      const dt = fixes[j].t - fixes[i].t;
+      const overlaps = dt >= 1.5 && dt <= 2.5 && fixes[j].t >= start - 0.5 && fixes[i].t <= end + 0.5;
+      if (overlaps && ((fixes[i].speed ?? 0) - (fixes[j].speed ?? 0)) / dt + 1e-9 >= rate) return true;
+    }
+  }
+  return false;
+}
+
+/** Count speeding seconds and episodes. Spec §2. */
+function speedingOf(fixes: Fix[], limits: Limits) {
   let seconds = 0;
   let run = 0;
   let episodes = 0;
@@ -207,8 +144,7 @@ function speedingTotals(fixes: AcceptedFix[], limits: Limits): { seconds: number
   for (let i = 0; i < fixes.length - 1; i += 1) {
     const dt = fixes[i + 1].t - fixes[i].t;
     if (dt <= 0) continue;
-    const held = Math.min(dt, 1.5);
-    if ((fixes[i].speed ?? 0) > limits.stopSpeedKmh) movingSeconds += held;
+    if ((fixes[i].speed ?? 0) > limits.stopSpeedKmh) movingSeconds += Math.min(dt, 1.5);
     if (isSpeeding(fixes[i].speed, fixes[i].posted_kmh, limits.speedMarginKmh) && dt <= 1.5) {
       seconds += dt;
       run += dt;
@@ -218,48 +154,29 @@ function speedingTotals(fixes: AcceptedFix[], limits: Limits): { seconds: number
   return { seconds, episodes, movingSeconds };
 }
 
-export function detectTrip(trace: TripTrace): Detection {
+export function detectTrip(trace: { vehicle: VehicleKind; motion: MotionSample[]; gps: GpsSample[]; lights?: LightNode[] }) {
   const limits = limitsFor(trace.vehicle);
   const fixes = acceptFixes(trace.gps, limits);
-  const poses = orientTrip(trace.motion, fixes.map((fix) => ({ t: fix.t, speedKmh: fix.speed })), {
-    gravityWindowS: limits.gravityWindowS,
-    gravityResetDeg: limits.gravityResetDeg,
-    calibrationSpeedUps: limits.calibrationSpeedUps,
-    calibrationAccelMps2: limits.calibrationAccelMps2,
-  });
+  const poses = orientTrip(trace.motion, fixes.map((fix) => ({ t: fix.t, speedKmh: fix.speed })), limits);
   const times = poses.map((pose) => pose.t);
-  const longRaw = poses.map((pose) => (pose.calibrated && pose.longG != null ? Math.max(0, -pose.longG) : 0));
-  const longG = smooth(longRaw, times, limits.smoothWindowS);
   const speeds = poses.map((pose) => speedAt(fixes, pose.t));
-  const lateralRaw = poses.map((pose, index) => {
-    if (!pose.calibrated || pose.yawRadPerS == null) return 0;
+  const longG = smooth(poses.map((pose) => (pose.calibrated && pose.longG != null ? Math.max(0, -pose.longG) : 0)), times, limits.smoothWindowS);
+  const lateral = smooth(poses.map((pose, index) => {
     const speed = speeds[index];
-    if (speed == null) return 0;
+    if (!pose.calibrated || pose.yawRadPerS == null || speed == null) return 0;
     return (Math.abs(pose.yawRadPerS) * (speed / 3.6)) / G_MPS2;
-  });
-  const lateral = smooth(lateralRaw, times, limits.smoothWindowS);
+  }), times, limits.smoothWindowS);
 
-  const brakePulses = collectPulses(
-    times, longG, speeds, limits.brakeHardG, limits.brakeEndG, limits.brakeEndHoldS, limits.minEventSpeedKmh,
-  );
-  const brakes: BrakeEvent[] = [];
-  for (const pulse of brakePulses) {
-    const kind = classifyBrake(pulse.peak, pulse.aboveS, pulse.speed, limits);
-    if (!kind) continue;
-    const confirmed = gpsConfirms(fixes, pulse.t, pulse.end, limits.brakeGpsKmhPerS);
-    brakes.push({ type: kind, t: pulse.t, peakG: pulse.peak, confirmed });
-  }
-
-  const turnPulses = collectPulses(
-    times, lateral, speeds, limits.turnG, limits.turnG, 0, limits.minEventSpeedKmh,
-  );
-  const turns: TurnEvent[] = [];
-  for (const pulse of turnPulses) {
-    if (!classifyTurn(pulse.peak, pulse.aboveS, pulse.speed, limits)) continue;
-    turns.push({ type: "sharp_turn", t: pulse.t, peakG: pulse.peak });
-  }
-
-  const speed = speedingTotals(fixes, limits);
+  const brakes = pulses(times, longG, speeds, limits.brakeHardG, limits.brakeEndG, limits.brakeEndHoldS, limits.minEventSpeedKmh)
+    .flatMap((pulse) => {
+      const kind = classifyBrake(pulse.peak, pulse.aboveS, pulse.speed, limits);
+      if (!kind) return [];
+      return [{ type: kind, t: pulse.t, peakG: pulse.peak, confirmed: gpsConfirms(fixes, pulse.t, pulse.end, limits.brakeGpsKmhPerS) }];
+    });
+  const turns = pulses(times, lateral, speeds, limits.turnG, limits.turnG, 0, limits.minEventSpeedKmh)
+    .filter((pulse) => classifyTurn(pulse.peak, pulse.aboveS, pulse.speed, limits))
+    .map((pulse) => ({ type: "sharp_turn" as const, t: pulse.t, peakG: pulse.peak }));
+  const speed = speedingOf(fixes, limits);
   const lights = matchLights(
     fixes.map((fix) => ({ t: fix.t, lat: fix.lat, lon: fix.lon, speedKmh: fix.speed })),
     trace.lights ?? [],
@@ -267,7 +184,6 @@ export function detectTrip(trace: TripTrace): Detection {
     limits.stopSpeedKmh,
     limits.stopHoldS,
   );
-
   const confirmed = brakes.filter((event) => event.confirmed);
   return {
     hardBrakes: confirmed.filter((event) => event.type === "hard_brake").length,

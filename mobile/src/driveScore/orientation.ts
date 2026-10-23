@@ -1,9 +1,4 @@
-/**
- * Mount-independent direction of travel. Spec §2.1.
- * Motion samples are device-frame: ax/ay/az in g, including gravity; gx/gy/gz in rad/s.
- */
-
-export type Vec3 = { x: number; y: number; z: number };
+/** Spec §2.1. ax/ay/az are g including gravity. gx/gy/gz are rad/s. */
 
 export type MotionSample = {
   t: number;
@@ -15,56 +10,40 @@ export type MotionSample = {
   gz: number;
 };
 
-export type SpeedMark = { t: number; speedKmh: number | null };
-
 export type PoseSample = {
   t: number;
-  /** Negative means braking, once forward is known. Null while calibrating. */
+  /** Negative is braking, once forward is known. Null while calibrating. */
   longG: number | null;
   yawRadPerS: number | null;
   calibrated: boolean;
 };
 
-export type OrientationConfig = {
+type V = { x: number; y: number; z: number };
+type SpeedMark = { t: number; speedKmh: number | null };
+type Config = {
   gravityWindowS: number;
   gravityResetDeg: number;
   calibrationSpeedUps: number;
   calibrationAccelMps2: number;
 };
 
-export function dot(a: Vec3, b: Vec3): number {
-  return a.x * b.x + a.y * b.y + a.z * b.z;
+const add = (a: V, b: V): V => ({ x: a.x + b.x, y: a.y + b.y, z: a.z + b.z });
+const sub = (a: V, b: V): V => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z });
+const scale = (a: V, k: number): V => ({ x: a.x * k, y: a.y * k, z: a.z * k });
+const dot = (a: V, b: V) => a.x * b.x + a.y * b.y + a.z * b.z;
+const len = (a: V) => Math.hypot(a.x, a.y, a.z);
+
+function unit(a: V): V | null {
+  const m = len(a);
+  return m < 1e-6 ? null : scale(a, 1 / m);
 }
 
-export function sub(a: Vec3, b: Vec3): Vec3 {
-  return { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z };
-}
-
-export function add(a: Vec3, b: Vec3): Vec3 {
-  return { x: a.x + b.x, y: a.y + b.y, z: a.z + b.z };
-}
-
-export function scale(a: Vec3, k: number): Vec3 {
-  return { x: a.x * k, y: a.y * k, z: a.z * k };
-}
-
-export function magnitude(a: Vec3): number {
-  return Math.hypot(a.x, a.y, a.z);
-}
-
-export function unit(a: Vec3): Vec3 | null {
-  const m = magnitude(a);
-  if (m < 1e-6) return null;
-  return scale(a, 1 / m);
-}
-
-function horizontal(vector: Vec3, down: Vec3): Vec3 | null {
+function flat(vector: V, down: V): V | null {
   const axis = unit(down);
-  if (!axis) return null;
-  return sub(vector, scale(axis, dot(vector, axis)));
+  return axis ? sub(vector, scale(axis, dot(vector, axis))) : null;
 }
 
-function angleDeg(a: Vec3, b: Vec3): number {
+function angleDeg(a: V, b: V): number {
   const ua = unit(a);
   const ub = unit(b);
   if (!ua || !ub) return 0;
@@ -72,111 +51,76 @@ function angleDeg(a: Vec3, b: Vec3): number {
   return (Math.acos(c) * 180) / Math.PI;
 }
 
-function mean(samples: Vec3[]): Vec3 {
-  const total = samples.reduce((acc, sample) => add(acc, sample), { x: 0, y: 0, z: 0 });
-  return scale(total, 1 / samples.length);
-}
-
-/** Causal window average. Spec §2.1 uses 5 s for gravity. */
-export function lowPass(samples: Vec3[], times: number[], windowS: number): Vec3[] {
-  const out: Vec3[] = [];
+/** Spec §2.1: forward comes from the first GPS speed-ups. A 30° gravity swing resets it. */
+export function orientTrip(motion: MotionSample[], speeds: SpeedMark[], config: Config): PoseSample[] {
+  const samples = [...motion].sort((a, b) => a.t - b.t);
+  const raw = samples.map((sample) => ({ x: sample.ax, y: sample.ay, z: sample.az }));
+  const times = samples.map((sample) => sample.t);
+  const gravity: V[] = [];
   let start = 0;
-  let sum = { x: 0, y: 0, z: 0 };
-  for (let i = 0; i < samples.length; i += 1) {
-    sum = add(sum, samples[i]);
-    while (times[i] - times[start] > windowS + 1e-9) {
-      sum = sub(sum, samples[start]);
+  let sum: V = { x: 0, y: 0, z: 0 };
+  for (let i = 0; i < raw.length; i += 1) {
+    sum = add(sum, raw[i]);
+    while (times[i] - times[start] > config.gravityWindowS + 1e-9) {
+      sum = sub(sum, raw[start]);
       start += 1;
     }
-    const count = i - start + 1;
-    out.push(scale(sum, 1 / count));
+    gravity.push(scale(sum, 1 / (i - start + 1)));
   }
-  return out;
-}
 
-function kmhPerSToMps2(kmhPerS: number): number {
-  return kmhPerS / 3.6;
-}
-
-/**
- * Find forward from the first GPS-confirmed speed-ups, then project each sample.
- * A gravity swing past the reset angle clears calibration (spec §2.1 step 4).
- */
-export function orientTrip(
-  motion: MotionSample[],
-  speeds: SpeedMark[],
-  config: OrientationConfig,
-): PoseSample[] {
-  const ordered = [...motion].sort((a, b) => a.t - b.t);
-  const raw = ordered.map((sample) => ({ x: sample.ax, y: sample.ay, z: sample.az }));
-  const times = ordered.map((sample) => sample.t);
-  const gravity = lowPass(raw, times, config.gravityWindowS);
-  const speedMarks = [...speeds].filter((mark) => mark.speedKmh != null && Number.isFinite(mark.speedKmh)).sort((a, b) => a.t - b.t);
-
+  const marks = speeds.filter((mark) => mark.speedKmh != null && Number.isFinite(mark.speedKmh));
   const windows: { t0: number; t1: number }[] = [];
-  for (let i = 1; i < speedMarks.length; i += 1) {
-    const prev = speedMarks[i - 1];
-    const next = speedMarks[i];
-    const dt = next.t - prev.t;
+  for (let i = 1; i < marks.length; i += 1) {
+    const dt = marks[i].t - marks[i - 1].t;
     if (dt <= 0) continue;
-    const accel = kmhPerSToMps2(((next.speedKmh as number) - (prev.speedKmh as number)) / dt);
-    if (accel > config.calibrationAccelMps2) windows.push({ t0: prev.t, t1: next.t });
+    const accel = ((marks[i].speedKmh as number) - (marks[i - 1].speedKmh as number)) / dt / 3.6;
+    if (accel > config.calibrationAccelMps2) windows.push({ t0: marks[i - 1].t, t1: marks[i].t });
   }
 
-  const directionIn = (t0: number, t1: number): Vec3 | null => {
-    const bits: Vec3[] = [];
-    for (let i = 0; i < ordered.length; i += 1) {
-      if (ordered[i].t <= t0 || ordered[i].t > t1 + 1e-9) continue;
-      const user = sub(raw[i], gravity[i]);
-      const flat = horizontal(user, gravity[i]);
-      if (!flat || magnitude(flat) < 0.02) continue;
-      const direction = unit(flat);
+  const directionBetween = (t0: number, t1: number): V | null => {
+    const bits: V[] = [];
+    for (let i = 0; i < samples.length; i += 1) {
+      if (samples[i].t <= t0 || samples[i].t > t1 + 1e-9) continue;
+      const side = flat(sub(raw[i], gravity[i]), gravity[i]);
+      const direction = side && len(side) >= 0.02 ? unit(side) : null;
       if (direction) bits.push(direction);
     }
-    return bits.length ? unit(mean(bits)) : null;
+    if (!bits.length) return null;
+    const mean = bits.reduce((acc, bit) => add(acc, bit), { x: 0, y: 0, z: 0 });
+    return unit(mean);
   };
 
-  let forward: Vec3 | null = null;
-  let lockedDown: Vec3 | null = null;
-  const forwardBits: Vec3[] = [];
+  let forward: V | null = null;
+  let lockedDown: V | null = null;
+  const forwardBits: V[] = [];
   let windowIndex = 0;
-
   const poses: PoseSample[] = [];
-  for (let i = 0; i < ordered.length; i += 1) {
+
+  for (let i = 0; i < samples.length; i += 1) {
     const down = gravity[i];
     if (lockedDown && angleDeg(down, lockedDown) > config.gravityResetDeg) {
       forward = null;
       lockedDown = null;
       forwardBits.length = 0;
     }
-    const downTime = ordered[i].t;
-    if (!forward) {
-      while (windowIndex < windows.length && windows[windowIndex].t1 <= downTime + 1e-9) {
-        const window = windows[windowIndex];
-        windowIndex += 1;
-        const direction = directionIn(window.t0, window.t1);
-        if (!direction) continue;
-        forwardBits.push(direction);
-        if (forwardBits.length >= config.calibrationSpeedUps) {
-          forward = unit(mean(forwardBits));
-          lockedDown = down;
-          break;
-        }
+    while (!forward && windowIndex < windows.length && windows[windowIndex].t1 <= samples[i].t + 1e-9) {
+      const window = windows[windowIndex];
+      windowIndex += 1;
+      const direction = directionBetween(window.t0, window.t1);
+      if (!direction) continue;
+      forwardBits.push(direction);
+      if (forwardBits.length >= config.calibrationSpeedUps) {
+        const mean = forwardBits.reduce((acc, bit) => add(acc, bit), { x: 0, y: 0, z: 0 });
+        forward = unit(mean);
+        lockedDown = down;
       }
     }
-
-    const gyro = { x: ordered[i].gx, y: ordered[i].gy, z: ordered[i].gz };
     const axis = unit(down);
-    const yaw = axis ? dot(gyro, axis) : null;
-    let longG: number | null = null;
-    if (forward) {
-      const user = sub(raw[i], down);
-      longG = dot(user, forward);
-    }
+    const gyro = { x: samples[i].gx, y: samples[i].gy, z: samples[i].gz };
     poses.push({
-      t: ordered[i].t,
-      longG,
-      yawRadPerS: yaw,
+      t: samples[i].t,
+      longG: forward ? dot(sub(raw[i], down), forward) : null,
+      yawRadPerS: axis ? dot(gyro, axis) : null,
       calibrated: forward != null,
     });
   }
