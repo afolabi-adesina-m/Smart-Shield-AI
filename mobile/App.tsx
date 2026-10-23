@@ -55,6 +55,7 @@ import { alertOverLimit } from "./src/overSpeedAlert";
 import { loadMuted, loadReports, loadVoiceGender, saveMuted, saveReport, saveVoiceGender, type ReportKind, type RoadReport } from "./src/reports";
 import { alertsAhead, CAMERA_DISCLAIMER, loadCameraAlerts, loadEnforcement, saveCameraAlerts, type CameraFeature } from "./src/cameras";
 import { loadSignsNear, lookupStreet, type RoadSign } from "./src/roadSigns";
+import { createRecorder, loadScoreOn, saveScoreOn, saveTrip, shouldRecord, startSensors, type Recorder } from "./src/driveScore/recorder";
 import { typingLocked } from "./src/driverLock";
 import { applyVoiceGender, speakNav, stopSpeech, type VoiceGender } from "./src/voice";
 import type { HeatSpot } from "./src/deliveryLogic";
@@ -156,6 +157,9 @@ export default function App() {
   const [signs, setSigns] = useState<RoadSign[]>([]);
   const [cameras, setCameras] = useState<CameraFeature[]>([]);
   const [cameraAlerts, setCameraAlerts] = useState(true);
+  const [scoreOn, setScoreOn] = useState(true);
+  const [recording, setRecording] = useState(false);
+  const recorderRef = useRef<Recorder | null>(null);
   const [turnStreet, setTurnStreet] = useState<string | null>(null);
   const spokenCues = useRef<Record<string, boolean>>({});
   const spokenSigns = useRef<Record<string, boolean>>({});
@@ -190,6 +194,7 @@ export default function App() {
     }).catch(() => undefined);
     refreshAuth().catch(() => undefined);
     loadCameraAlerts().then((value) => { if (!cancelled) setCameraAlerts(value); }).catch(() => undefined);
+    loadScoreOn(AsyncStorage).then((value) => { if (!cancelled) setScoreOn(value); }).catch(() => undefined);
     return () => { cancelled = true; };
   }, []);
 
@@ -506,6 +511,39 @@ export default function App() {
     || ((travelMode === "drive" || travelMode === "motorcycle") && shownKmh != null && shownKmh <= 10)
   );
   const posted = speed?.posted_kmh ?? null;
+
+  useEffect(() => {
+    if (!shouldRecord(travelMode, driving, scoreOn)) return;
+    const started = Date.now();
+    const recorder = createRecorder(travelMode === "motorcycle" ? "motorcycle" : "car", started);
+    recorderRef.current = recorder;
+    setRecording(true);
+    const stop = startSensors((sample) => recorder.addMotion(sample), started);
+    return () => {
+      stop();
+      recorderRef.current = null;
+      setRecording(false);
+      const summary = recorder.finish(Date.now());
+      if (summary) saveTrip(AsyncStorage, summary).catch(() => undefined);
+    };
+  }, [driving, travelMode, scoreOn]);
+
+  useEffect(() => {
+    const recorder = recorderRef.current;
+    if (!recorder || !fix) return;
+    recorder.addGps({
+      t: (Date.now() - recorder.startedMs) / 1000,
+      lat: fix.lat,
+      lon: fix.lon,
+      speed: shownKmh,
+      accuracy: fix.accuracy,
+      posted_kmh: posted,
+    });
+  }, [fix, shownKmh, posted, recording]);
+
+  useEffect(() => {
+    recorderRef.current?.setLights(signs.filter((sign) => sign.kind === "signal"));
+  }, [signs, recording]);
   const safe = speed?.safe_kmh ?? null;
   const speedLevel: WarningLevel = warningFor(shownKmh, posted, safe);
   const warnRef = useRef<WarningLevel>("unknown");
@@ -1085,6 +1123,7 @@ export default function App() {
         travelMode={travelMode}
         roadName={(stepGuide.road && stepGuide.road !== "Unnamed road" ? stepGuide.road : "") || (speed?.road_name && speed.road_name !== "Unnamed road" ? speed.road_name : "")}
         typingLocked={handsBusy}
+        recording={recording}
         onPassenger={() => setPassenger(true)}
         arrival={eta?.arrival || ""}
         minutesLabel={eta?.minuteValue || ""}
@@ -1152,6 +1191,12 @@ export default function App() {
           onCameraAlerts={(enabled) => {
             setCameraAlerts(enabled);
             saveCameraAlerts(enabled).catch(() => undefined);
+          }}
+          driveScoreOn={scoreOn}
+          onDriveScore={() => {
+            const next = !scoreOn;
+            setScoreOn(next);
+            saveScoreOn(AsyncStorage, next).catch(() => undefined);
           }}
           cameraNote={CAMERA_DISCLAIMER}
           routeAlertCount={routeAlertCount}
