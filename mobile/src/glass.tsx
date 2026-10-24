@@ -21,15 +21,16 @@ export function Glass(props: Props) {
     );
   }
   return (
-    <BlurView
-      intensity={props.intensity ?? 48}
-      tint={tint}
-      experimentalBlurMethod={Platform.OS === "android" ? "dimezisBlurView" : undefined}
-      testID={props.testID}
-      style={props.style}
-    >
+    <View testID={props.testID} style={props.style}>
+      <BlurView
+        pointerEvents="none"
+        intensity={props.intensity ?? 48}
+        tint={tint}
+        blurMethod={Platform.OS === "android" ? "dimezisBlurView" : undefined}
+        style={StyleSheet.absoluteFill}
+      />
       {props.children}
-    </BlurView>
+    </View>
   );
 }
 

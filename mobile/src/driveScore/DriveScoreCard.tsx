@@ -59,11 +59,11 @@ export function DriveScoreCard(props: { trip: CardTrip; night?: boolean; onClose
   );
 }
 
-export function TripHistory(props: {
-  trips: CardTrip[];
+export function TripHistory<T extends CardTrip>(props: {
+  trips: T[];
   night?: boolean;
   onClose: () => void;
-  onOpen: (trip: CardTrip) => void;
+  onOpen: (trip: T) => void;
   onClear: () => void;
 }) {
   const ask = () => {
