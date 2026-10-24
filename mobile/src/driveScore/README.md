@@ -10,7 +10,8 @@ This does not call the existing road-risk score.
 | `detectTrip`, `classifyBrake`, `classifyTurn`, `isSpeeding`, `acceptFixes` | `detectors.ts` | §2 braking (peak g is the severity), sharp turns, and speeding against `posted_kmh`. An unconfirmed brake is not scored. |
 | `matchLights` | `lightMatch.ts` | §2 lights passed and full stops. Information only. |
 | `scoreTrip`, `bandFor` | `score.ts` | §4 formula, caps, and bands. Under 1 km or 3 min, no score. |
-| `createRecorder`, `pruneTrips`, `shouldRecord`, `startSensors`, `clearTrips` | `recorder.ts` | §5–§6. Records in Drive or Motorcycle unless Settings is off. Saves summaries at `smartshield.driveScore.v1` (50 trips or 90 days). |
+| `createRecorder`, `pruneTrips`, `shouldRecord`, `wantsRecording`, `recorderAction`, `startSensors`, `clearTrips` | `recorder.ts` | §5–§6. One recorder for navigation and manual Start trip. Saves summaries at `smartshield.driveScore.v1` (50 trips or 90 days). |
+| `DriverPerformance` | `DriverPerformance.tsx` | Decision 2026-10-23. Separate from the road safety score. |
 | `scoreLines`, `historyBits`, `formatWhen` | `format.ts` | §4 card text. Points lost for braking, turns, and speeding. Lights are information only. |
 | `DriveScoreCard`, `TripHistory` | `DriveScoreCard.tsx` | §5. End-of-trip card, history list, and Clear history. |
 

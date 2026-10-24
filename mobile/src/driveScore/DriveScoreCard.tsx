@@ -45,8 +45,8 @@ export function DriveScoreCard(props: { trip: CardTrip; night?: boolean; onClose
   const lines = scoreLines(props.trip);
   const ink = props.night ? "#f2f2f7" : "#16191f";
   return (
-    <Sheet night={props.night} title="Drive Score" onClose={props.onClose} testID="drive-score-close">
-      <Text style={[styles.score, { color: ink }]} accessibilityLabel={`Drive score ${lines.score} ${lines.band}`}>
+    <Sheet night={props.night} title="Driver performance" onClose={props.onClose} testID="drive-score-close">
+      <Text style={[styles.score, { color: ink }]} accessibilityLabel={`Driver performance ${lines.score} ${lines.band}`}>
         {lines.score}
       </Text>
       <Text style={[styles.band, { color: bandColor(props.trip.band) }]}>{lines.band}</Text>

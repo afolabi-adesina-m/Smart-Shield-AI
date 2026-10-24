@@ -125,12 +125,14 @@ GPS     → filtered track (RAM)       ↗                      ↓
   rounded location (3 decimals ≈ 100 m).
 - **Not** stored: raw sensor streams or the full GPS track.
 - Retention: last 50 trips or 90 days of trip summaries, whichever is fewer
-  (confirmed 2026-10-23). "Delete all trips" button in Settings. Uninstalling
+  (confirmed 2026-10-23). Clear history is on the Driver performance screen. Uninstalling
   the app removes everything.
 - Recording starts automatically when navigation starts in Drive or Motorcycle
   mode, and in truck mode once that mode exists. A Recording badge stays
-  visible while a trip is recording. Settings has a switch to turn Drive Score
-  off.
+  visible while a trip is recording. The Driver performance screen can turn
+  recording off.
+- Manual Start trip on that screen records without navigation (decision 6 below).
+  Manual and automatic recording share one recorder.
 - Debug fixture recording (§7) is a developer-only switch, off in release.
 
 ## 6. Build plan (phased, file-level)
@@ -182,12 +184,14 @@ Recorded fixtures: JSON with `{t, ax, ay, az, gx, gy, gz}` at 50 Hz and
 1. **Resolved (2026-10-23).** Full stops at lights are information only, with no score points.
 2. **Accepted for v1, calibrate later.** Penalty weights and caps stay the estimates above.
 3. **Resolved (2026-10-23).** Bicycles are out of scope. Score motor vehicles only: car, motorcycle, truck.
-4. **Resolved (2026-10-23).** Recording starts automatically when navigation starts in Drive or Motorcycle mode (truck once that mode exists). A Recording badge stays visible, and Settings can turn Drive Score off.
+4. **Resolved (2026-10-23).** Recording starts automatically when navigation starts in Drive or Motorcycle mode (truck once that mode exists). A Recording badge stays visible. The Driver performance screen can turn recording off.
 5. **Resolved (2026-10-23).** Retention of 50 trips / 90 days of trip summaries is confirmed.
+6. **Resolved (2026-10-23).** Driver performance is separate from the road safety score. Manual Start trip records without navigation.
 
 ## Decisions (2026-10-23)
 1. Full stops at lights are information only. They do not change the score.
 2. Weights and caps stay the initial v1 estimates and will be calibrated later.
 3. Scope is motor vehicles only: car, motorcycle, and truck. The bicycle column and bicycle rules are removed. Bicycles are out of scope for now.
-4. Recording starts automatically when navigation starts in Drive or Motorcycle mode, and in truck mode once that mode exists. A Recording badge stays visible. Settings has a switch to turn Drive Score off.
+4. Recording starts automatically when navigation starts in Drive or Motorcycle mode, and in truck mode once that mode exists. A Recording badge stays visible. The Driver performance screen can turn recording off.
 5. Retention of 50 trips or 90 days of trip summaries, whichever is fewer, is confirmed.
+6. Driver performance (this Drive Score) is not the capstone road safety score. The road safety score stays the existing route model and is unchanged. The phone has a Driver performance screen with manual Start trip / End trip, so a driver can record while following another maps app. Manual and automatic recording share one recorder and never run two at once. Expo Go records only while Smart-Shield is open; GPS and motion stop if the app is backgrounded.

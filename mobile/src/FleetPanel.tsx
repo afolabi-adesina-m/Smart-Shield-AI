@@ -76,7 +76,7 @@ export function FleetPanel({ speedMode }: Props) {
         <Text style={[styles.score, fleet.score < 60 ? styles.poor : fleet.score < 85 ? styles.warn : styles.good]}>
           {fleet.score}
         </Text>
-        <Text style={styles.scoreLabel}>Driver safety score</Text>
+        <Text style={styles.scoreLabel}>Fleet score</Text>
       </View>
       <Text style={styles.status}>{fleet.status}</Text>
       {events.length ? events.map((event, index) => (

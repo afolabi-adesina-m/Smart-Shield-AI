@@ -28,6 +28,7 @@ type Props = {
   onMute: () => void;
   onReport: () => void;
   onGear: () => void;
+  onDriver: () => void;
   menuOpen: boolean;
   onMenu: (id: ToolId) => void;
   onLocate: () => void;
@@ -83,7 +84,7 @@ export function NavChrome(props: Props) {
       ) : null}
       {props.recording ? (
         <View style={[styles.recordBadge, { top: insets.top + 8 }]} pointerEvents="none">
-          <Text style={styles.recordText}>Recording</Text>
+          <Text style={styles.recordText} accessibilityLabel="Driver performance recording">Recording</Text>
         </View>
       ) : null}
       {props.cameraNote ? (
@@ -93,6 +94,7 @@ export function NavChrome(props: Props) {
       ) : null}
       <View style={[styles.side, { top: Math.max(insets.top, 20) + EXPO_CORNER_CLEARANCE }]} pointerEvents="box-none">
         <Glass night={props.night} style={styles.controlGroup}>
+          <IconButton label="Driver performance" name="speedometer-outline" color="#0a84ff" onPress={props.onDriver} testID="driver-performance" />
           {driving ? null : (
             <Pressable accessibilityLabel="Trip tools" testID="tool-gear" onPress={props.onGear} style={styles.iconButton}>
               <Ionicons name="settings-sharp" size={22} color="#0a84ff" />
@@ -174,7 +176,7 @@ export function NavChrome(props: Props) {
             unit={props.distanceUnit}
             color={ink}
           />
-          {vehicle && props.risk ? <Text style={styles.riskChip} numberOfLines={1}>Risk {props.risk}</Text> : null}
+          {vehicle && props.risk ? <Text style={styles.riskChip} numberOfLines={1}>Road safety {props.risk}</Text> : null}
           {!vehicle && driving ? <Text style={styles.riskChip} numberOfLines={1}>Driving only</Text> : null}
           <Pressable style={styles.exitQuiet} testID="exit-nav" onPress={props.onExit}>
             <Text style={[styles.exitQuietText, { color: ink }]} numberOfLines={1}>Exit</Text>
@@ -210,9 +212,9 @@ export function NavChrome(props: Props) {
   );
 }
 
-function IconButton(props: { name: keyof typeof Ionicons.glyphMap; label: string; color: string; onPress: () => void }) {
+function IconButton(props: { name: keyof typeof Ionicons.glyphMap; label: string; color: string; onPress: () => void; testID?: string }) {
   return (
-    <Pressable accessibilityLabel={props.label} onPress={props.onPress} style={styles.iconButton}>
+    <Pressable accessibilityLabel={props.label} testID={props.testID} onPress={props.onPress} style={styles.iconButton}>
       <Ionicons name={props.name} size={22} color={props.color} />
     </Pressable>
   );

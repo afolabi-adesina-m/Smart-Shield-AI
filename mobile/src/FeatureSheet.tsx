@@ -83,9 +83,6 @@ type Props = {
   onClose: () => void;
   cameraAlerts: boolean;
   onCameraAlerts: (enabled: boolean) => void;
-  driveScoreOn: boolean;
-  onDriveScore: () => void;
-  onDriveHistory: () => void;
   cameraNote: string;
   routeAlertCount?: number;
   onStart?: () => void;
@@ -153,12 +150,6 @@ export function FeatureSheet(props: Props) {
                 ))}
               </View>
               <CameraToggle {...props} />
-              <Pressable testID="drive-score-toggle" onPress={props.onDriveScore}>
-                <Text style={styles.link}>{props.driveScoreOn ? "Drive Score on" : "Drive Score off"}</Text>
-              </Pressable>
-              <Pressable testID="drive-score-history" onPress={props.onDriveHistory}>
-                <Text style={styles.link}>Trip history</Text>
-              </Pressable>
               <Pressable testID="developer-toggle" onPress={() => setDeveloper((value) => !value)}>
                 <Text style={[styles.kicker, ink]}>{developer ? "Developer ▾" : "Developer ▸"}</Text>
               </Pressable>
@@ -643,9 +634,12 @@ function RouteCard(props: { route: ScoredRoute; selected: boolean; onPress: () =
     <Pressable style={[styles.card, props.selected && styles.cardOn]} onPress={props.onPress}>
       <View style={styles.cardHead}>
         <Text style={styles.cardTitle}>{route.summary || `Route ${(route.route_index ?? 0) + 1}`}</Text>
-        <Text style={[styles.score, { color: route.tier_color || "#1a56db" }]}>
-          {route.safety_score == null ? "—" : route.safety_score}
-        </Text>
+        <View style={styles.scoreCol}>
+          <Text style={[styles.score, { color: route.tier_color || "#1a56db" }]}>
+            {route.safety_score == null ? "—" : route.safety_score}
+          </Text>
+          <Text style={styles.fine}>Road safety score</Text>
+        </View>
       </View>
       <Text style={styles.tier}>{route.tier || "Unscored"} · {route.duration_text || ""} · {route.distance_km ?? "—"} km</Text>
       <Text style={styles.note}>
@@ -653,7 +647,7 @@ function RouteCard(props: { route: ScoredRoute; selected: boolean; onPress: () =
         {" · "}
         Collision risk {route.collision_risk_index == null ? "—" : route.collision_risk_index}
       </Text>
-      <Text style={styles.note}>{stageText}. Display only. It is not part of the safety score.</Text>
+      <Text style={styles.note}>{stageText}. Display only. It is not part of the road safety score.</Text>
       {route.alert_preview ? <Text style={styles.note}>{route.alert_preview}</Text> : null}
       <Text style={styles.fine}>
         Alerts: {route.alert_source || "—"} · Weather: {route.e_index_source || "—"} · Vision: {route.vision_source || "—"}
@@ -786,7 +780,8 @@ const styles = StyleSheet.create({
   cardOn: { borderColor: "#1a56db" },
   cardHead: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
   cardTitle: { flex: 1, fontWeight: "700", color: "#16191f" },
-  score: { fontSize: 22, fontWeight: "800" },
+  score: { fontSize: 22, fontWeight: "800", textAlign: "right" },
+  scoreCol: { alignItems: "flex-end" },
   tier: { color: "#16191f", fontWeight: "600" },
   note: { color: "#526072", fontSize: 13, lineHeight: 18 },
   point: { color: "#16191f", fontSize: 14, paddingVertical: 2 },

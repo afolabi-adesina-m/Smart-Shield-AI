@@ -55,8 +55,9 @@ import { alertOverLimit } from "./src/overSpeedAlert";
 import { loadMuted, loadReports, loadVoiceGender, saveMuted, saveReport, saveVoiceGender, type ReportKind, type RoadReport } from "./src/reports";
 import { alertsAhead, CAMERA_DISCLAIMER, loadCameraAlerts, loadEnforcement, saveCameraAlerts, type CameraFeature } from "./src/cameras";
 import { loadSignsNear, lookupStreet, type RoadSign } from "./src/roadSigns";
-import { DriveScoreCard, TripHistory } from "./src/driveScore/DriveScoreCard";
-import { clearTrips, createRecorder, loadScoreOn, loadTrips, saveScoreOn, saveTrip, shouldRecord, startSensors, type Recorder, type TripSummary } from "./src/driveScore/recorder";
+import { DriveScoreCard } from "./src/driveScore/DriveScoreCard";
+import { DriverPerformance } from "./src/driveScore/DriverPerformance";
+import { clearTrips, createRecorder, loadScoreOn, loadTrips, recorderAction, saveScoreOn, saveTrip, startSensors, wantsRecording, type Recorder, type TripSummary } from "./src/driveScore/recorder";
 import { typingLocked } from "./src/driverLock";
 import { applyVoiceGender, speakNav, stopSpeech, type VoiceGender } from "./src/voice";
 import type { HeatSpot } from "./src/deliveryLogic";
@@ -160,9 +161,12 @@ export default function App() {
   const [cameraAlerts, setCameraAlerts] = useState(true);
   const [scoreOn, setScoreOn] = useState(true);
   const [recording, setRecording] = useState(false);
+  const [manualTrip, setManualTrip] = useState(false);
+  const [suppressTrip, setSuppressTrip] = useState(false);
+  const [driverOpen, setDriverOpen] = useState(false);
+  const [driverTrips, setDriverTrips] = useState<TripSummary[]>([]);
   const [endedTrip, setEndedTrip] = useState<TripSummary | null>(null);
   const [hideSearch, setHideSearch] = useState(0);
-  const [history, setHistory] = useState<TripSummary[] | null>(null);
   const recorderRef = useRef<Recorder | null>(null);
   const [turnStreet, setTurnStreet] = useState<string | null>(null);
   const spokenCues = useRef<Record<string, boolean>>({});
@@ -516,8 +520,18 @@ export default function App() {
   );
   const posted = speed?.posted_kmh ?? null;
 
+  const wantRecord = wantsRecording({
+    enabled: scoreOn,
+    navigating: driving,
+    mode: travelMode,
+    manual: manualTrip,
+    suppress: suppressTrip,
+  });
   useEffect(() => {
-    if (!shouldRecord(travelMode, driving, scoreOn)) return;
+    if (!driving) setSuppressTrip(false);
+  }, [driving]);
+  useEffect(() => {
+    if (recorderAction(recorderRef.current != null, wantRecord) !== "start") return;
     const started = Date.now();
     const recorder = createRecorder(travelMode === "motorcycle" ? "motorcycle" : "car", started);
     recorderRef.current = recorder;
@@ -529,11 +543,11 @@ export default function App() {
       setRecording(false);
       const summary = recorder.finish(Date.now());
       if (summary) {
-        saveTrip(AsyncStorage, summary).catch(() => undefined);
+        saveTrip(AsyncStorage, summary).then(setDriverTrips).catch(() => undefined);
         setEndedTrip(summary);
       }
     };
-  }, [driving, travelMode, scoreOn]);
+  }, [wantRecord]);
 
   useEffect(() => {
     const recorder = recorderRef.current;
@@ -1112,6 +1126,12 @@ export default function App() {
         onCompass={() => setHeadingUp((value) => !value)}
         onMute={toggleMute}
         onGear={() => { setMenuOpen((open) => !open); setPanel(null); }}
+        onDriver={() => {
+          setMenuOpen(false);
+          setPanel(null);
+          loadTrips(AsyncStorage).then(setDriverTrips).catch(() => setDriverTrips([]));
+          setDriverOpen(true);
+        }}
         menuOpen={menuOpen}
         onMenu={(id) => {
           setMenuOpen(false);
@@ -1199,17 +1219,6 @@ export default function App() {
             setCameraAlerts(enabled);
             saveCameraAlerts(enabled).catch(() => undefined);
           }}
-          driveScoreOn={scoreOn}
-          onDriveScore={() => {
-            const next = !scoreOn;
-            setScoreOn(next);
-            saveScoreOn(AsyncStorage, next).catch(() => undefined);
-          }}
-          onDriveHistory={() => {
-            setEndedTrip(null);
-            setPanel(null);
-            loadTrips(AsyncStorage).then(setHistory).catch(() => setHistory([]));
-          }}
           cameraNote={CAMERA_DISCLAIMER}
           routeAlertCount={routeAlertCount}
           onStart={() => { Keyboard.dismiss(); startGuidance(); }}
@@ -1265,13 +1274,33 @@ export default function App() {
         />
     ) : null}
       <AuthGate />
-      {history ? (
-        <TripHistory
-          trips={history}
+      {driverOpen ? (
+        <DriverPerformance
           night={night}
-          onClose={() => setHistory(null)}
+          recording={recording}
+          trips={driverTrips}
+          enabled={scoreOn}
+          onClose={() => setDriverOpen(false)}
+          onStart={() => {
+            setSuppressTrip(false);
+            setManualTrip(true);
+            if (!scoreOn) {
+              setScoreOn(true);
+              saveScoreOn(AsyncStorage, true).catch(() => undefined);
+            }
+          }}
+          onEnd={() => {
+            setManualTrip(false);
+            if (driving && (travelMode === "drive" || travelMode === "motorcycle")) setSuppressTrip(true);
+          }}
+          onToggle={() => {
+            const next = !scoreOn;
+            setScoreOn(next);
+            saveScoreOn(AsyncStorage, next).catch(() => undefined);
+            if (!next) setManualTrip(false);
+          }}
           onOpen={setEndedTrip}
-          onClear={() => { clearTrips(AsyncStorage).then(() => setHistory([])).catch(() => undefined); }}
+          onClear={() => { clearTrips(AsyncStorage).then(() => setDriverTrips([])).catch(() => undefined); }}
         />
       ) : null}
       {endedTrip ? <DriveScoreCard trip={endedTrip} night={night} onClose={() => setEndedTrip(null)} /> : null}
