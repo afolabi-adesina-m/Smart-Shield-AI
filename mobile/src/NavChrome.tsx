@@ -51,6 +51,7 @@ type Props = {
   distanceUnit?: string;
   roadName?: string;
   typingLocked?: boolean;
+  recording?: boolean;
   onPassenger?: () => void;
 };
 
@@ -78,6 +79,11 @@ export function NavChrome(props: Props) {
       {props.maneuver ? (
         <View style={{ top: insets.top + 8, position: "absolute", left: 12, right: 72 }}>
           <Banner maneuver={props.maneuver} thenManeuver={props.thenManeuver} night={props.night} />
+        </View>
+      ) : null}
+      {props.recording ? (
+        <View style={[styles.recordBadge, { top: insets.top + 8 }]} pointerEvents="none">
+          <Text style={styles.recordText}>Recording</Text>
         </View>
       ) : null}
       {props.cameraNote ? (
@@ -735,6 +741,15 @@ const styles = StyleSheet.create({
   speedNumNight: { color: "#f4f7fb" },
   speedHot: { color: "#d93025" },
   speedWarm: { color: "#c47b00" },
+  recordBadge: {
+    position: "absolute",
+    right: 76,
+    backgroundColor: "#b00020",
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  recordText: { color: "#fff", fontSize: 12, fontWeight: "700" },
   roadPill: {
     position: "absolute",
     left: 72,

@@ -83,6 +83,8 @@ type Props = {
   onClose: () => void;
   cameraAlerts: boolean;
   onCameraAlerts: (enabled: boolean) => void;
+  driveScoreOn: boolean;
+  onDriveScore: () => void;
   cameraNote: string;
   routeAlertCount?: number;
   onStart?: () => void;
@@ -150,6 +152,9 @@ export function FeatureSheet(props: Props) {
                 ))}
               </View>
               <CameraToggle {...props} />
+              <Pressable testID="drive-score-toggle" onPress={props.onDriveScore}>
+                <Text style={styles.link}>{props.driveScoreOn ? "Drive Score on" : "Drive Score off"}</Text>
+              </Pressable>
               <Pressable testID="developer-toggle" onPress={() => setDeveloper((value) => !value)}>
                 <Text style={[styles.kicker, ink]}>{developer ? "Developer ▾" : "Developer ▸"}</Text>
               </Pressable>
