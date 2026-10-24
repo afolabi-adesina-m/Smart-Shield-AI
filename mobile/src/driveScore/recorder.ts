@@ -44,9 +44,34 @@ export type TripSummary = {
   events: TripEvent[];
 };
 
-/** Spec §5: on for Drive and Motorcycle navigation unless Settings turns it off. */
+/** Spec §5: on for Drive and Motorcycle navigation unless driver performance is off. */
 export function shouldRecord(mode: string, navigating: boolean, enabled: boolean): boolean {
   return enabled && navigating && (mode === "drive" || mode === "motorcycle");
+}
+
+/**
+ * One recorder for manual Start trip and for navigation.
+ * Manual and navigation together stay true, so the caller does not start a second recorder.
+ * suppress is End trip while navigation is still running.
+ */
+export function wantsRecording(input: {
+  enabled: boolean;
+  navigating: boolean;
+  mode: string;
+  manual: boolean;
+  suppress: boolean;
+}): boolean {
+  if (!input.enabled || input.suppress) return false;
+  if (input.manual) return true;
+  return shouldRecord(input.mode, input.navigating, true);
+}
+
+/** Start, stop, or keep the single recorder. "keep" must not open another one. */
+export function recorderAction(running: boolean, want: boolean): "start" | "keep" | "stop" | "idle" {
+  if (running && want) return "keep";
+  if (!running && want) return "start";
+  if (running && !want) return "stop";
+  return "idle";
 }
 
 /** Spec §5: last 50 summaries or 90 days, whichever is fewer. */

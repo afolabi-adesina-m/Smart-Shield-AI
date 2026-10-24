@@ -62,6 +62,24 @@ async function main() {
   assert.strictEqual(recorder.shouldRecord("drive", false, true), false);
   assert.strictEqual(recorder.shouldRecord("drive", true, false), false);
 
+  const base = { enabled: true, navigating: false, mode: "drive", manual: false, suppress: false };
+  assert.strictEqual(recorder.wantsRecording({ ...base, navigating: true }), true);
+  assert.strictEqual(recorder.wantsRecording({ ...base, manual: true }), true);
+  assert.strictEqual(recorder.wantsRecording({ ...base, navigating: true, manual: true }), true);
+  assert.strictEqual(recorder.wantsRecording({ ...base, mode: "walk", manual: true }), true);
+  assert.strictEqual(recorder.wantsRecording({ ...base, mode: "walk" }), false);
+  assert.strictEqual(recorder.wantsRecording({ ...base, manual: true, enabled: false }), false);
+  assert.strictEqual(recorder.wantsRecording({ ...base, navigating: true, suppress: true }), false);
+  assert.strictEqual(
+    recorder.wantsRecording({ ...base, navigating: true }),
+    recorder.wantsRecording({ ...base, navigating: true, manual: true }),
+  );
+
+  assert.strictEqual(recorder.recorderAction(false, true), "start");
+  assert.strictEqual(recorder.recorderAction(true, true), "keep");
+  assert.strictEqual(recorder.recorderAction(true, false), "stop");
+  assert.strictEqual(recorder.recorderAction(false, false), "idle");
+
   const now = Date.parse("2026-10-23T12:00:00Z");
   const day = 24 * 60 * 60 * 1000;
   const fresh = Array.from({ length: 60 }, (_, index) => ({
