@@ -287,7 +287,8 @@ function NativeMap({ scene, onRoutePoint, onPan, onHeading, onMapPress, onNative
 }
 
 function WebMapFallback({ scene, onRoutePoint, onPan, onMapPress }: Props) {
-  const webRef = useRef<WebView>(null);
+  // SDK 58 types the WebView default argument as undefined, which wipes the props.
+  const webRef = useRef<WebView<{}>>(null);
   const latest = useRef(scene);
   latest.current = scene;
 
@@ -302,7 +303,7 @@ function WebMapFallback({ scene, onRoutePoint, onPan, onMapPress }: Props) {
 
   return (
     <View style={styles.wrap}>
-      <WebView
+      <WebView<{}>
         ref={webRef}
         originWhitelist={["*"]}
         source={{ html: MAP_HTML }}

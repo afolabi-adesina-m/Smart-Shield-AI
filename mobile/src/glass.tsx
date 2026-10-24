@@ -24,7 +24,7 @@ export function Glass(props: Props) {
     <BlurView
       intensity={props.intensity ?? 48}
       tint={tint}
-      experimentalBlurMethod={Platform.OS === "android" ? "dimezisBlurView" : undefined}
+      blurMethod={Platform.OS === "android" ? "dimezisBlurView" : undefined}
       testID={props.testID}
       style={props.style}
     >

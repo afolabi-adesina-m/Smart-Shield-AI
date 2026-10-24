@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
-import { ActivityIndicator, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from "react-native";
+import { ActivityIndicator, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View, type TextInputInstance } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { signOut, useAuthSession } from "./auth";
@@ -313,7 +313,7 @@ export function SearchCard(props: {
   const insets = useSafeAreaInsets();
   const windowH = useWindowDimensions().height;
   const [keyboardHeight, setKeyboardHeight] = useState(0);
-  const toRef = useRef<TextInput>(null);
+  const toRef = useRef<TextInputInstance>(null);
   const [open, setOpen] = useState(props.routes.length > 0);
   useEffect(() => {
     if (props.routes.length) setOpen(true);
@@ -541,7 +541,7 @@ function Field(props: {
   editable?: boolean;
   onChangeText: (value: string) => void;
   onFocus: () => void;
-  inputRef?: Ref<TextInput>;
+  inputRef?: Ref<TextInputInstance>;
   returnKeyType?: "next" | "search";
   blurOnSubmit?: boolean;
   onSubmitEditing?: () => void;

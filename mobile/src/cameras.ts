@@ -191,7 +191,7 @@ function collapse(features: CameraFeature[], metres: number): CameraFeature[] {
 }
 
 export function dedupeCameras(osm: CameraFeature[], toronto: CameraFeature[], metres = DEDUPE_M): CameraFeature[] {
-  const kept = (osm || []).map((item) => ({
+  const kept: CameraFeature[] = (osm || []).map((item) => ({
     ...item,
     points: item.points && item.points.length ? item.points.slice() : [[item.lat, item.lon]],
   }));

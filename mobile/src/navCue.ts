@@ -321,7 +321,7 @@ export function instructionSpeech(maneuver: Maneuver): string {
   const lead = maneuver.distanceM < 40 ? "" : `In ${formatDistance(maneuver.distanceM)}, `;
   if (maneuver.kind === "arrive") return `${lead}you will arrive at ${maneuver.street}`.trim();
   if (maneuver.kind === "straight") return `${lead}continue on ${maneuver.street}`.trim();
-  const turn = {
+  const phrases: Partial<Record<ManeuverKind, string>> = {
     left: "turn left",
     right: "turn right",
     "slight-left": "bear left",
@@ -330,7 +330,8 @@ export function instructionSpeech(maneuver: Maneuver): string {
     merge: "merge",
     roundabout: "enter the roundabout",
     exit: "take the exit",
-  }[maneuver.kind];
+  };
+  const turn = phrases[maneuver.kind];
   return `${lead}${turn || "continue"} onto ${maneuver.street}`.trim();
 }
 
