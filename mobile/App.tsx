@@ -55,7 +55,8 @@ import { alertOverLimit } from "./src/overSpeedAlert";
 import { loadMuted, loadReports, loadVoiceGender, saveMuted, saveReport, saveVoiceGender, type ReportKind, type RoadReport } from "./src/reports";
 import { alertsAhead, CAMERA_DISCLAIMER, loadCameraAlerts, loadEnforcement, saveCameraAlerts, type CameraFeature } from "./src/cameras";
 import { loadSignsNear, lookupStreet, type RoadSign } from "./src/roadSigns";
-import { createRecorder, loadScoreOn, saveScoreOn, saveTrip, shouldRecord, startSensors, type Recorder } from "./src/driveScore/recorder";
+import { DriveScoreCard, TripHistory } from "./src/driveScore/DriveScoreCard";
+import { clearTrips, createRecorder, loadScoreOn, loadTrips, saveScoreOn, saveTrip, shouldRecord, startSensors, type Recorder, type TripSummary } from "./src/driveScore/recorder";
 import { typingLocked } from "./src/driverLock";
 import { applyVoiceGender, speakNav, stopSpeech, type VoiceGender } from "./src/voice";
 import type { HeatSpot } from "./src/deliveryLogic";
@@ -159,6 +160,8 @@ export default function App() {
   const [cameraAlerts, setCameraAlerts] = useState(true);
   const [scoreOn, setScoreOn] = useState(true);
   const [recording, setRecording] = useState(false);
+  const [endedTrip, setEndedTrip] = useState<TripSummary | null>(null);
+  const [history, setHistory] = useState<TripSummary[] | null>(null);
   const recorderRef = useRef<Recorder | null>(null);
   const [turnStreet, setTurnStreet] = useState<string | null>(null);
   const spokenCues = useRef<Record<string, boolean>>({});
@@ -524,7 +527,10 @@ export default function App() {
       recorderRef.current = null;
       setRecording(false);
       const summary = recorder.finish(Date.now());
-      if (summary) saveTrip(AsyncStorage, summary).catch(() => undefined);
+      if (summary) {
+        saveTrip(AsyncStorage, summary).catch(() => undefined);
+        setEndedTrip(summary);
+      }
     };
   }, [driving, travelMode, scoreOn]);
 
@@ -1198,6 +1204,11 @@ export default function App() {
             setScoreOn(next);
             saveScoreOn(AsyncStorage, next).catch(() => undefined);
           }}
+          onDriveHistory={() => {
+            setEndedTrip(null);
+            setPanel(null);
+            loadTrips(AsyncStorage).then(setHistory).catch(() => setHistory([]));
+          }}
           cameraNote={CAMERA_DISCLAIMER}
           routeAlertCount={routeAlertCount}
           onStart={() => { Keyboard.dismiss(); startGuidance(); }}
@@ -1251,6 +1262,16 @@ export default function App() {
         />
     ) : null}
       <AuthGate />
+      {history ? (
+        <TripHistory
+          trips={history}
+          night={night}
+          onClose={() => setHistory(null)}
+          onOpen={setEndedTrip}
+          onClear={() => { clearTrips(AsyncStorage).then(() => setHistory([])).catch(() => undefined); }}
+        />
+      ) : null}
+      {endedTrip ? <DriveScoreCard trip={endedTrip} night={night} onClose={() => setEndedTrip(null)} /> : null}
     </View>
     </SafeAreaProvider>
   );

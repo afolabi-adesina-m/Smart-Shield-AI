@@ -39,6 +39,8 @@ export type TripSummary = {
   speedingEpisodes: number;
   lightsPassed: number;
   fullStops: number;
+  /** Spec §4. Needed so the card can show speeding points. Not a score input change. */
+  movingSeconds: number;
   events: TripEvent[];
 };
 
@@ -85,6 +87,11 @@ export async function saveTrip(store: Store, trip: TripSummary, now = Date.now()
   const next = pruneTrips([trip, ...(await loadTrips(store))], now);
   await store.setItem(TRIP_KEY, JSON.stringify(next));
   return next;
+}
+
+/** Spec §5. Delete all saved trip summaries on this phone. */
+export async function clearTrips(store: Store): Promise<void> {
+  await store.setItem(TRIP_KEY, "[]");
 }
 
 function round3(value: number): number {
@@ -196,6 +203,7 @@ export function createRecorder(vehicle: "car" | "motorcycle", startedMs: number)
         speedingEpisodes: found.speedingEpisodes,
         lightsPassed: found.lightsPassed,
         fullStops: found.fullStops,
+        movingSeconds: found.movingSeconds,
         events: saved,
       };
     },
