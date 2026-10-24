@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode, type Ref } from "react";
-import { ActivityIndicator, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View, type TextInputInstance } from "react-native";
+import { ActivityIndicator, Keyboard, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View, type TextInputInstance } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { signOut, useAuthSession } from "./auth";
@@ -309,15 +309,40 @@ export function SearchCard(props: {
   itineraries: TransitItinerary[];
   travelNote: string;
   plan?: { arrival: string; minutes: string; distance: string; unit: string } | null;
+  driving?: boolean;
+  hideSignal?: number;
 }) {
   const insets = useSafeAreaInsets();
   const windowH = useWindowDimensions().height;
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const toRef = useRef<TextInputInstance>(null);
-  const [open, setOpen] = useState(props.routes.length > 0);
+  const [open, setOpen] = useState(props.routes.length > 0 && !props.driving);
+  const dragged = useRef(false);
+  const pan = useRef(PanResponder.create({
+    onMoveShouldSetPanResponderCapture: (_event, gesture) => gesture.dy > 10 && gesture.dy > Math.abs(gesture.dx),
+    onPanResponderMove: (_event, gesture) => { if (gesture.dy > 12) dragged.current = true; },
+    onPanResponderRelease: (_event, gesture) => {
+      if (gesture.dy > 28) {
+        dragged.current = true;
+        Keyboard.dismiss();
+        setOpen(false);
+      }
+      setTimeout(() => { dragged.current = false; }, 0);
+    },
+  })).current;
+  function hideSheet() {
+    Keyboard.dismiss();
+    setOpen(false);
+  }
   useEffect(() => {
-    if (props.routes.length) setOpen(true);
-  }, [props.routes.length]);
+    if (props.routes.length && !props.driving) setOpen(true);
+  }, [props.routes.length, props.driving]);
+  useEffect(() => {
+    if (props.driving) hideSheet();
+  }, [props.driving]);
+  useEffect(() => {
+    if (props.hideSignal) hideSheet();
+  }, [props.hideSignal]);
   useEffect(() => {
     const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
     const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
@@ -341,7 +366,7 @@ export function SearchCard(props: {
     props.onFind();
   }
   function startRoute() {
-    Keyboard.dismiss();
+    hideSheet();
     props.onStart?.();
   }
   function pickSuggestion(item: Suggestion) {
@@ -350,7 +375,22 @@ export function SearchCard(props: {
   }
   return (
     <Glass night={props.night} style={[styles.searchCard, { bottom: restingBottom }]}>
-      <View style={styles.grabber} />
+      <View {...pan.panHandlers}>
+        <Pressable
+          testID="search-collapse"
+          accessibilityRole="button"
+          accessibilityLabel={open ? "Hide search" : "Show search"}
+          onPress={() => {
+            if (dragged.current) { dragged.current = false; return; }
+            if (open) hideSheet();
+            else setOpen(true);
+          }}
+          style={styles.handle}
+        >
+          <View style={styles.grabber} />
+          <Ionicons name={open ? "chevron-down" : "chevron-up"} size={18} color={hint} />
+        </Pressable>
+      </View>
       <Pressable testID="where-to" style={styles.searchField} onPress={() => setOpen(true)}>
         <Ionicons name="search" size={18} color={hint} />
         <Text style={[styles.searchPlaceholder, { color: hint }]} numberOfLines={1}>Where to?</Text>
@@ -421,7 +461,7 @@ export function SearchCard(props: {
               onStart={route.route_index === props.selected ? startRoute : undefined}
             />
           ))}
-          <Pressable onPress={() => setOpen(false)}>
+          <Pressable testID="search-close" onPress={hideSheet}>
             <Text style={styles.link}>Close</Text>
           </Pressable>
         </ScrollView>
@@ -654,13 +694,13 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     zIndex: 20,
   },
+  handle: { minHeight: 44, alignItems: "center", justifyContent: "center" },
   grabber: {
-    alignSelf: "center",
     width: 36,
     height: 5,
     borderRadius: 3,
     backgroundColor: "rgba(120,120,128,0.45)",
-    marginBottom: 8,
+    marginBottom: 2,
   },
   searchField: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 36 },
   modeRow: { flexDirection: "row", alignItems: "stretch", gap: 6, paddingVertical: 8 },

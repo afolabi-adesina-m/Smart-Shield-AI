@@ -161,6 +161,7 @@ export default function App() {
   const [scoreOn, setScoreOn] = useState(true);
   const [recording, setRecording] = useState(false);
   const [endedTrip, setEndedTrip] = useState<TripSummary | null>(null);
+  const [hideSearch, setHideSearch] = useState(0);
   const [history, setHistory] = useState<TripSummary[] | null>(null);
   const recorderRef = useRef<Recorder | null>(null);
   const [turnStreet, setTurnStreet] = useState<string | null>(null);
@@ -1084,7 +1085,7 @@ export default function App() {
         scene={scene}
         onHeading={setMapHeading}
         onPan={() => { if (driving) setMapHeld(true); }}
-        onMapPress={() => Keyboard.dismiss()}
+        onMapPress={() => { Keyboard.dismiss(); setHideSearch((n) => n + 1); }}
         onRoutePoint={(lat, lon) => {
           Keyboard.dismiss();
           const step = nearestStep(routeSteps[selected] || [], lat, lon);
@@ -1242,6 +1243,8 @@ export default function App() {
           typingLocked={handsBusy}
           onPassenger={() => setPassenger(true)}
           dockLift={driving ? 96 : 0}
+          driving={driving}
+          hideSignal={hideSearch}
           busy={busy}
           onFind={() => { Keyboard.dismiss(); findRoute().catch(() => undefined); }}
           onTravelMode={chooseMode}
